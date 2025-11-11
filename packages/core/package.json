@@ -1,0 +1,11 @@
+{
+  "name": "@kb/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/config.ts"
+    }
+  }
+}

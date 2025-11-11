@@ -1,0 +1,8 @@
+[install]
+exact = true
+saveTextLockfile = true
+
+override = true
+
+[workspace]
+packages = ["apps/*", "packages/*"]

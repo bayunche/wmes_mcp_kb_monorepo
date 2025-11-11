@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-11-10T09:15:30+08:00",
+  "known": [
+    "需求文档详细描述 KB+MCP 系统的模块分层（API 网关、MCP 服务、Ingestion/Worker、检索层、存储层）。",
+    "部署方案基于 Docker Compose，包含 kb-api、kb-worker、db、vectordb、object、queue、mcp-server 等服务。",
+    "数据模型、管线与验收用例已经在文档中列出，可转化为贡献要求。"
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "仓库应如何划分源码、基础设施与文档目录，是否需要默认的 src/api、workers、retrieval、infrastructure 等子目录？",
+      "priority": "high",
+      "blocking": true
+    },
+    {
+      "id": "Q2",
+      "question": "构建、测试、运行命令具体是什么？需要给出 make、poetry、docker compose 还是混合方案？",
+      "priority": "high",
+      "blocking": true
+    },
+    {
+      "id": "Q3",
+      "question": "主要实现语言与编码规范如何定义（如 Python + black/ruff 还是 TypeScript + eslint），以便在指南中写明？",
+      "priority": "medium",
+      "blocking": false
+    },
+    {
+      "id": "Q4",
+      "question": "测试框架、覆盖要求和命名方式如何映射到文档的验收用例？",
+      "priority": "medium",
+      "blocking": false
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "question_id": "Q1",
+  "focus": "规划仓库目录以映射文档要求的模块与交付物。",
+  "reason_for_investigation": "贡献者指南需明确源码、基础设施与文档划分，但当前仓库仅有规格文档，必须根据需求说明推导结构。",
+  "evidence": [
+    {
+      "file": "项目需求.md",
+      "lines": "391-412",
+      "quote": "服务清单：kb-api、kb-worker、db、vectordb、object、queue、mcp-server、prometheus/grafana/日志栈等，每个服务描述端口和依赖。",
+      "implication": "至少需要分别管理 API、worker、MCP、以及基础设施（数据库、向量库、对象存储、监控）的配置或部署文件。"
+    },
+    {
+      "file": "项目需求.md",
+      "lines": "505-511",
+      "quote": "交付物包含：后端服务源码、数据库迁移脚本、模型打包、Docker 编排、配置样例、运维脚本、文档。",
+      "implication": "仓库需提供 `src/`（服务代码）、`db/migrations/`、`models/` 或下载指引、`deploy/docker/`、`config/`、`ops/` 以及 `docs/` 等目录。"
+    }
+  ],
+  "findings": [
+    "指南需要定义至少四大目录：`src/api`, `src/worker`, `src/mcp`, 以及 `infrastructure/`（docker compose、env 模版、ops 脚本）。",
+    "需要单独的 `db/migrations` 与 `docs/`，并为模型、配置示例等提供占位路径或引用。"
+  ],
+  "conclusion": "在 AGENTS.md 中应将项目结构描述为按模块拆分的 src 子目录 + ops/deploy + db + docs，确保贡献者能映射到规格要求。"
+}

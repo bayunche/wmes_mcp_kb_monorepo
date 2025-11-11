@@ -1,0 +1,28 @@
+{
+  "name": "mcp-kb-monorepo",
+  "version": "0.1.0",
+  "description": "Local multimodal knowledge base + MCP services (bun + TypeScript)",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run apps/api/src/main.ts",
+    "test": "bun test",
+    "lint": "bunx eslint ."
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "module": "index.ts",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

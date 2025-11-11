@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-11-10T09:15:00+08:00",
+  "workspace": "/mnt/d/mcp知识库",
+  "modules": [
+    {
+      "name": "项目需求规范",
+      "path": "项目需求.md",
+      "description": "完整的本地化多模态知识库 + MCP 服务需求说明，涵盖架构、数据模型、流程、部署与验收。"
+    }
+  ],
+  "current_state": "仓库当前仅含需求文档，尚未创建源码、测试或配置目录；需要根据规范自行落地结构。",
+  "similar_assets": [
+    "文档描述 API 网关、MCP 服务、Ingestion Worker、检索层、存储层等多个模块，需要对应 src/api、workers、retrieval、infrastructure 等子目录。",
+    "部署章节列出 docker compose 服务：kb-api、kb-worker、db、vectordb、object、queue、mcp-server、监控栈，可作为 devops 目录参考。"
+  ],
+  "tech_stack": [
+    "后端：建议使用 Python/FastAPI 或等效 REST 框架（文档强调 REST API 与 MCP 接口）。",
+    "队列与缓存：Redis 或 RabbitMQ。",
+    "数据库：Postgres + pgvector；可选 Qdrant 作为向量库。",
+    "对象存储：MinIO；模型文件需挂载本地目录。",
+    "文档解析：Unstructured/Tika、pdfplumber、pandas/pyexcel、Tesseract/PaddleOCR。",
+    "模型：bge-m3、bge-reranker-v2、OpenCLIP。"
+  ],
+  "tests": {
+    "files": [],
+    "notes": "仓库未包含测试文件。验收清单在文档第12章，可转换为测试用例。"
+  },
+  "observation_report": [
+    "缺少 src、tests、docker、config 等基础目录，需要在指南中指引默认结构。",
+    "未发现自动化脚本示例，需从文档推导 build/test 命令模板。",
+    "需说明多服务协作方式及必备环境变量，避免贡献者误解。"
+  ]
+}

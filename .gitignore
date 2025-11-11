@@ -1,0 +1,29 @@
+# Node/Bun
+node_modules/
+bun.lockb
+.bun/
+.bun-cache/
+.bun-tmp/
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Env & secrets
+.env
+.env.local
+
+# Backups & uploads
+backups/
+models/weights/*
+
+# Playwright/Vitest
+playwright-report/
+test-results/
+.vite/
+.idea/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

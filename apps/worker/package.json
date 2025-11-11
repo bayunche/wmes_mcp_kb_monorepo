@@ -1,0 +1,9 @@
+{
+  "name": "@kb/worker",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "dev": "bun run src/main.ts"
+  }
+}
