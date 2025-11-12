@@ -1,17 +1,18 @@
 import { McpRelatedHandler } from "../types";
-import { InMemoryMcpRepository } from "../repository/in-memory";
+import { DbMcpRepository } from "../repository/db";
 
-export function createRelatedTool(repo: InMemoryMcpRepository): McpRelatedHandler {
+export function createRelatedTool(repo: DbMcpRepository): McpRelatedHandler {
   return {
     name: "kb.related",
     async handle(input) {
-      const source = repo.findChunk(input.chunkId);
+      const source = await repo.findChunkWithAttachments(input.chunkId);
       if (!source) {
         throw new Error(`Chunk ${input.chunkId} not found`);
       }
+      const neighbors = await repo.neighborsFor(input.chunkId, input.limit ?? 5);
       return {
-        source: source.chunk,
-        neighbors: repo.neighborsFor(input.chunkId, input.limit ?? 5)
+        source,
+        neighbors
       };
     }
   };

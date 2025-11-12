@@ -105,7 +105,10 @@ export const SearchFilterSchema = z.object({
   tenantId: TenantIdSchema.optional(),
   docIds: z.array(z.string().uuid()).optional(),
   topicLabels: z.array(z.string()).optional(),
-  hierarchyPrefix: z.array(z.string()).optional()
+  hierarchyPrefix: z.array(z.string()).optional(),
+  contentTypes: z.array(ContentTypeSchema).optional(),
+  attachmentTypes: z.array(AttachmentSchema.shape.assetType).optional(),
+  hasAttachments: z.boolean().optional()
 });
 
 export const SearchRequestSchema = z.object({
@@ -119,7 +122,9 @@ export type SearchRequest = z.infer<typeof SearchRequestSchema>;
 export const SearchResultChunkSchema = z.object({
   chunk: ChunkSchema,
   score: z.number(),
-  neighbors: z.array(ChunkSchema).optional()
+  neighbors: z.array(ChunkSchema).optional(),
+  attachments: z.array(AttachmentSchema).optional(),
+  sourceUri: z.string().optional()
 });
 
 export const SearchResponseSchema = z.object({

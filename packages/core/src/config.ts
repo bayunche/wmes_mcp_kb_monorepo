@@ -3,6 +3,19 @@ import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 
+const optionalUrl = z
+  .string()
+  .url()
+  .or(z.literal(""))
+  .optional()
+  .transform((value) => (value && value.length ? value : undefined));
+
+const optionalString = z
+  .string()
+  .or(z.literal(""))
+  .optional()
+  .transform((value) => (value && value.length ? value : undefined));
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT_API: z.coerce.number().int().positive().default(8080),
@@ -14,6 +27,8 @@ const envSchema = z.object({
   MINIO_ENDPOINT: z.string(),
   MINIO_ACCESS_KEY: z.string(),
   MINIO_SECRET_KEY: z.string(),
+  MINIO_BUCKET_RAW: z.string().default("kb-raw"),
+  MINIO_BUCKET_PREVIEW: z.string().default("kb-preview"),
   REDIS_URL: z.string(),
   RABBITMQ_URL: z.string(),
   MODELS_DIR: z.string(),
@@ -22,6 +37,19 @@ const envSchema = z.object({
     .transform((value) => (typeof value === "boolean" ? value : value === "true"))
     .default(true),
   OCR_LANG: z.string().default("chi_sim"),
+  UNSTRUCTURED_API_URL: optionalUrl,
+  UNSTRUCTURED_API_KEY: optionalString,
+  TEXT_EMBEDDING_ENDPOINT: optionalUrl,
+  RERANK_ENDPOINT: optionalUrl,
+  IMAGE_EMBEDDING_ENDPOINT: optionalUrl,
+  VECTOR_API_KEY: optionalString,
+  LOCAL_EMBEDDING_ENABLED: z
+    .union([z.string(), z.boolean()])
+    .transform((value) => (typeof value === "boolean" ? value : value === "true"))
+    .default(false),
+  LOCAL_TEXT_MODEL_ID: optionalString,
+  LOCAL_IMAGE_MODEL_ID: optionalString,
+  VECTOR_FALLBACK_DIM: z.coerce.number().int().positive().default(512),
   JWT_ISSUER: z.string(),
   JWT_AUDIENCE: z.string(),
   JWT_PUBLIC_KEY: z.string(),

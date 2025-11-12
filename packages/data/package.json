@@ -1,0 +1,24 @@
+{
+  "name": "@kb/data",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts"
+    }
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@kb/core": "workspace:*",
+    "@kb/shared-schemas": "workspace:*",
+    "amqplib": "^0.10.4",
+    "kysely": "^0.27.2",
+    "minio": "^8.0.2",
+    "pg": "^8.11.5"
+  }
+}

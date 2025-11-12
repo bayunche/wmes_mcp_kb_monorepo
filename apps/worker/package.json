@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "main": "src/main.ts",
+  "dependencies": {
+    "@kb/core": "workspace:*",
+    "@kb/data": "workspace:*",
+    "@kb/shared-schemas": "workspace:*"
+  },
   "scripts": {
     "dev": "bun run src/main.ts"
   }

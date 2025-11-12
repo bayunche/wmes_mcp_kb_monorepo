@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-11-11T16:20:00+08:00",
+  "focus": "Phase 6 Step 6.1 — 将 pipeline 从占位实现升级为真实多模态解析与嵌入",
+  "task_analysis": {
+    "goal": "接入 Unstructured/Tika/等价解析器与 ONNX/Transformers 嵌入器，生成真实多模态块与附件，并写入 MinIO/Qdrant/Postgres。",
+    "scope": [
+      "解析：根据 MIME 调用 Unstructured HTTP API（或 fallback parser），并保留表格/图片元数据。",
+      "切块与附件：将解析结果映射到 Chunk + Attachment，上传表格/图片预览到 MinIO preview bucket。",
+      "嵌入：优先使用远程 TEXT/IMAGE endpoints；若未设置则调用本地 Transformers（Xenova）模型生成向量，最后才 fallback deterministic。",
+      "配置：扩展 env/Config 以承载新模型与 API 参数；更新 worker 依赖注入。",
+      "验证：bun test worker pipeline，并记录日志。"
+    ],
+    "constraints": [
+      "遵循现有包结构（packages/core/data/tooling），避免自研框架。",
+      "解析/嵌入失败需 graceful fallback，但要输出警告以便排查。",
+      "Attachment 写入必须进入 MinIO preview bucket，并与 chunkId 对齐以支撑后续 API/MCP。"
+    ]
+  },
+  "approach": [
+    "在 packages/core/parsing.ts 中新增 UnstructuredParser + CompositeParser，将 HTTP JSON 映射为 ParsedElement（含 base64 图片字节）。",
+    "引入 @xenova/transformers，包装成 Text/Image embedder；VectorClient 优先使用 remote endpoint，其次 Transformers，本地 deterministic 仅作兜底。",
+    "Worker 启动时基于 config 注入 parser、chunkFactory、raw/preview MinIO client；pipeline 中新增 buildAttachments 阶段向 preview bucket 上传 table/image 资产。",
+    "更新 tests/日志：bun test worker ingestion；在 testing.md 与 verification.md 记录结果，同时在 operations-log 留痕。"
+  ],
+  "risks": [
+    "Transformers 初次下载模型耗时大 → 使用 MODELS_DIR 作为 cache，并在日志中提醒。",
+    "Unstructured API 不可用 → CompositeParser 退回 BasicTextParser，确保 ingestion 不会完全失败。",
+    "MinIO 权限/连接失败 → 上传附件时捕获错误并记录，避免整个任务失败但要提高可观测性。"
+  ]
+}

@@ -1,24 +1,37 @@
 {
   "question_id": "Q1",
-  "focus": "规划仓库目录以映射文档要求的模块与交付物。",
-  "reason_for_investigation": "贡献者指南需明确源码、基础设施与文档划分，但当前仓库仅有规格文档，必须根据需求说明推导结构。",
+  "focus": "Worker pipeline 如何接入真实的多模态解析/切块/嵌入？",
+  "reason_for_investigation": "Phase 6 Step 6.1 要求去除 placeholder，使用 Unstructured/Tika + OCR + bge/CLIP 等模型，将结果写入 Postgres/Qdrant/MinIO。需要确认现状与差距，以便规划实现路径。",
   "evidence": [
     {
-      "file": "项目需求.md",
-      "lines": "391-412",
-      "quote": "服务清单：kb-api、kb-worker、db、vectordb、object、queue、mcp-server、prometheus/grafana/日志栈等，每个服务描述端口和依赖。",
-      "implication": "至少需要分别管理 API、worker、MCP、以及基础设施（数据库、向量库、对象存储、监控）的配置或部署文件。"
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "58-120",
+      "quote": "defaultWorkerStages.fetchSource 直接拼接字符串；chunkDocument 按换行拆 Paragraph；embedChunks 返回长度为 4 的向量（以内容长度 + idx 填充），完全不读取文件或模型。",
+      "implication": "当前 Worker 完全无法处理真实文件，也不会区分文本/表格/图片。"
     },
     {
-      "file": "项目需求.md",
-      "lines": "505-511",
-      "quote": "交付物包含：后端服务源码、数据库迁移脚本、模型打包、Docker 编排、配置样例、运维脚本、文档。",
-      "implication": "仓库需提供 `src/`（服务代码）、`db/migrations/`、`models/` 或下载指引、`deploy/docker/`、`config/`、`ops/` 以及 `docs/` 等目录。"
+      "file": "packages/data/src/storage/minio.ts",
+      "lines": "1-37",
+      "quote": "MinioStorageClient 只实现 upload，缺乏 download/list/putObjectWithMetadata 等函数，Worker 无法读取 API 上传的原始文件或写入解析产物。",
+      "implication": "即便 API 存储了附件，Worker 也无法获取原始字节进行解析。"
+    },
+    {
+      "file": ".env.example",
+      "lines": "1-20",
+      "quote": "定义 MODELS_DIR、OCR_ENABLED、OCR_LANG 等参数，但仓库中除了 ops/scripts/sync-models.ts 外没人读取这些配置。",
+      "implication": "模型资源存在但未被 Worker/VectorClient 使用，bge/CLIP/OCR 仍是纸面配置。"
+    },
+    {
+      "file": "packages/core/src/vector.ts",
+      "lines": "1-120",
+      "quote": "VectorClient 在没有 TEXT_EMBEDDING_ENDPOINT 时 fallback 到 deterministicVector，未读取 MODELS_DIR 或本地 ONNX 模型。",
+      "implication": "即使 Worker 能解析文本，获得的嵌入仍是伪造的，无法满足 Phase 6。"
     }
   ],
   "findings": [
-    "指南需要定义至少四大目录：`src/api`, `src/worker`, `src/mcp`, 以及 `infrastructure/`（docker compose、env 模版、ops 脚本）。",
-    "需要单独的 `db/migrations` 与 `docs/`，并为模型、配置示例等提供占位路径或引用。"
+    "Worker pipeline 需要新增文件获取、MIME 判定、分模态解析、结构化 chunk builder 与真实嵌入 orchestrator，目前没有任何基础设施承载这些步骤。",
+    "MinIO client 只负责上传；必须扩展下载/签名 URL/多租户路径逻辑，或在 Worker 中直接读取对象存储。",
+    "VectorClient 与模型下载脚本互不关联，需要决定是调用远程服务（HTTP 推理）还是在 Bun/Node 中加载 ONNX runtime。"
   ],
-  "conclusion": "在 AGENTS.md 中应将项目结构描述为按模块拆分的 src 子目录 + ops/deploy + db + docs，确保贡献者能映射到规格要求。"
+  "conclusion": "Step 6.1 要求从存储中提取真实文件，根据 MIME 路由到解析器（PDF→文本/表格、PPTX→页面图像+文本、XLSX→表格 JSON、图像→OCR + CLIP），对每种模态生成 chunk + embedding 并通过 knowledgeWriter 持久化。需要同时扩展 MinIO client、VectorClient 以及 Worker stage 结构。"
 }

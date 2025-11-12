@@ -1,0 +1,32 @@
+{
+  "question_id": "Q3",
+  "focus": "Phase 6 的端到端测试与部署验收需要哪些新增资产？",
+  "reason_for_investigation": "Step 6.3 与 6.4 要求提供可运行的 E2E/Playwright 场景、样例数据与部署闭环记录，目前仓库仅有跳过的测试与 dry-run 日志。",
+  "cost_note": "评估成本",
+  "evidence": [
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "1-80",
+      "quote": "E2E 测试文件只包含 describe/test.skip('knowledge base e2e', ...)，内部 TODO 为空，没有步骤或断言。",
+      "implication": "Step 6.3 需要从零编写 Playwright/Vitest 场景并准备 dataset。"
+    },
+    {
+      "file": "scripts/test-matrix.ts",
+      "lines": "1-110",
+      "quote": "脚本串行执行 unit → integration → e2e，但在缺少 Vitest/Playwright 时直接 `console.warn('skipped')`，不会失败或生成报告。",
+      "implication": "测试矩阵无法证明端到端成功，需要在 Phase 6 解锁 e2e 并输出日志。"
+    },
+    {
+      "file": ".codex/operations-log.md",
+      "lines": "1-40",
+      "quote": "近期记录显示运行了 ops/scripts/* 的 dry-run，但没有任何 Phase 6 相关的部署、备份、恢复或 reindex 成功日志。",
+      "implication": "Step 6.4 需要补充实际执行记录或在日志中注明环境限制。"
+    }
+  ],
+  "findings": [
+    "需要准备示例 PDF/PPTX/XLSX/图片（可放在 assets/samples）并编写自动化脚本执行上传→检索→MCP→治理全链路，解除 test.skip。",
+    "test-matrix 必须在 Phase 6 后能够拉起所有测试并生成 `verification.md` 与 `.codex/testing.md` 的真实输出。",
+    "部署验证需要记录 docker compose / ops scripts 的执行过程（可在本地或模拟环境运行），并在 operations-log 中留痕。"
+  ],
+  "conclusion": "Phase 6.3-6.4 需要新增样例数据、Playwright/Vitest 场景、测试基准与运维日志；同时 test-matrix 与文档需更新，确保本地即可复现验收剧本。"
+}

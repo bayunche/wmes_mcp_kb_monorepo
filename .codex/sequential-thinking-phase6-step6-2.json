@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-11-11T17:05:00+08:00",
+  "focus": "Phase 6 Step 6.2 — 扩展 API/MCP 支持文件上传、过滤与治理",
+  "task_understanding": {
+    "requirements": [
+      "REST 端需接受真实文件上传，写入 MinIO raw bucket、登记文档元数据并入队。",
+      "检索接口需要新增层级/标签/模态等过滤，并返回附件/预览信息。",
+      "治理能力：删除文档（含附件/向量）、重索引、统计/健康信息，以及多租户/鉴权限额保持一致。",
+      "MCP 的 kb.search/related/preview 要拼装上下文、溯源 URI、附件预览链接，以便 Agent 快速引用。"
+    ],
+    "current_state": [
+      "API 只有 JSON 级 POST /documents、POST /search、PATCH /documents/:id（仅 tags），无文件上传与治理。",
+      "MCP 工具仍基于 chunk repo 返回基础 chunk 信息，缺少 preview/attachment 输出与租户隔离校验。",
+      "Worker 现已完成真实解析与附件写入，MinIO storage 提供 raw/preview hooks，可供 API/MCP 复用。"
+    ],
+    "gaps": [
+      "缺少文件上传路由、MinIO 写入及 Document metadata 构建逻辑。",
+      "SearchRequest 过滤字段未贯穿 API 路由/HybridRetriever（topic、hierarchy、contentType 等）。",
+      "治理操作需调用 packages/data 仓储和 MinIO/Qdrant/queue 工具，目前无统一服务。",
+      "MCP 响应需要拉取 attachments/preview URI，但 repo 没有相关接口。"
+    ]
+  },
+  "approach": [
+    "定义新的 API 适配层（如 `apps/api/src/services/storage.ts`）封装 MinIO raw 上传、生成 docId/tenantId、写 Document + enqueue IngestionTask。",
+    "新增 `POST /upload` (multipart/form-data) + 可选 `POST /documents` JSON fallback；响应 documentId + queue 状态。",
+    "扩展 `/search`：解析 filters（tenant/topic/hierarchy/contentType/attachmentType），调用 retriever；在结果中嵌入 attachments 预览 URI（MinIO presigned 或 object key）。",
+    "增加治理路由：`DELETE /documents/:id`（删除 PG + Qdrant + MinIO raw/preview）、`POST /documents/:id/reindex`（重新入队）、`GET /stats`（文档/附件/队列统计）。",
+    "为 MCP `kb.preview/kb.related` 注入新的 repository（读取 chunk + attachments）并返回 `kb://chunk/{chunkId}` 溯源，包含 objectKey 以便上层生成 URL。",
+    "更新 docs/README/verification，并为 API 路由编写新的单测/集成测试（至少模拟上传 + delete + search filters）。"
+  ],
+  "risks": [
+    "multipart 处理：Bun 原生 Request 解析需要手动读取 `request.formData()`，大文件需写入 MinIO stream，注意内存占用。",
+    "MinIO 访问：API 需要 data layer 暴露 storage client或新增 service，删除/上传需确保权限；失败时要回滚 metadata。",
+    "删除/重索引涉及数据库/Qdrant/MinIO 多资源一致性；需按顺序执行并记录失败重试策略。",
+    "MCP 输出必须遵循 schema，新增字段需在 shared-schemas 中更新并同步所有调用方，避免 breaking change。"
+  ],
+  "validation_plan": [
+    "单测：`apps/api/src/__tests__/api.test.ts` 覆盖 upload mock、search filters、delete/reindex。",
+    "集成：更新 `tests/integration/api.integration.test.ts` 使用 in-memory storage stub 验证治理链路。",
+    "文档：README/ docs/ingestion.md / docs/mcp.md 加入新路由说明；operations-log 记录验证步骤。"
+  ]
+}

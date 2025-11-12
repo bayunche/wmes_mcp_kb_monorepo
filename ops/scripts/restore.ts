@@ -1,36 +1,87 @@
 #!/usr/bin/env bun
-import { parseArgs, getEnvConfig, logStep } from "./utils";
+import { join } from "node:path";
+import { parseArgs, getEnvConfig, logStep, runCommand } from "./utils";
 
 const options = parseArgs({ tenantId: process.env.DEFAULT_TENANT_ID ?? "default", dryRun: true });
 const config = getEnvConfig();
 
 async function main() {
-  const snapshotDir = process.env.SNAPSHOT_DIR ?? `./backups/${options.tenantId}/latest`;
+  const snapshotDir = process.env.SNAPSHOT_DIR ?? join("backups", options.tenantId, "latest");
   logStep("Starting restore script", { tenant: options.tenantId, dryRun: options.dryRun, snapshotDir });
 
-  logStep("Restoring Postgres schema", {
-    command: `psql ${config.DATABASE_URL} -f ${snapshotDir}/schema.sql`
-  });
+  await runCommand(
+    "psql",
+    [config.DATABASE_URL, "-f", join(snapshotDir, "schema.sql")],
+    { dryRun: options.dryRun }
+  );
 
-  logStep("Restoring Postgres data", {
-    command: `psql ${config.DATABASE_URL} -f ${snapshotDir}/database.sql`
-  });
+  await runCommand(
+    "psql",
+    [config.DATABASE_URL, "-f", join(snapshotDir, "database.sql")],
+    { dryRun: options.dryRun }
+  );
 
-  logStep("Restoring MinIO objects", {
-    command: `mc mirror ${snapshotDir}/objects ${config.MINIO_ENDPOINT}/kb-raw/${options.tenantId}`
-  });
+  const alias = `kb-${options.tenantId}-restore`;
+  await runCommand(
+    "mc",
+    ["alias", "set", alias, config.MINIO_ENDPOINT, config.MINIO_ACCESS_KEY, config.MINIO_SECRET_KEY],
+    { dryRun: options.dryRun, ignoreError: true }
+  );
 
-  logStep("Importing Qdrant collections", {
-    endpoint: config.QDRANT_URL,
-    command: `curl -X POST ${config.QDRANT_URL}/collections/import`
-  });
+  await runCommand(
+    "mc",
+    ["mirror", join(snapshotDir, "objects"), `${alias}/kb-raw/${options.tenantId}`],
+    { dryRun: options.dryRun }
+  );
 
-  logStep("Triggering reindex queue message", {
-    queue: config.RABBITMQ_URL,
-    payload: { type: "reindex", tenantId: options.tenantId }
-  });
+  await runCommand(
+    "curl",
+    ["-f", "-X", "POST", `${config.QDRANT_URL}/collections/import`],
+    { dryRun: options.dryRun }
+  );
+
+  const payload = {
+    jobId: crypto.randomUUID(),
+    docId: crypto.randomUUID(),
+    tenantId: options.tenantId
+  };
+
+  await publishRabbit(payload);
 
   logStep("Restore script finished");
+}
+
+async function publishRabbit(payload: Record<string, unknown>) {
+  const amqpUrl = new URL(config.RABBITMQ_URL);
+  const user = process.env.RABBITMQ_HTTP_USER ?? decodeURIComponent(amqpUrl.username || "guest");
+  const pass = process.env.RABBITMQ_HTTP_PASS ?? decodeURIComponent(amqpUrl.password || "guest");
+  const httpBase = process.env.RABBITMQ_HTTP_URL ?? `http://${amqpUrl.hostname}:15672`;
+  const routingKey = process.env.RABBITMQ_QUEUE ?? "kb.ingestion";
+  const body = JSON.stringify({
+    properties: {},
+    routing_key: routingKey,
+    payload: JSON.stringify(payload),
+    payload_encoding: "string"
+  });
+
+  await runCommand(
+    "curl",
+    [
+      "-f",
+      "-u",
+      `${user}:${pass}`,
+      "-H",
+      "content-type:application/json",
+      "-X",
+      "POST",
+      `${httpBase}/api/exchanges/%2f/amq.default/publish`,
+      "-d",
+      body
+    ],
+    { dryRun: options.dryRun }
+  );
+
+  logStep("Published reindex job", { routingKey, payload });
 }
 
 main().catch((error) => {

@@ -1,0 +1,37 @@
+{
+  "question_id": "Q5",
+  "focus": "Phase 6.2 所需的治理統計與刪除流程是否已覆蓋？",
+  "reason_for_investigation": "設計稿要求 `/stats` 回傳文檔/附件/隊列等統計，資料層也需提供 `DocumentRepository.stats()`；需要確認現狀是否僅有簡化版 count，並評估刪除流程是否同步清理向量與 MinIO。",
+  "evidence": [
+    {
+      "file": ".codex/phase6-step6-2-design.md",
+      "lines": "35-51",
+      "quote": "数据结构 & 依赖改动：`DocumentRepository` 添加 `delete(docId)`、`stats()`；`MinioStorageClient` 添加 `deleteRawObject` / `deletePreviewObjects(prefix)`。\nAPI 端点规划：`/stats` GET -> 返回文档/附件/队列统计。",
+      "implication": "Phase 6.2 期待 stats 能一次提供多項治理指標，而資料層需有 stats() API 供上層組合。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "69-76",
+      "quote": "`if (request.method === \"GET\" && url.pathname === \"/stats\") {\n  const tenant = url.searchParams.get(\"tenantId\") ?? undefined;\n  const [documents, attachments] = await Promise.all([\n    deps.documents.count(tenant),\n    deps.attachments.count(tenant)\n  ]);\n  return json({ documents, attachments });\n}`",
+      "implication": "現有 `/stats` 只回傳兩個數值，沒有 chunk、隊列/ingestion、附件預覽等設計稿提及的欄位，也沒有使用 header tenant。"
+    },
+    {
+      "file": "packages/data/src/types.ts",
+      "lines": "4-11",
+      "quote": "`export interface DocumentRepository {\n  ...\n  delete(docId: string): Promise<void>;\n  count(tenantId?: string): Promise<number>;\n}`",
+      "implication": "資料層僅暴露 count，沒有 stats() 介面可回傳多指標，因此 API 也無法擴展至 chunk/queue 等統計。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "184-210",
+      "quote": "`handleDeleteDocument` 會取得 chunkRecords、attachments，並對 storage/attachments/vector/doc repository 執行刪除，但沒有審計紀錄或錯誤處理；MinIO 僅逐個 deletePreviewObject，沒有 prefix 批量刪除。",
+      "implication": "雖然刪除路徑已呼叫依賴，但缺少統計輸出、審計與批量 API，與設計稿要求仍有距離。"
+    }
+  ],
+  "findings": [
+    "/stats 執行結果僅有 {documents, attachments}，無法滿足“文档/附件/队列统计”以及 chunk/ingestion 監控需求。",
+    "DocumentRepository/AttachmentRepository 沒有 stats()，意味著若要新增指標必須重寫資料層；設計稿預期的 `DocumentRepository.stats()` 尚未實作。",
+    "刪除路由雖會呼叫 storage/vectorIndex，但缺乏審計與批次刪除 preview 的能力，也沒有在 ops/日志中留下治理證據。"
+  ],
+  "conclusion": "需在資料層新增 stats() (彙總文檔/附件/chunk/ingestion)，擴充 ObjectStorage 以支援 prefix 清理，並在 `/stats` 回傳 Phase 6.2 所需字段。治理路由也應記錄審計訊息與錯誤處理，確保可對照需求文檔的驗收指標。"
+}

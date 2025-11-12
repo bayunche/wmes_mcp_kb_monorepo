@@ -84,6 +84,22 @@
 
 ---
 
+## Phase 6：验收与生产落地（新增）
+- [ ] **Step 6.1** 实装真实解析/切块/嵌入：接入 Unstructured/Tika + pdfplumber + PaddleOCR，将上传的 PDF/PPTX/XLSX/图片解析为文本、表格与图片块；为向量与重排引入 bge-m3、bge-reranker、OpenCLIP，去除 `defaultWorkerStages` 中的占位逻辑。  
+  - 产出：面向多模态的 `fetchSource/parse/chunk/extractMetadata/embed` 实现、模型下载/缓存策略、MinIO 附件写入路径。  
+  - 校验：使用真实样例文档跑通“上传 → 解析 → 切块 → 向量化 → 入库”，并在 README/验收手册中附截图与指标。
+- [ ] **Step 6.2** API/MCP 功能对齐需求：补齐上传文件接口、层级/标签/表格/图片过滤、治理（删除、重索引、统计）、MCP `kb.preview/kb.related` 的上下文拼装与溯源 URI 输出，并提供权限/租户隔离。  
+  - 产出：REST/MCP 契约实现、参数校验、鉴权/配额、治理路由、审计日志。  
+  - 校验：对照《项目需求.md》第 12 章验收用例，确保 REST 与 MCP 均可覆盖 text/table/image 检索与治理操作。
+- [ ] **Step 6.3** 端到端测试与样例数据：编写 Playwright/Vitest 场景覆盖多模态上传、检索、MCP、治理；准备示例数据集与 `tests/e2e` 使用的 fixture，解除 `test.skip` 并纳入 `scripts/test-matrix.ts`。  
+  - 产出：完整的 E2E 脚本、测试数据、CI 运行指南。  
+  - 校验：`bun run scripts/test-matrix.ts` 在安装依赖后必须通过 unit/integration/e2e，并生成验收报告。
+- [ ] **Step 6.4** 部署与监控闭环：按照需求文档提供的规模设计，验证 Docker Compose/Helm 部署、Prometheus/Grafana 仪表、备份/恢复/重索引链路，使 README 与运维文档具备“一键部署 + 验收”流程。  
+  - 产出：确认版 README 部署章节、ops 文档截图、`operations-log` 的实际执行证据。  
+  - 校验：在可执行环境中跑通备份/恢复和 reindex（非 dry-run），并记录结果供审查。
+
+---
+
 **计划维护提示**  
 - 执行者必须在每次步骤完成后，于本文件和 `.codex/operations-log.md` 同步记录。  
 - 若需增删步骤，请在顶部“执行纪律”下添加“变更记录”小节，并注明批准人/时间。  

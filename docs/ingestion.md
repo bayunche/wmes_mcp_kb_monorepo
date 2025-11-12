@@ -3,17 +3,17 @@
 > 日期：2025-11-10 执行者：Codex
 
 ## 1. 流程概览
-1. **上传注册**：`apps/api` 接收文档元数据，写入 repository。  
-2. **任务入队**：API 或脚本将 `IngestionTask` 发送到队列（Redis/RabbitMQ）。  
-3. **Worker 处理**：`apps/worker` 消费任务 → fetch → parse → chunk → metadata → embed → persist。  
-4. **指标记录**：每个任务都会写入 `kb_ingestion_total`、`kb_ingestion_pipeline_seconds` 等指标。  
+1. **上传注册**：`apps/api` 接收文档元数据，写入 repository。 
+2. **任务入队**：API 或脚本将 `IngestionTask` 发送到队列（Redis/RabbitMQ）。 
+3. **Worker 处理**：`apps/worker` 消费任务 → fetch → parse → chunk → metadata → embed → persist。解析阶段优先调用 `UNSTRUCTURED_API_URL` 指向的服务（fallback 为内置文本解析），并将表格/图片拆分为 `Chunk + Attachment`；附件预览写入 `MINIO_BUCKET_PREVIEW`，文本/表格/图片向量则通过外部端点或本地 `@xenova/transformers` 生成。 
+4. **指标记录**：每个任务都会写入 `kb_ingestion_total`、`kb_ingestion_pipeline_seconds` 等指标。 
 5. **可观测性**：结合 `scripts/deploy-local.sh` 启动 `/metrics`，以 Prometheus/Grafana 进行监控。
 
 ## 2. 关键实现
 - **Shared Schemas**：`@kb/shared-schemas` 提供 `Document`, `Chunk`, `Embedding`, `IngestionTask` 等 Zod 定义。  
 - **Pipeline 实现**：`apps/worker/src/pipeline.ts` 包含默认阶段，可通过依赖注入替换解析/嵌入逻辑。  
 - **向量推理**：`packages/core/src/vector.ts` 的 `VectorClient` 负责本地/远程嵌入与 rerank。  
-- **存储接口**：目前使用 `InMemoryApiRepository`/`InMemoryChunkRepository`，上线时可替换为数据库和 Qdrant adapter。
+- **存储接口**：`@kb/data` 模组封装 Postgres/pgvector + Qdrant + MinIO + RabbitMQ，API/Worker/MCP 统一依赖该资料层，无需再使用 InMemory 占位。
 
 ## 3. 运维脚本
 - `ops/scripts/backup.ts`：示范 Postgres/MinIO/Qdrant 备份流程。  

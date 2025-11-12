@@ -1,0 +1,22 @@
+{
+  "timestamp": "2025-11-11T16:40:00+08:00",
+  "focus": "Phase 6 Step 6.1 – 真实解析/嵌入/附件落地",
+  "task_breakdown": [
+    "解析器：实现对 Unstructured/Tika HTTP API 的调用逻辑，支持根据 MIME 发送 multipart 请求，解析响应 JSON → ParsedElement；无法访问时 fallback 到 BasicTextParser。",
+    "切块与附件：把解析出的 text/table/image 元素映射为 Chunk + Attachment；表格需要存储结构化 JSON，图片需要写入 MinIO preview bucket 并生成 caption/URI。",
+    "嵌入器：VectorClient 优先调用 TEXT_EMBEDDING_ENDPOINT/IMAGE_EMBEDDING_ENDPOINT；若未配置则加载 MODELS_DIR 中的 ONNX/Transformers 模型生成 embedding，再退回 deterministic fallback。",
+    "存储钩子：data layer 需提供 preview bucket 客户端 + helper，worker pipeline 在 chunk + attachment 阶段写入 MinIO，并将 objectKey 填入 AttachmentSchema。",
+    "验证：更新 worker 测试（stub parser/storage/embedding），运行 `bun test apps/worker/src/__tests__/ingestion.test.ts`，并记录 testing/verification 日志。"
+  ],
+  "risks": [
+    "第三方依赖安装失败：Xenova/onnxruntime 体积大；需尝试使用纯 JS transformers（@xenova/transformers），如仍失败则保持 graceful fallback并记录。",
+    "Unstructured API 超时或不可访问：需启用请求超时和错误处理，回退 BasicTextParser 但记 warning。",
+    "MinIO 写入失败：attachments 上传要 try/catch，失败时保留 chunk 但在 metadata 中标记缺失。",
+    "测试环境无实际模型/存储：单元测试通过 stub 注入 parser/storage/embedders，避免依赖真实外部服务。"
+  ],
+  "success_criteria": [
+    "Worker 能够：读取 raw 对象 → 调用真实 parser → 生成 text/table/image chunk → 上传附件 → 请求 real embedding（remote 或 transformers fallback）→ 写入 data layer。",
+    "API 与后续 Phase 6.2 可以复用 attachments（objectKey + mimeType + preview URI）。",
+    "`bun test apps/worker/...` 在安装 bun 后成功跑通，若缺模型/endpoint 也能自动 fallback 并输出日志。"
+  ]
+}

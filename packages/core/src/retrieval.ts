@@ -25,7 +25,9 @@ export interface ChunkRecord {
 }
 
 export interface ChunkRepository {
-  searchCandidates(request: SearchRequest): Promise<ChunkRecord[]>;
+  searchCandidates(request: SearchRequest, queryVector: number[]): Promise<ChunkRecord[]>;
+  get(chunkId: string): Promise<ChunkRecord | null>;
+  listByDocument?(docId: string): Promise<ChunkRecord[]>;
 }
 
 export interface HybridRetrieverDeps {
@@ -101,12 +103,12 @@ export class HybridRetriever {
   }
 
   async search(request: SearchRequest): Promise<SearchResponse> {
-    const candidates = await this.repo.searchCandidates(request);
+    const queryVector = normalizeVector((await this.vectorClient.embedText(request.query))[0].vector);
+    const candidates = await this.repo.searchCandidates(request, queryVector);
     if (!candidates.length) {
       return { query: request.query, total: 0, results: [] };
     }
 
-    const queryVector = normalizeVector((await this.vectorClient.embedText(request.query))[0].vector);
     const chunkTexts = candidates.map((record) => record.chunk.contentText ?? "");
     const chunkVectors = (await this.vectorClient.embedText(chunkTexts)).map((result) =>
       normalizeVector(result.vector)
@@ -147,7 +149,15 @@ export class HybridRetriever {
 export class InMemoryChunkRepository implements ChunkRepository {
   constructor(private readonly data: ChunkRecord[]) {}
 
-  async searchCandidates(_request: SearchRequest): Promise<ChunkRecord[]> {
+  async searchCandidates(_request: SearchRequest, _queryVector: number[]): Promise<ChunkRecord[]> {
     return this.data;
+  }
+
+  async get(chunkId: string): Promise<ChunkRecord | null> {
+    return this.data.find((record) => record.chunk.chunkId === chunkId) ?? null;
+  }
+
+  async listByDocument(docId: string): Promise<ChunkRecord[]> {
+    return this.data.filter((record) => record.chunk.docId === docId);
   }
 }

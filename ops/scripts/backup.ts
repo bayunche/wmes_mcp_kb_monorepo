@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
-import { parseArgs, getEnvConfig, logStep } from "./utils";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs, getEnvConfig, logStep, runCommand } from "./utils";
 
 const options = parseArgs({ tenantId: process.env.DEFAULT_TENANT_ID ?? "default", dryRun: true });
 const config = getEnvConfig();
@@ -8,29 +10,46 @@ async function main() {
   logStep("Starting backup script", { tenant: options.tenantId, dryRun: options.dryRun });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const snapshotDir = `./backups/${options.tenantId}/${timestamp}`;
+  const snapshotDir = join("backups", options.tenantId, timestamp);
+  mkdirSync(join(snapshotDir, "objects"), { recursive: true });
 
+  const dbFile = join(snapshotDir, "database.sql");
+  const schemaFile = join(snapshotDir, "schema.sql");
   logStep("Preparing snapshot directory", { snapshotDir });
 
-  logStep("Backing up Postgres schema and data", {
-    command: `pg_dump ${config.DATABASE_URL} --data-only --file ${snapshotDir}/database.sql`
-  });
+  await runCommand(
+    "pg_dump",
+    [config.DATABASE_URL, "--data-only", "--file", dbFile],
+    { dryRun: options.dryRun }
+  );
 
-  logStep("Backing up pgvector metadata", {
-    command: `pg_dump ${config.DATABASE_URL} --schema-only --file ${snapshotDir}/schema.sql`
-  });
+  await runCommand(
+    "pg_dump",
+    [config.DATABASE_URL, "--schema-only", "--file", schemaFile],
+    { dryRun: options.dryRun }
+  );
 
-logStep("Syncing MinIO objects", {
-  source: `${config.MINIO_ENDPOINT}/kb-raw/${options.tenantId}`,
-  target: `${snapshotDir}/objects/`
-});
+  const alias = `kb-${options.tenantId}`;
+  await runCommand(
+    "mc",
+    ["alias", "set", alias, config.MINIO_ENDPOINT, config.MINIO_ACCESS_KEY, config.MINIO_SECRET_KEY],
+    { dryRun: options.dryRun, ignoreError: true }
+  );
 
-  logStep("Exporting Qdrant collections", {
-    endpoint: config.QDRANT_URL,
-    command: `curl -X POST ${config.QDRANT_URL}/collections/export`
-  });
+  await runCommand(
+    "mc",
+    ["mirror", `${alias}/kb-raw/${options.tenantId}`, join(snapshotDir, "objects")],
+    { dryRun: options.dryRun }
+  );
 
-  logStep("Backup completed");
+  const qdrantSnapshot = join(snapshotDir, "qdrant-export.json");
+  await runCommand(
+    "curl",
+    ["-f", "-X", "POST", "-o", qdrantSnapshot, `${config.QDRANT_URL}/collections/export`],
+    { dryRun: options.dryRun }
+  );
+
+  logStep("Backup completed", { snapshotDir });
 }
 
 main().catch((error) => {

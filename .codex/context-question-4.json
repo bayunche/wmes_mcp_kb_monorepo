@@ -1,0 +1,37 @@
+{
+  "question_id": "Q4",
+  "focus": "Phase 6.2 要求所有 REST/MCP 路由支援 X-Tenant-Id，現有 API 是否已統一解析並注入 tenant？",
+  "reason_for_investigation": "設計稿第 5 節強調每個路由都要復用 requireAuth 並支援 `X-Tenant-Id` 或 body 字段；若未注入 tenant，search/upload/stats 可能跨租戶洩漏資料。",
+  "evidence": [
+    {
+      "file": ".codex/phase6-step6-2-design.md",
+      "lines": "32-34",
+      "quote": "### 5. 权限/租户\n- 每个路由继续复用 `requireAuth`（Bearer token），并支持 `X-Tenant-Id` 或 body 字段；删除/重索引必须校验 tenant 匹配。",
+      "implication": "需求明確指出所有路由需支援 Header / body 中的租戶資訊，而不僅限於治理操作。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "78-116",
+      "quote": "`if (request.method === \"POST\" && url.pathname === \"/search\") { ... const parsed = SearchRequestSchema.parse(body); const result = await deps.retriever.search(parsed); ... }`\n整個 search handler 從 body 中解析 filters，但未讀取 `X-Tenant-Id` header，也沒有 fallback 至 `deps.defaultTenantId`。",
+      "implication": "若客戶端未手動傳 filters.tenantId，search 將遍歷全庫 chunk，違反多租戶隔離。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "132-169",
+      "quote": "`const tenantId = (form.get(\"tenantId\") as string) ?? deps.defaultTenantId; ... await enqueueIngestion(deps.queue, docId, tenantId);`\nupload 僅依賴 multipart 欄位 `tenantId`，忽略 Header。",
+      "implication": "上傳端點若未提供欄位就會落在 default tenant，與 `X-Tenant-Id` 的設定脫鉤，無法保證治理時 tenant 一致。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "248-249",
+      "quote": "`function resolveTenant(request: Request, fallback: string) {\n  return request.headers.get(\"x-tenant-id\") ?? fallback;\n}`",
+      "implication": "雖然存在 resolveTenant，但目前僅在 delete/reindex 兩個 handler 呼叫，search/upload/stats/列表並未使用。"
+    }
+  ],
+  "findings": [
+    "Search、stats、upload 等核心路由沒有統一解析 `X-Tenant-Id`，造成預設請求跨租戶曝光資料，與設計稿及 Phase 6.2 驗收目標矛盾。",
+    "resolveTenant 已提供基礎工具，可在 entry point 將 header/body 的 tenant id 注入 Document/Chunk filters、object key 前綴與 queue payload，但尚未落實。",
+    "缺少統一的 tenant 驗證會讓 delete/reindex 無法與上傳時的租戶匹配，後續治理與審計將難以追蹤。"
+  ],
+  "conclusion": "需要在 API 層建立統一的 tenant 解析策略：優先讀取 `X-Tenant-Id`，若缺失再 fallback 至 body/form/default，同時在 `/search` 與 `/stats` 自動注入 filters.tenantId，確保多租戶隔離符合 Step 6.2 需求。"
+}

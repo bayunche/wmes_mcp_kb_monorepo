@@ -5,7 +5,7 @@
 ## 1. Hybrid 检索模型
 - **向量相似度**：`VectorClient`（`packages/core/src/vector.ts`）提供文本/图片嵌入，支持远程端点和 fallback。  
 - **融合权重**：`HybridRetriever`（`packages/core/src/retrieval.ts`）按 α~ζ 加权：向量、关键词、层级、时间衰减、topic 与邻居得分。  
-- **数据源**：通过 `ChunkRepository` 提供候选（默认 `InMemoryChunkRepository`），上线时可替换为数据库或搜索服务。  
+- **数据源**：通过 `ChunkRepository` 提供候选，默认由 `@kb/data` 的 `PgChunkRepository + Qdrant` 实现，也可注入其他搜索后端。  
 - **邻居扩展**：若 `request.includeNeighbors = true`，检索结果会携带同篇上下文，用于长文回答。
 
 ## 2. 典型调用

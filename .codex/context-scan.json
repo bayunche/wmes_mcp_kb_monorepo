@@ -1,33 +1,63 @@
 {
-  "timestamp": "2025-11-10T09:15:00+08:00",
-  "workspace": "/mnt/d/mcp知识库",
+  "timestamp": "2025-11-12T08:57:42+08:00",
+  "workspace": "d:\\mcp知识库",
   "modules": [
     {
-      "name": "项目需求规范",
-      "path": "项目需求.md",
-      "description": "完整的本地化多模态知识库 + MCP 服务需求说明，涵盖架构、数据模型、流程、部署与验收。"
+      "name": "Phase 6 总计划",
+      "path": ".codex/implementation-plan.md",
+      "description": "Step 6.2 仍为未勾选状态，要求 REST/MCP 对齐上传、过滤、治理、租户隔离与审计，后续 Step 6.3/6.4 依赖其完工。"
+    },
+    {
+      "name": "Step 6.2 设计稿",
+      "path": ".codex/phase6-step6-2-design.md",
+      "description": "细化 `/upload`、`/search`、`/documents/:id`、`/stats` 以及 MCP kb.search/related/preview 的契约、删除/重索引流程与附件字段。"
+    },
+    {
+      "name": "API Routes",
+      "path": "apps/api/src/routes.ts",
+      "description": "已提供 upload/search/delete/reindex/stats；filters 仅在 contentType/附件层面生效，tenant 仍依赖调用者显式传 filters，头部 `X-Tenant-Id` 仅在 delete/reindex 使用。"
+    },
+    {
+      "name": "MCP 工具层",
+      "path": "apps/mcp/src",
+      "description": "DbMcpRepository 拉取 chunk+attachments，并让 kb.search/related/preview 输出 `attachments + kb://chunk/* sourceUri`，尚未感知租户或治理结果。"
+    },
+    {
+      "name": "数据访问层",
+      "path": "packages/data/src",
+      "description": "PgDocumentRepository/PgAttachmentRepository/PgChunkRepository/QdrantVectorIndex 已实现 delete/count/list 与附件检索，但 chunk filters 仅处理 tenant/docId，缺少 topic/hierarchy/pagination。"
+    },
+    {
+      "name": "共享 Schema 与测试样例",
+      "path": "packages/shared-schemas/src/index.ts, apps/api/src/__tests__/api.test.ts, apps/mcp/src/__tests__/mcp.test.ts",
+      "description": "Schema 已包含 attachments/sourceUri；API/MCP 单测只覆盖 upload/search/preview happy path，缺乏删除、reindex、stats、多租户过滤与错误场景。"
     }
   ],
-  "current_state": "仓库当前仅含需求文档，尚未创建源码、测试或配置目录；需要根据规范自行落地结构。",
+  "current_state": "Step 6.2 的主要代码骨架已出现（API 路由、MCP 工具、数据层接口、schema 与 README 说明），但租户注入、治理端点测试、统计字段以及与 Phase 6.1 解析链路的联动仍缺乏验证记录；实现计划与日志仍显示“未开始”状态。",
   "similar_assets": [
-    "文档描述 API 网关、MCP 服务、Ingestion Worker、检索层、存储层等多个模块，需要对应 src/api、workers、retrieval、infrastructure 等子目录。",
-    "部署章节列出 docker compose 服务：kb-api、kb-worker、db、vectordb、object、queue、mcp-server、监控栈，可作为 devops 目录参考。"
+    "README.md 第 2 章 Phase 6.2 速览（上传/治理端点与 MinIO 桶准备）",
+    "docs/mcp.md（已描述 attachments/sourceUri，但未覆盖租户隔离与治理场景）",
+    "tests/integration/api.integration.test.ts（旧版搜索示例，可作为新的治理端到端测试蓝本）"
   ],
   "tech_stack": [
-    "后端：建议使用 Python/FastAPI 或等效 REST 框架（文档强调 REST API 与 MCP 接口）。",
-    "队列与缓存：Redis 或 RabbitMQ。",
-    "数据库：Postgres + pgvector；可选 Qdrant 作为向量库。",
-    "对象存储：MinIO；模型文件需挂载本地目录。",
-    "文档解析：Unstructured/Tika、pdfplumber、pandas/pyexcel、Tesseract/PaddleOCR。",
-    "模型：bge-m3、bge-reranker-v2、OpenCLIP。"
+    "Bun 1.x + TypeScript，Vitest/Bun test 覆盖单元与轻量集成场景。",
+    "数据层使用 Kysely 驱动 Postgres/pgvector，QdrantVectorIndex 负责向量相似度，MinIO 通过 ObjectStorage 适配器写入 raw/preview。",
+    "HybridRetriever 结合 `packages/core/src/vector.ts` 的本地/远程嵌入；@xenova/transformers 通过 MODELS_DIR 支持离线模型。",
+    "消息链路沿用 RabbitMQ QueueAdapter，`/upload`→`queue.enqueue` 驱动 Worker ingestion。"
   ],
   "tests": {
-    "files": [],
-    "notes": "仓库未包含测试文件。验收清单在文档第12章，可转换为测试用例。"
+    "files": [
+      "apps/api/src/__tests__/api.test.ts",
+      "apps/mcp/src/__tests__/mcp.test.ts",
+      "tests/integration/api.integration.test.ts",
+      "scripts/test-matrix.ts"
+    ],
+    "notes": "API/MCP 单测仅断言 search/upload/preview happy path；integration/e2e 仍是旧示例（未包含附件、租户、治理链路），`scripts/test-matrix.ts` 在缺 Playwright/Vitest 环境下会跳过高阶用例，尚无 Phase 6.2 验收证据。"
   },
   "observation_report": [
-    "缺少 src、tests、docker、config 等基础目录，需要在指南中指引默认结构。",
-    "未发现自动化脚本示例，需从文档推导 build/test 命令模板。",
-    "需说明多服务协作方式及必备环境变量，避免贡献者误解。"
+    "API `/search` 没有自动填充 `filters.tenantId`（也未读取 `X-Tenant-Id`），导致默认请求会跨租户返回 chunk，与 Step 6.2 租户要求冲突（apps/api/src/routes.ts）。",
+    "`/upload` 仅依赖 multipart 字段 `tenantId`，若调用方遗漏字段则强制写入默认租户，缺乏从 Header/body 统一解析与校验（apps/api/src/routes.ts）。",
+    "`/stats` 目前仅返回 documents/attachments 计数，没有 chunk 或最新 ingestion 状态，无法对照 Step 6.2 设计里的治理指标（apps/api/src/routes.ts + packages/data/src/repositories/documents.ts）。",
+    "测试层面尚未覆盖 delete/reindex/stats/租户隔离与 MCP 工具异常用例，Phase 6.2 的验证证据仍缺（apps/api/src/__tests__/api.test.ts, apps/mcp/src/__tests__/mcp.test.ts）。"
   ]
 }

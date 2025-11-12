@@ -19,3 +19,15 @@
 | 2025-11-10T15:45:05+08:00 | è„šæœ¬ | `bun run scripts/test-matrix.ts` | æ‰§è¡Œæµ‹è¯•çŸ©é˜µï¼šunit é€šè¿‡ï¼Œintegration/e2e å› å·¥å…·ç¼ºå¤±è·³è¿‡å¹¶è®°å½•æç¤ºã€‚ |
 | 2025-11-10T15:50:10+08:00 | è„šæœ¬ | `bun run scripts/test-matrix.ts` | vitest ç¯å¢ƒé…ç½®åå†æ¬¡è¿è¡Œï¼šunit é€šè¿‡ï¼Œintegration/e2e å› ä¾èµ–ç¼ºå¤±è·³è¿‡ã€‚ |
 | 2025-11-10T15:55:05+08:00 | è„šæœ¬ | `bun run scripts/test-matrix.ts` | å¼•å…¥ E2E å‰§æœ¬åï¼Œunit 20/20 é€šè¿‡ï¼Œintegration/e2e ç¼ºä¾èµ–è·³è¿‡ã€‚ |
+| 2025-11-11T12:40:00+08:00 | å®‰è£…å¤±è´¥ | `bun install` | å› æ²™ç®± TMPDIR æƒé™ï¼ˆRenameAcrossMountPointsï¼‰æ— æ³•å®‰è£…æ–°ä¾èµ–ï¼Œæœªèƒ½è¿è¡Œæ–°ç‰ˆ `bun test`; å¾…å…·å¤‡å¯å†™ TMPDIR ç¯å¢ƒåéœ€é‡æ–°æ‰§è¡Œ `bun install && bun test`ã€‚ |
+| 2025-11-11T16:05:00+08:00 | bun test | `bun test apps/worker/src/__tests__/ingestion.test.ts` | Ê§°Ü£ºµ±Ç° PowerShell »·¾³ÎŞ·¨ÕÒµ½ bun ¿ÉÖ´ĞĞÎÄ¼ş£¬´ı¾ß±¸ bun CLI ºó²¹²â |
+| 2025-11-11T16:55:00+08:00 | bun test | `bun test apps/worker/src/__tests__/ingestion.test.ts` | Í¨¹ı£ºWorker pipeline µ¥²âÑéÖ¤ÕæÊµ½âÎö/Ç¶ÈëÂ·¾¶£¨ÆÚÍû 1/1£© |
+| 2025-11-11T17:30:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Í¨¹ı£ºAPI Â·ÓÉĞÂÔöÉÏ´«/ËÑË÷¸½¼şÓÃÀı£¨2 ¸ö¶ÏÑÔÌ×¼ş£© |
+| 2025-11-11T17:30:10+08:00 | bun test | `bun test apps/mcp/src/__tests__/mcp.test.ts` | Í¨¹ı£ºMCP ¹¤¾ßÑéÖ¤ attachments/sourceUri Êä³ö£¨3 ÓÃÀı£© |
+| 2025-11-11T17:30:20+08:00 | bun test | `bun test apps/worker/src/__tests__/ingestion.test.ts` | Í¨¹ı£º»Ø¹éÑéÖ¤¶àÄ£Ì¬½âÎö/Ç¶Èë¹ÜÏß£¨1 ÓÃÀı£© |
+
+| 2025-11-12T08:53:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Phase 6.2 Step1ï¼šå¤šç§Ÿæˆ¶è·¯ç”±ç”¨ä¾‹ 3/3 é€šè¿‡ã€‚ |
+| 2025-11-12T09:00:00+08:00 | bun test | `bun test packages/data/src/repositories/documents.test.ts` | PgDocumentRepository.stats mock ç”¨ä¾‹ 1/1 é€šè¿‡ã€‚ |
+| 2025-11-12T09:01:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Phase 6.2 Step2ï¼š/stats å¤šæŒ‡æ¨™ç”¨ä¾‹ 4/4 é€šè¿‡ã€‚ |
+| 2025-11-12T09:12:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Phase 6.2 Step3ï¼šåˆ é™¤/é‡ç´¢å¼•/ç§Ÿæˆ¶å¯©è¨ˆç”¨ä¾‹ 6/6 é€šè¿‡ã€‚ |
+| 2025-11-12T09:20:00+08:00 | bun test | `bun test apps/mcp/src/__tests__/mcp.test.ts` | MCP å·¥å…· search/related/preview ç”¨ä¾‹ 3/3 é€šè¿‡ã€‚ |

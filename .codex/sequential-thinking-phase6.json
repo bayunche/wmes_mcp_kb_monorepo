@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-11-11T15:40:00+08:00",
+  "focus": "Phase 6 实施前的深度思考",
+  "task_understanding": [
+    "Phase 6 要求将 demo 级实现升级为可验收的生产闭环（真实多模态解析与嵌入、REST/MCP 功能补完、端到端测试、部署与监控证据）。",
+    "Step 6.1 聚焦 Worker pipeline：需要接入真实解析器、切块策略、主题/结构抽取、文本与图像/表格向量，同时与 MinIO/Qdrant/Postgres 打通。",
+    "Step 6.2 要求 API & MCP 满足需求文档第 12 章列出的多模态上传、过滤、治理、溯源等行为，意味着要提供文件上传/附件存储、层级/标签过滤、统计与重索引入口。",
+    "Step 6.3 要求构建可运行的 E2E/Playwright 场景与样例数据，解除当前 `test.skip` 并纳入 `scripts/test-matrix.ts`。",
+    "Step 6.4 要求部署/监控闭环：docker-compose/ops 脚本需要真实执行（非 dry-run）证明，包含备份/恢复/重索引与 metrics 截图或 log 证据。"
+  ],
+  "current_state_observation": [
+    "apps/worker/src/pipeline.ts 仍然是纯 placeholder（返回固定文本、简单段落拆分、伪向量），与 MinIO/模型目录无交互。",
+    "packages/data 已经提供 Postgres/Qdrant/RabbitMQ 客户端，ops/scripts 也实现了备份/恢复/reindex，但尚未与真实 ingestion 流程联动。",
+    "packages/core VectorClient 默认 fallback（无远程 endpoint），未接入本地 ONNX 模型或 huggingface API；retriever 调用顺序仍有 bug（queryVector 在声明前使用）。",
+    "apps/api 只暴露 JSON 文档 CRUD + 简单 search，不支持文件上传、附件存储、治理接口（删除/重索引/统计），也未暴露层级/模态过滤参数。",
+    "apps/mcp 工具面向 text chunk repository，未附带 preview URI、上下文拼装或多模态邻居信息。",
+    "tests/e2e/knowledge.e2e.ts 仍然跳过，缺少 demo 数据与 fixtures；scripts/test-matrix.ts 也只是在缺依赖时跳过 integration/e2e。"
+  ],
+  "key_risks": [
+    "解析/切块/嵌入需要依赖外部库（Unstructured/ONNX/OCR）；需评估可行的 Node 生态方案或通过 CLI/child_process 调用，避免自研实现。",
+    "多模态上传涉及文件流与 MinIO 交互，目前 API 只接受 JSON；需要新增大文件处理与权限/租户隔离策略。",
+    "端到端验证在本地环境完成可能受限于缺乏 Docker/模型资源；需设计可在 sandbox 中运行的降级测试（例如基于 fixture 的离线样例）。",
+    "Step 6.4 要求真实执行 ops 流程，但当前环境可能无法访问 docker/外部服务；需要记录风险并提供可复现脚本与日志，或模拟 dry-run + 说明。",
+    "整体改动跨多个模块（worker、api、mcp、packages/core/data/tests/docs），必须小步推进并保持数据契约一致。"
+  ],
+  "approach_outline": [
+    "重新梳理当前代码与需求文档，更新 context-scan/问题列表，锁定 Phase 6 的最小闭环路径。",
+    "针对 Worker pipeline 设计新的 stage 组件（source fetch、parser、chunker、metadata enricher、embedding orchestrator），复用 packages/core/vector 或引入 ONNX runtime。",
+    "扩展 packages/data 的 MinIO client 以支持下载/列出附件，以及将解析出来的原始文件/预览写入对象存储。",
+    "扩展 API/MCP schema 以支持多模态字段（pageNo、bbox、topicLabels、URI），并实现治理/统计接口；确保 shared-schemas 一致。",
+    "为 Step 6.3 构建 demo dataset（PDF/PPTX/XLSX/图片）或合成文档，编排 Vitest/Playwright 测试驱动从上传→检索→MCP 的流程。",
+    "准备部署验证脚本（docker compose、ops执行日志、metrics 输出）并在 operations-log 中记录运行结果或风险说明。"
+  ]
+}

@@ -1,25 +1,25 @@
 {
-  "timestamp": "2025-11-10T09:16:40+08:00",
+  "timestamp": "2025-11-12T09:01:19+08:00",
   "checks": [
     {
       "item": "接口契约清晰",
       "status": true,
-      "notes": "文档提供 API/MCP 职责、数据模型与服务分层，可在指南中描述各模块接口职责。"
+      "notes": "shared-schemas + `.codex/phase6-step6-2-design.md` 已定义 upload/search/delete/reindex/stats 及 MCP 响应字段；apps/api/src/routes.ts、apps/mcp/src/tools/* 提供参考实现，可据此补齐租户/治理能力。"
     },
     {
       "item": "技术选型理解",
       "status": true,
-      "notes": "核心组件（Postgres+pgvector、Qdrant、MinIO、Redis/RabbitMQ、Docker Compose）明确。"
+      "notes": "沿用 Bun + TypeScript + packages/data（Kysely + Postgres/Qdrant + MinIO + RabbitMQ）架构；API/MCP 通过 HybridRetriever/VectorClient 检索，需在路由层注入 `X-Tenant-Id` 并调用 attachments/doc repositories。"
     },
     {
       "item": "主要风险识别",
       "status": true,
-      "notes": "多服务协同、模型资源体积、依赖容器启动顺序是风险点，将在指南中强调。"
+      "notes": "已针对 Q4/Q5 记录的租户隔离、治理统计、MinIO 批量删除、验证证据缺口进行分析，并确认这些风险会直接阻塞 Phase 6.2 验收。"
     },
     {
       "item": "验证方式明确",
       "status": true,
-      "notes": "第12章 E2E 用例与第15章可用性清单提供测试标准，可映射到 `make test`/`make e2e`。"
+      "notes": "计划通过扩展 `apps/api/src/__tests__/api.test.ts`、`apps/mcp/src/__tests__/mcp.test.ts` 以及新的 integration/operations-log 记录，验证 upload→search→delete→stats 与 MCP 预览链路；测试矩阵将纳入这些用例。"
     }
   ],
   "result": "ready"

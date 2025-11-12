@@ -1,4 +1,4 @@
-import { SearchRequest, SearchResponse, Chunk } from "@kb/shared-schemas";
+import { SearchRequest, SearchResponse, Chunk, Attachment } from "@kb/shared-schemas";
 
 export interface McpToolContext {
   requestId: string;
@@ -12,9 +12,15 @@ export interface McpToolHandler<Request, Response> {
 
 export type McpSearchHandler = McpToolHandler<SearchRequest, SearchResponse>;
 
+export interface ChunkPreview {
+  chunk: Chunk;
+  attachments: Attachment[];
+  sourceUri: string;
+}
+
 export interface RelatedResponse {
-  source: Chunk;
-  neighbors: Chunk[];
+  source: ChunkPreview;
+  neighbors: ChunkPreview[];
 }
 
 export type McpRelatedHandler = McpToolHandler<
@@ -22,7 +28,4 @@ export type McpRelatedHandler = McpToolHandler<
   RelatedResponse
 >;
 
-export type McpPreviewHandler = McpToolHandler<
-  { chunkId: string },
-  { chunk: Chunk }
->;
+export type McpPreviewHandler = McpToolHandler<{ chunkId: string }, ChunkPreview>;

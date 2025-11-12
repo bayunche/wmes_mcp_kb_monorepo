@@ -1,14 +1,27 @@
 import { startApiServer } from "./server";
-import { InMemoryApiRepository } from "./repository/in-memory";
-import { HybridRetriever, InMemoryChunkRepository } from "../../packages/core/src/retrieval";
+import { HybridRetriever } from "../../packages/core/src/retrieval";
 import { VectorClient } from "../../packages/core/src/vector";
 import { MetricsRegistry, startMetricsServer } from "../../packages/tooling/src/metrics";
+import { createDataLayer } from "@kb/data";
+import { loadConfig } from "../../packages/core/src/config";
 
 async function bootstrap() {
-  const repo = new InMemoryApiRepository();
+  const config = loadConfig();
+  const dataLayer = createDataLayer(config);
+  const vectorClient = new VectorClient({
+    textEndpoint: config.TEXT_EMBEDDING_ENDPOINT,
+    rerankEndpoint: config.RERANK_ENDPOINT,
+    imageEndpoint: config.IMAGE_EMBEDDING_ENDPOINT,
+    apiKey: config.VECTOR_API_KEY,
+    fallbackDim: config.PGVECTOR_DIM,
+    enableLocalModels: config.LOCAL_EMBEDDING_ENABLED,
+    localTextModelId: config.LOCAL_TEXT_MODEL_ID ?? undefined,
+    localImageModelId: config.LOCAL_IMAGE_MODEL_ID ?? undefined,
+    modelCacheDir: config.MODELS_DIR
+  });
   const retriever = new HybridRetriever({
-    vectorClient: new VectorClient(),
-    repo: new InMemoryChunkRepository([])
+    vectorClient,
+    repo: dataLayer.chunks
   });
 
   const metrics = new MetricsRegistry();
@@ -18,10 +31,16 @@ async function bootstrap() {
   });
 
   const server = startApiServer({
-    port: Number(process.env.API_PORT ?? "8080"),
+    port: Number(process.env.API_PORT ?? config.PORT_API ?? 8080),
     authToken: process.env.API_TOKEN ?? "dev-token",
-    repo,
+    documents: dataLayer.documents,
+    chunks: dataLayer.chunks,
+    attachments: dataLayer.attachments,
+    queue: dataLayer.queue,
     retriever,
+    storage: dataLayer.storage,
+    vectorIndex: dataLayer.vectorIndex,
+    defaultTenantId: config.DEFAULT_TENANT_ID,
     metrics
   });
 

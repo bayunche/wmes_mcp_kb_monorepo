@@ -1,25 +1,37 @@
 {
   "question_id": "Q2",
-  "focus": "确定构建、测试与开发运行命令的依据。",
-  "reason_for_investigation": "贡献者指南必须提供可执行的 build/test/run 命令，但仓库尚无脚本，需要依据需求文档推导。",
+  "focus": "API/MCP 需补齐哪些接口与字段才能满足 Phase 6 的多模态与治理需求？",
+  "reason_for_investigation": "Step 6.2 要求 REST 与 MCP 均支持文件上传、模态过滤、治理（删除/重索引/统计）、上下文预览与溯源 URI。需要评估现有接口缺口与 shared-schemas 的一致性。",
   "evidence": [
     {
-      "file": "项目需求.md",
-      "lines": "387-428",
-      "quote": "部署方案依赖 Docker，本地需要同时启动 kb-api、kb-worker、db、vectordb、object、queue、mcp-server。说明了关键环境变量与启动顺序。",
-      "implication": "指南可要求统一使用 `docker compose`（或 make 封装）来构建与运行所有服务，确保依赖就绪。"
+      "file": "apps/api/src/routes.ts",
+      "lines": "8-94",
+      "quote": "API 仅暴露 GET/POST /documents、PATCH /documents/:id、POST /search、GET /chunks/:id，payload 只包含 Document JSON，不支持 multipart 上传、附件存储或层级/模态过滤。",
+      "implication": "无法满足需求文档中“多模态上传”“泛化过滤”“治理操作”等条目。"
+    },
+    {
+      "file": "apps/mcp/src/tools/*.ts",
+      "lines": "1-60",
+      "quote": "`kb.search` 只是把 request 交给 HybridRetriever；`kb.preview` 仅返回 chunk；`kb.related` 返回 neighbors，没有预览 URI、溯源 ID、模态区分或上下文拼接。",
+      "implication": "MCP 侧无法提供表格/图片预览，也没有 `kb://chunk/*` 溯源链接，无法支持 Agent 验收。"
     },
     {
       "file": "项目需求.md",
-      "lines": "461-522",
-      "quote": "验收用例与可用性校验列出上传→解析→检索→MCP 联调等场景，强调健康检查与端到端验证。",
-      "implication": "测试命令需要覆盖单元（解析/检索）、集成（worker+向量库）、以及端到端场景，可通过 `pytest` + `docker compose exec` 或 `make e2e` 触发。"
+      "lines": "463-520",
+      "quote": "验收用例要求：多模态文档上传（PDF/PPTX/XLSX/图片）、自然语言/表格/图片检索、层级过滤、MCP `kb.search` 返回 context pack + 溯源 URI、治理操作（删除、重索引、统计、审计日志）。",
+      "implication": "现有 API/MCP 路由远未覆盖这些场景，需要新增接口与响应字段。"
+    },
+    {
+      "file": "packages/shared-schemas/src/index.ts",
+      "lines": "1-120",
+      "quote": "schema 已包含 contentType/pageNo/bbox/topicLabels/attachments 等字段，为多模态扩展提供契约，但 API/MCP 并未利用。",
+      "implication": "可以直接复用 schema，但需要在 API/MCP 层串联这些字段及新的过滤参数。"
     }
   ],
   "findings": [
-    "可定义 `make build`（构建镜像）、`make dev`（docker compose up）、`make test`（运行 pytest + worker 单元测试）、`make e2e`（执行验收脚本）。",
-    "指南需提醒贡献者在运行测试前执行 `docker compose pull`/`docker compose up -d db vectordb object queue` 以满足依赖。",
-    "端到端验证需在 `tests/e2e` 内提供脚本，调用文档列出的用例（上传多模态文件、自然语言检索、MCP 整合）。"
+    "需要在 API 中引入 multipart 上传接口（写入 MinIO + metadata），并扩展 `/search` 与 `/documents` 支持层级、topic、模态过滤，以及治理路由（删除/重索引/统计）。",
+    "MCP 工具需要在响应中包含 document 源 URI、chunk hierPath/pageNo/bbox、附件预览链接与多模态标签，且 `kb.related` 应支持限制模态与邻居类型。",
+    "shared-schemas 已具备字段，可作为契约；需要在实现中补齐映射与验证，并更新 docs/README。"
   ],
-  "conclusion": "AGENTS.md 中将强调所有开发命令通过 Makefile 包装 docker compose，测试覆盖单元 + e2e，并参考文档的验收条目。"
+  "conclusion": "Step 6.2 的实现重点是扩展 API/MCP 契约：1) 文件上传/附件管理 + 入队；2) 检索/治理接口与过滤参数；3) MCP context pack（含预览 URI、溯源 ID、模态标签）。这些能力必须复用 shared-schemas 并与数据层保持一致。"
 }

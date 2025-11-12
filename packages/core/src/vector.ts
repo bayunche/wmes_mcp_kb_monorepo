@@ -14,6 +14,10 @@ export interface VectorClientOptions {
   textModelName?: string;
   rerankerModelName?: string;
   imageModelName?: string;
+  enableLocalModels?: boolean;
+  localTextModelId?: string;
+  localImageModelId?: string;
+  modelCacheDir?: string;
   logger?: {
     debug?: (message: string, payload?: unknown) => void;
     warn?: (message: string, payload?: unknown) => void;
@@ -53,13 +57,11 @@ async function callRemote<T>(endpoint: string, apiKey: string | undefined, paylo
   return response.json() as Promise<T>;
 }
 
-function normalizeEmbeddingResponse(
-  result: unknown,
-  fallbackModel: string
-): EmbeddingResult[] {
+function normalizeEmbeddingResponse(result: unknown, fallbackModel: string): EmbeddingResult[] {
   if (Array.isArray(result)) {
     return result.map((item) => ({
-      vector: (item as { vector?: number[]; embedding?: number[] }).vector ??
+      vector:
+        (item as { vector?: number[]; embedding?: number[] }).vector ??
         (item as { vector?: number[]; embedding?: number[] }).embedding ??
         [],
       model: (item as { model?: string }).model ?? fallbackModel
@@ -70,14 +72,16 @@ function normalizeEmbeddingResponse(
     const data = (result as { data?: unknown[] }).data;
     if (Array.isArray(data)) {
       return data.map((item) => ({
-        vector: (item as { vector?: number[]; embedding?: number[] }).vector ??
+        vector:
+          (item as { vector?: number[]; embedding?: number[] }).vector ??
           (item as { vector?: number[]; embedding?: number[] }).embedding ??
           [],
         model: (item as { model?: string }).model ?? fallbackModel
       }));
     }
 
-    const vector = (result as { vector?: number[]; embedding?: number[] }).vector ??
+    const vector =
+      (result as { vector?: number[]; embedding?: number[] }).vector ??
       (result as { vector?: number[]; embedding?: number[] }).embedding;
     if (Array.isArray(vector)) {
       return [{ vector, model: (result as { model?: string }).model ?? fallbackModel }];
@@ -86,6 +90,29 @@ function normalizeEmbeddingResponse(
 
   throw new Error("Unable to normalize embedding response");
 }
+
+function normalizeLocalVector(output: unknown): number[] {
+  if (!output) return [];
+  if (Array.isArray(output)) {
+    if (typeof output[0] === "number") {
+      return output as number[];
+    }
+    return (output as unknown[]).flatMap((value) => normalizeLocalVector(value));
+  }
+
+  if (output instanceof Float32Array || output instanceof Float64Array) {
+    return Array.from(output);
+  }
+
+  const tensor = output as { data?: unknown };
+  if (tensor?.data) {
+    return normalizeLocalVector(tensor.data);
+  }
+
+  return [];
+}
+
+type TransformersPipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>;
 
 export class VectorClient {
   private readonly textEndpoint?: string;
@@ -97,6 +124,12 @@ export class VectorClient {
   private readonly rerankerModel: string;
   private readonly imageModel: string;
   private readonly logger: VectorClientOptions["logger"];
+  private readonly localModelsEnabled: boolean;
+  private readonly localTextModelId?: string;
+  private readonly localImageModelId?: string;
+  private readonly modelCacheDir?: string;
+  private textPipelinePromise?: Promise<TransformersPipeline>;
+  private imagePipelinePromise?: Promise<TransformersPipeline>;
 
   constructor(options: VectorClientOptions = {}) {
     this.textEndpoint = options.textEndpoint;
@@ -108,6 +141,10 @@ export class VectorClient {
     this.rerankerModel = options.rerankerModelName ?? "bge-reranker-v2";
     this.imageModel = options.imageModelName ?? "openclip-vit-b-32";
     this.logger = options.logger ?? {};
+    this.localModelsEnabled = options.enableLocalModels ?? false;
+    this.localTextModelId = options.localTextModelId;
+    this.localImageModelId = options.localImageModelId;
+    this.modelCacheDir = options.modelCacheDir;
   }
 
   async embedText(input: string | EmbeddingPayload | Array<string | EmbeddingPayload>): Promise<EmbeddingResult[]> {
@@ -121,6 +158,13 @@ export class VectorClient {
       this.logger.debug?.("Calling remote text endpoint", payload);
       const response = await callRemote(this.textEndpoint, this.apiKey, payload);
       return normalizeEmbeddingResponse(response, this.textModel);
+    }
+
+    if (this.localModelsEnabled) {
+      const results = await this.embedTextLocally(normalized.map((item) => item.text));
+      if (results.length === normalized.length) {
+        return results;
+      }
     }
 
     return normalized.map((item) => ({
@@ -155,9 +199,91 @@ export class VectorClient {
       return result;
     }
 
+    if (this.localModelsEnabled) {
+      const result = await this.embedImageLocally(bytes);
+      if (result) {
+        return result;
+      }
+    }
+
     const checksum = bytes.reduce((sum, value) => sum + value, 0);
     const vector = deterministicVector(String(checksum), this.fallbackDim);
     return { vector, model: this.imageModel };
+  }
+
+  private async embedTextLocally(texts: string[]): Promise<EmbeddingResult[]> {
+    if (!texts.length) return [];
+    try {
+      const pipeline = await this.loadTextPipeline();
+      const results: EmbeddingResult[] = [];
+      for (const text of texts) {
+        const output = await pipeline(text, { pooling: "mean", normalize: true });
+        const vector = normalizeLocalVector(output);
+        if (!vector.length) {
+          return [];
+        }
+        results.push({
+          vector,
+          model: this.localTextModelId ?? this.textModel
+        });
+      }
+      return results;
+    } catch (error) {
+      this.logger.warn?.(
+        "Local text embedding failed",
+        error instanceof Error ? error.message : error
+      );
+      return [];
+    }
+  }
+
+  private async embedImageLocally(bytes: Uint8Array): Promise<EmbeddingResult | null> {
+    try {
+      const pipeline = await this.loadImagePipeline();
+      const output = await pipeline(bytes, { pooling: "mean", normalize: true });
+      const vector = normalizeLocalVector(output);
+      if (!vector.length) {
+        return null;
+      }
+      return {
+        vector,
+        model: this.localImageModelId ?? this.imageModel
+      };
+    } catch (error) {
+      this.logger.warn?.(
+        "Local image embedding failed",
+        error instanceof Error ? error.message : error
+      );
+      return null;
+    }
+  }
+
+  private async loadTextPipeline() {
+    if (!this.textPipelinePromise) {
+      this.textPipelinePromise = this.loadPipeline(
+        "feature-extraction",
+        this.localTextModelId ?? this.textModel
+      );
+    }
+    return this.textPipelinePromise;
+  }
+
+  private async loadImagePipeline() {
+    if (!this.imagePipelinePromise) {
+      this.imagePipelinePromise = this.loadPipeline(
+        "feature-extraction",
+        this.localImageModelId ?? this.imageModel
+      );
+    }
+    return this.imagePipelinePromise;
+  }
+
+  private async loadPipeline(task: string, modelId: string): Promise<TransformersPipeline> {
+    if (this.modelCacheDir && !process.env.TRANSFORMERS_CACHE) {
+      process.env.TRANSFORMERS_CACHE = this.modelCacheDir;
+    }
+    const { pipeline } = await import("@xenova/transformers");
+    return pipeline(task, modelId, { quantize: true });
   }
 }
 
@@ -167,6 +293,15 @@ export function createVectorClientFromEnv(): VectorClient {
     rerankEndpoint: process.env.RERANK_ENDPOINT,
     imageEndpoint: process.env.IMAGE_EMBEDDING_ENDPOINT,
     apiKey: process.env.VECTOR_API_KEY,
-    fallbackDim: Number(process.env.VECTOR_FALLBACK_DIM ?? "8")
+    fallbackDim: Number(process.env.VECTOR_FALLBACK_DIM ?? "8"),
+    enableLocalModels: parseBoolean(process.env.LOCAL_EMBEDDING_ENABLED),
+    localTextModelId: process.env.LOCAL_TEXT_MODEL_ID ?? undefined,
+    localImageModelId: process.env.LOCAL_IMAGE_MODEL_ID ?? undefined,
+    modelCacheDir: process.env.MODELS_DIR
   });
+}
+
+function parseBoolean(value: string | undefined) {
+  if (!value) return false;
+  return ["true", "1", "yes"].includes(value.toLowerCase());
 }
