@@ -1,0 +1,37 @@
+{
+  "question_id": "Q2",
+  "focus": "各平台/模式在 Quick Start 中需要哪些前置依赖、环境文件和脚本引用？",
+  "reason_for_investigation": "任务要求把 Quick Start 重组得更贴合部署逻辑，必须明确每个组合（Linux/macOS Docker、Linux/macOS 非 Docker、Windows Docker、Windows 非 Docker）的依赖、环境变量与脚本调用，以保证改写时信息准确。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "41-108",
+      "quote": "Linux/macOS 非 Docker 指出需要 Bun、psql、MinIO mc、curl；Windows 非 Docker 列出 Bun 安装脚本、Postgres/Qdrant/MinIO/Redis/RabbitMQ 手动部署，并要求执行 run-migrations.ts + bootstrap-storage.ts。",
+      "implication": "不同平台的依赖集合不一致，Quick Start 新结构需在每个模式中显式列出 prerequisites。"
+    },
+    {
+      "file": "scripts/deploy-local.sh",
+      "lines": "1-120",
+      "quote": "脚本支持 `--stack-mode bun|docker`，会调用 bootstrap-storage/run-migrations/sync-models，并可通过 `--start-apps` 启动容器。",
+      "implication": "Linux/macOS 可直接调用脚本；Windows 非 Docker 不适用，需要给出等效命令；Windows Docker 需强调在 PowerShell 下运行脚本或 docker compose。"
+    },
+    {
+      "file": ".env.example",
+      "lines": "1-32",
+      "quote": "DATABASE_URL/QDRANT_URL/MINIO_ENDPOINT 等默认指向 localhost；RABBITMQ_URL 使用 localhost:5672；MODELS_DIR=./models/weights。",
+      "implication": "非 Docker 模式必须确保本地服务端口与这些 env 匹配或更新 `.env`。"
+    },
+    {
+      "file": ".env.docker",
+      "lines": "1-36",
+      "quote": "将 DATABASE_URL 改为 `postgres://kb:kb@db:5432/kb`，MinIO/Qdrant/Redis/RabbitMQ 均指向容器服务名，并新增 `API_TOKEN`、`START_*` 标记。",
+      "implication": "Docker 模式需提醒用户复制 `.env.docker` 并根据 compose 服务名运行脚本或 docker compose up。"
+    }
+  ],
+  "findings": [
+    "Quick Start 需要在每个模式的 Step 0 明确依赖（Bun、psql、Docker Desktop、PowerShell/CMD）与环境文件（.env/.env.docker/.env.docker.local）。",
+    "Linux/macOS Docker 场景可走 `./scripts/deploy-local.sh --stack-mode docker --start-apps`，也要给出 `docker compose build/up` 的替代方案；非 Docker 则直接引用 `--stack-mode bun` + Local Development 小节。",
+    "Windows 非 Docker 需要 PowerShell 变量示例、run-migrations/bootstrap-storage 组合命令；Windows Docker 要强调 Docker Desktop + PowerShell 执行路径，避免混用 WSL。"
+  ],
+  "conclusion": "改写 Quick Start 时，按平台 × 模式列出：①前提（依赖/环境文件）；②初始化（复制 env、bun install 或 docker compose build）；③部署命令（脚本或 PowerShell 块）；④验证（链接 Smoke Test）。这些步骤需引用现有脚本与 env 文件，避免重复维护。"
+}

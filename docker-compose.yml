@@ -65,6 +65,9 @@ services:
 
   kb-api:
     image: kb/api:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
     container_name: kb-api
     depends_on:
       - db
@@ -72,7 +75,7 @@ services:
       - object
       - redis
       - queue
-    env_file: ./.env.example
+    env_file: ./.env.docker
     ports:
       - "8080:8080"
     volumes:
@@ -82,6 +85,9 @@ services:
 
   kb-worker:
     image: kb/worker:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.worker
     container_name: kb-worker
     depends_on:
       - db
@@ -89,18 +95,21 @@ services:
       - object
       - redis
       - queue
-    env_file: ./.env.example
+    env_file: ./.env.docker
     volumes:
       - ./models:/app/models:ro
     command: ["bun", "run", "apps/worker/src/main.ts"]
 
   mcp-server:
     image: kb/mcp:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.mcp
     container_name: kb-mcp
     depends_on:
       - db
       - vectordb
-    env_file: ./.env.example
+    env_file: ./.env.docker
     ports:
       - "9090:9090"
     command: ["bun", "run", "apps/mcp/src/main.ts"]

@@ -1,4 +1,4 @@
-import { HybridRetriever } from "../../../packages/core/src/retrieval";
+import { HybridRetriever } from "../../../../packages/core/src/retrieval";
 import { McpSearchHandler } from "../types";
 import { DbMcpRepository } from "../repository/db";
 import { SearchResponseSchema } from "@kb/shared-schemas";

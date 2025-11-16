@@ -1,0 +1,32 @@
+{
+  "question_id": "Q1",
+  "focus": "Windows 纯原生（无 Docker/WSL）启动流程应包含哪些步骤？",
+  "reason_for_investigation": "现有 README 在 Quick Start 中只给出初始化/迁移命令，缺少依赖准备、服务启动与验证指引，需要明确最终要写入的内容。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "86-127",
+      "quote": "#### 本地原生（Bun + 手动依赖） ... 1) bun install + 复制 .env 2) 运行 run-migrations.ts / bootstrap-storage.ts 3) 参考 Local Development（Windows）启动 Worker/API/MCP/Web",
+      "implication": "Quick Start 没有列出依赖服务安装、如何学会检查服务状态，也没有包含 Worker/API 的启动命令。"
+    },
+    {
+      "file": "README.md",
+      "lines": "130-167",
+      "quote": "Local Development（Windows）列出 START_WORKER/START_API/... 环境变量命令",
+      "implication": "这些命令应整合进 Quick Start，以便用户在单一段落完成全部步骤。"
+    },
+    {
+      "file": "README.md",
+      "lines": "70-84",
+      "quote": "Windows Docker 部分列出了准备（Docker Desktop、Bun）与镜像构建/启动",
+      "implication": "非 Docker 部分缺少类似的“准备”段落，应该补充依赖安装建议和服务状态检查。"
+    },
+    {
+      "file": "scripts/run-migrations.ts",
+      "lines": "1-40",
+      "quote": "脚本读取 ENV_FILE，必要时 fallback 到 docker compose exec psql",
+      "implication": "需要提醒用户在 Windows 原生场景下如何配置 psql，或提供替代命令（psql -f 方式）。"
+    }
+  ],
+  "conclusion": "Windows 纯原生路径应包括：1) 前置条件（安装 Bun、psql、依赖服务的获取方式）；2) 初始化项目与 .env；3) 运行 run-migrations.ts + bootstrap-storage.ts；4) 启动 Worker/API/MCP/Web 的 PowerShell 命令；5) 执行 Smoke Test 或访问 /health。"
+}

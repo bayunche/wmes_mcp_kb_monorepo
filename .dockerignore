@@ -1,0 +1,12 @@
+.git
+.codex
+node_modules
+.bun
+.bun-cache
+.bun-tmp
+models/weights
+logs
+*.log
+.env
+.env.local
+.DS_Store

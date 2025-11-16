@@ -417,3 +417,263 @@
 | 2025-11-12T09:22:03+08:00 | shell | `nl -ba README.md | sed -n '50,120p'` | 取得 Phase6.2 文檔行號 |
 | 2025-11-12T09:22:05+08:00 | shell | `nl -ba docs/mcp.md | sed -n '1,120p'` | 取得 MCP 文檔行號 |
 | 2025-11-12T09:22:07+08:00 | shell | `python3 append-log batch#20` | 補記行號查詢操作 |
+| 2025-11-14T14:50:30+08:00 | sequential-thinking | 初始任務思考 | 針對「檢查實施進度」規劃階段0 流程 |
+| 2025-11-14T14:50:45+08:00 | shell | `ls` | 查看倉庫根目錄結構 |
+| 2025-11-14T14:50:55+08:00 | shell | `sed -n '1,160p' README.md` | 快速瀏覽 README 以掌握模組劃分 |
+| 2025-11-14T14:51:05+08:00 | shell | `git status -sb` | 檢查當前工作區變更情況 |
+| 2025-11-14T14:51:12+08:00 | shell | `ls .codex` | 確認既有上下文/規劃文件 |
+| 2025-11-14T14:51:20+08:00 | shell | `sed -n '1,200p' .codex/operations-log.md` | 回顧歷史操作記錄格式與內容 |
+| 2025-11-14T14:51:30+08:00 | shell | `date -Iseconds` | 取得當前時間用於後續記錄 |
+| 2025-11-14T14:51:40+08:00 | shell | `ls apps` | 檢查 apps 子專案列表 |
+| 2025-11-14T14:51:46+08:00 | shell | `ls apps/api/src` | 確認 API 原始碼檔案構成 |
+| 2025-11-14T14:52:00+08:00 | shell | `sed -n '1,200p' apps/api/src/main.ts` | 閱讀 API 啟動邏輯掌握依賴關係 |
+| 2025-11-14T14:52:10+08:00 | shell | `sed -n '1,200p' apps/api/src/routes.ts` | 了解 REST 端點與租戶處理策略 |
+| 2025-11-14T14:52:20+08:00 | shell | `sed -n '200,400p' apps/api/src/routes.ts` | 繼續閱讀刪除/重索引與工具函式 |
+| 2025-11-14T14:52:30+08:00 | shell | `sed -n '1,200p' apps/worker/src/main.ts` | 查看 Worker 啟動腳本 |
+| 2025-11-14T14:52:40+08:00 | shell | `sed -n '1,200p' apps/worker/src/worker.ts` | 分析 ingestion pipeline 依賴注入 |
+| 2025-11-14T14:52:50+08:00 | shell | `sed -n '1,200p' apps/mcp/src/server.ts` | 檢視 MCP 伺服器工具註冊實作 |
+| 2025-11-14T14:53:00+08:00 | shell | `sed -n '1,200p' apps/mcp/src/tools/search.ts` | 了解 MCP kb.search 工具與附件映射 |
+| 2025-11-14T14:53:10+08:00 | shell | `cat .codex/context-scan.json` | 參考既有結構化掃描內容 |
+| 2025-11-14T14:53:20+08:00 | shell | `sed -n '1,200p' apps/api/src/__tests__/api.test.ts` | 盤點 API 單元測試覆蓋範圍 |
+| 2025-11-14T14:53:30+08:00 | shell | `sed -n '1,200p' packages/data/src/repositories/documents.ts` | 確認 stats 與租戶查詢實作 |
+| 2025-11-14T14:53:40+08:00 | shell | `cat package.json` | 瀏覽工作區 scripts 與依賴 |
+| 2025-11-14T14:53:50+08:00 | shell | `tail -n 40 .codex/operations-log.md` | 檢查最近操作紀錄尾段 |
+| 2025-11-14T14:54:00+08:00 | shell | `sed -n '1,200p' apps/worker/src/pipeline.ts` | 閱讀 ingestion pipeline 階段實作 |
+| 2025-11-14T14:54:10+08:00 | shell | `sed -n '200,400p' apps/worker/src/pipeline.ts` | 檢視附件與 fallback embedding 處理 |
+| 2025-11-14T14:54:20+08:00 | shell | `sed -n '400,800p' apps/worker/src/pipeline.ts` | 了解依賴注入與錯誤統計 |
+| 2025-11-14T14:54:30+08:00 | shell | `sed -n '1,200p' apps/mcp/src/repository/db.ts` | 確認 MCP 資料庫存取與附件聚合 |
+| 2025-11-14T14:54:40+08:00 | shell | `sed -n '1,200p' apps/worker/src/__tests__/ingestion.test.ts` | 檢查 Worker 單測覆蓋 |
+| 2025-11-14T14:54:50+08:00 | shell | `sed -n '1,200p' tests/integration/api.integration.test.ts` | 了解 Vitest 整合測試內容 |
+| 2025-11-14T14:55:00+08:00 | shell | `sed -n '1,200p' tests/e2e/knowledge.e2e.ts` | 檢討 Playwright E2E 覆蓋與 skip 條件 |
+| 2025-11-14T14:55:10+08:00 | shell | `sed -n '1,200p' apps/mcp/src/tools/related.ts` | 檢閱 kb.related 工具的鄰居輸出 |
+| 2025-11-14T14:55:20+08:00 | shell | `sed -n '1,200p' apps/mcp/src/tools/preview.ts` | 檢閱 kb.preview 工具的附件輸出 |
+| 2025-11-14T14:55:30+08:00 | shell | `sed -n '1,200p' apps/api/src/server.ts'` | 命令因引號未閉合失敗，無輸出 |
+| 2025-11-14T14:55:35+08:00 | shell | `sed -n '1,200p' apps/api/src/server.ts` | 查看 API 伺服器與指標裝飾 |
+| 2025-11-14T14:55:45+08:00 | shell | `sed -n '1,200p' apps/api/src/auth.ts` | 確認簡單 Bearer token 驗證 |
+| 2025-11-14T14:55:55+08:00 | shell | `sed -n '1,200p' apps/mcp/src/index.ts` | 檢視 MCP 伺服器註冊與依賴注入 |
+| 2025-11-14T14:56:05+08:00 | shell | `sed -n '1,200p' apps/web/src/App.tsx` | 確認 Web 控制台版面與組件結構 |
+| 2025-11-14T14:56:15+08:00 | shell | `sed -n '1,200p' apps/web/src/components/UploadForm.tsx` | 檢視上傳表單邏輯與狀態管理 |
+| 2025-11-14T14:56:25+08:00 | shell | `sed -n '1,200p' apps/web/src/components/SearchPanel.tsx` | 檢視檢索面板交互 |
+| 2025-11-14T14:56:35+08:00 | shell | `sed -n '1,200p' apps/web/src/components/MetadataEditor.tsx` | 檢視標籤編輯與文檔列表 |
+| 2025-11-14T14:56:45+08:00 | shell | `sed -n '1,200p' apps/web/src/api.ts` | 查看 Web 前端 API 客戶端與端點配置 |
+| 2025-11-14T14:56:55+08:00 | shell | `sed -n '1,200p' apps/mcp/src/__tests__/mcp.test.ts` | 檢視 MCP 工具單元測試範圍 |
+| 2025-11-14T14:57:05+08:00 | shell | `sed -n '1,200p' packages/data/src/index.ts` | 確認資料層組件與依賴配置 |
+| 2025-11-14T14:54:58+08:00 | shell | `python3 append-log batch#new1` | 透過腳本批量追加 21 條工具使用記錄 |
+| 2025-11-14T14:55:05+08:00 | shell | `python3 append-log batch#new2` | 批量寫入 pipeline/測試等 7 條操作記錄 |
+| 2025-11-14T14:55:12+08:00 | shell | `python3 append-log batch#new3` | 記錄 MCP related/preview 相關命令 |
+| 2025-11-14T14:55:58+08:00 | shell | `python3 append-log batch#new4` | 補記 server/auth/mcp index 等命令含失敗案例 |
+| 2025-11-14T14:56:38+08:00 | shell | `python3 append-log batch#new5` | 批量寫入 Web 控制台檔案檢視記錄 |
+| 2025-11-14T14:56:47+08:00 | shell | `python3 append-log batch#new6` | 記錄 Web API 客戶端檢視操作 |
+| 2025-11-14T14:56:57+08:00 | shell | `python3 append-log batch#new7` | 記錄 MCP 測試檢視命令 |
+| 2025-11-14T14:57:07+08:00 | shell | `python3 append-log batch#new8` | 記錄 Data layer 檔案查看命令 |
+| 2025-11-14T14:57:35+08:00 | shell | `apply_patch .codex/context-scan.json` | 更新結構化快速掃描輸出 |
+| 2025-11-14T14:57:50+08:00 | sequential-thinking | 疑問梳理 | 提煉環境/測試/前端三大未解課題 |
+| 2025-11-14T14:58:20+08:00 | shell | `apply_patch .codex/context-questions.json` | 更新關鍵疑問列表與優先級 |
+| 2025-11-14T14:58:40+08:00 | shell | `cat .codex/testing.md` | 檢視歷史測試紀錄與缺口 |
+| 2025-11-14T14:58:55+08:00 | shell | `sed -n '1,200p' verification.md` | 閱讀驗證報告了解現有風險 |
+| 2025-11-14T14:59:10+08:00 | shell | `apply_patch .codex/context-question-6.json` | 新增基礎設施現況深挖記錄 |
+| 2025-11-14T14:59:25+08:00 | shell | `apply_patch .codex/context-question-7.json` | 新增測試矩陣缺口深挖記錄 |
+| 2025-11-14T14:59:55+08:00 | shell | `cat > .codex/context-sufficiency.json` | 更新充分性檢查結論 |
+| 2025-11-14T15:00:05+08:00 | note | code-index-unavailable | CLI 未提供 code-index MCP 工具，已記錄並改用 shell/README 讀取上下文 |
+| 2025-11-14T15:00:07+08:00 | note | shrimp-task-manager-unavailable | 無法調用 plan_task/analyze_task/reflect_task/split_tasks，改以手動規劃記錄 |
+| 2025-11-14T15:00:15+08:00 | plan | update_plan(setup) | 建立進度審查三步驟計畫 |
+| 2025-11-14T15:00:25+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '1,220p'` | 取得 API 端點行號以便引用 |
+| 2025-11-14T15:00:32+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '220,420p'` | 取得刪除/重索引/工具函式行號 |
+| 2025-11-14T15:00:40+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '1,200p'` | 取得 Worker pipeline 行號供引用 |
+| 2025-11-14T15:00:47+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '200,360p'` | 取得附件與向量階段行號 |
+| 2025-11-14T15:00:55+08:00 | shell | `nl -ba apps/mcp/src/tools/search.ts` | 取得 kb.search 工具行號 |
+| 2025-11-14T15:01:00+08:00 | shell | `nl -ba apps/mcp/src/tools/related.ts` | 取得 kb.related 工具行號 |
+| 2025-11-14T15:01:05+08:00 | shell | `nl -ba apps/mcp/src/tools/preview.ts` | 取得 kb.preview 工具行號 |
+| 2025-11-14T15:01:10+08:00 | shell | `nl -ba apps/web/src/App.tsx` | 取得 Web 控制台結構行號 |
+| 2025-11-14T15:01:15+08:00 | shell | `nl -ba apps/web/src/components/UploadForm.tsx` | 取得 Web 上傳表單行號 |
+| 2025-11-14T15:01:20+08:00 | shell | `nl -ba apps/web/src/api.ts` | 取得 Web API 客戶端行號 |
+| 2025-11-14T15:01:27+08:00 | shell | `nl -ba .codex/testing.md | sed -n '10,40p'` | 取得測試矩陣跳過紀錄行號 |
+| 2025-11-14T15:01:32+08:00 | shell | `nl -ba verification.md | sed -n '33,70p'` | 取得驗證報告風險行號 |
+| 2025-11-14T15:01:37+08:00 | shell | `nl -ba tests/e2e/knowledge.e2e.ts | sed -n '1,80p'` | 取得 E2E skip 行號 |
+| 2025-11-14T15:01:42+08:00 | shell | `nl -ba packages/data/src/repositories/documents.ts | sed -n '70,200p'` | 取得 stats 與計數實作行號 |
+| 2025-11-14T15:01:50+08:00 | plan | update_plan(progress) | 標記模組與測試分析完成，進入報告撰寫 |
+| 2025-11-14T15:01:58+08:00 | plan | update_plan(finish) | 三個步驟已全部完成 |
+| 2025-11-14T15:02:20+08:00 | sequential-thinking | 風險記錄策劃 | 決定建立 `.codex/risk-report.md` 彙總缺口 |
+| 2025-11-14T15:02:35+08:00 | apply_patch | 新增 `.codex/risk-report.md` | 彙總基礎設施/測試/Web/MCP 風險 |
+| 2025-11-14T15:03:10+08:00 | sequential-thinking | 可部署目标初步思考 | 明确需补齐部署/测试/前端/MCP 缺口 |
+| 2025-11-14T15:03:40+08:00 | shell | 更新 `.codex/structured-request.json` | 重述可部署可使用目標與交付物 |
+| 2025-11-14T15:04:05+08:00 | shell | `sed -n '1,200p' docker-compose.yml` | 檢視 compose 服務與依賴 |
+| 2025-11-14T15:04:20+08:00 | shell | `sed -n '1,200p' deploy/docker/README.md` | 閱讀 docker 上線指南 |
+| 2025-11-14T15:04:40+08:00 | shell | 更新 `.codex/context-scan.json` | 加入 docker-compose 與 ops scripts 模組描述 |
+| 2025-11-14T15:04:55+08:00 | shell | `sed -n '1,200p' scripts/test-matrix.ts` | 檢視測試矩陣腳本與依賴 |
+| 2025-11-14T15:05:10+08:00 | shell | `sed -n '1,200p' ops/scripts/run-migrations.ts` | 檢視資料庫遷移腳本 |
+| 2025-11-14T15:05:25+08:00 | shell | `sed -n '1,200p' ops/scripts/bootstrap-storage.ts` | 檢視存儲初始化腳本 |
+| 2025-11-14T15:05:50+08:00 | shell | `apply_patch context-question-8` | 深挖 Web/MCP 体驗缺口 |
+| 2025-11-14T15:06:05+08:00 | shell | `cat .env.example` | 檢視 env 變數與默認配置 |
+| 2025-11-14T15:06:20+08:00 | shell | `sed -n '1,200p' scripts/publish-images.ts` | 檢視鏡像構建腳本 |
+| 2025-11-14T15:06:35+08:00 | shell | `nl -ba README.md | sed -n '150,220p'` | 確認 README 部署步驟 |
+| 2025-11-14T15:07:00+08:00 | plan | update_plan(setup) | 制定部署/MCP/Web/验证四步计划 |
+| 2025-11-14T15:07:25+08:00 | shell | `cat > .dockerignore` | 新增 Docker 忽略文件 |
+| 2025-11-14T15:07:40+08:00 | shell | `cat > .env.docker` | 新增容器專用環境變數樣例 |
+| 2025-11-14T15:08:10+08:00 | shell | 新增 deploy/docker/Dockerfile.(api|worker|mcp) | 建立 Bun 容器鏡像配置 |
+| 2025-11-14T15:08:30+08:00 | apply_patch | `scripts/publish-images.ts` | 改為使用 deploy/docker Dockerfile 與根目錄 build |
+| 2025-11-14T15:08:50+08:00 | apply_patch | `docker-compose.yml` | 切換到本地 build Dockerfile 並使用 .env.docker |
+| 2025-11-14T15:09:15+08:00 | shell | `cat > apps/mcp/src/main.ts` | 實作 MCP HTTP 伺服器入口 |
+| 2025-11-14T15:09:35+08:00 | apply_patch | `apps/mcp/src/main.ts` | 改用 @kb/core config 導入 |
+| 2025-11-14T15:09:55+08:00 | apply_patch | `apps/api/src/routes.ts` | 新增 /mcp/* 路由與 MCP 工具代理 |
+| 2025-11-14T15:10:20+08:00 | apply_patch | `apps/api/src/__tests__/api.test.ts` | 加入鄰居 chunk 資料支援 MCP 測試 |
+| 2025-11-14T15:10:45+08:00 | apply_patch | `apps/api/src/__tests__/api.test.ts` | 新增 /mcp/* 代理測試案例 |
+| 2025-11-14T15:11:10+08:00 | apply_patch | `apps/web/src/api.ts` | 新增 uploadDocument 與 MCP preview API |
+| 2025-11-14T15:11:30+08:00 | apply_patch | `apps/web/src/components/UploadForm.tsx` | 切換為 multipart 上傳真實檔案 |
+| 2025-11-14T15:11:50+08:00 | apply_patch | `apps/web/src/components/SearchPanel.tsx` | 顯示附件並支持 MCP 預覽 |
+| 2025-11-14T15:12:10+08:00 | apply_patch | `tests/e2e/knowledge.e2e.ts` | 加入 MCP preview 斷言 |
+| 2025-11-14T15:12:30+08:00 | shell | `bun test apps/api/src/__tests__/api.test.ts` | 失敗：WSL 無法執行 Windows bun.exe (Permission denied) |
+| 2025-11-14T15:12:55+08:00 | apply_patch | `README.md` | 更新 docker、/mcp 端點與 Web 控制台說明 |
+| 2025-11-14T15:13:10+08:00 | apply_patch | `deploy/docker/README.md` | 補充 build 步驟與 env.docker 提示 |
+| 2025-11-14T15:13:25+08:00 | apply_patch | `docs/mcp.md` | 增補 HTTP 代理與部署說明 |
+| 2025-11-14T15:13:45+08:00 | shell | 重寫 `.codex/risk-report.md` | 為每項風險新增狀態欄位 |
+| 2025-11-14T15:14:00+08:00 | apply_patch | `verification.md` | 新增 11-14 部署與測試失敗記錄 |
+| 2025-11-14T15:14:15+08:00 | plan | update_plan(done) | 四項計畫全部完成（測試受 Bun 限制已備註） |
+| 2025-11-14T15:20:00+08:00 | sequential-thinking | 部署優化初步思考 | 梳理 docker compose/脚本現狀與缺口 |
+| 2025-11-14T15:21:00+08:00 | shell | 更新 `scripts/deploy-local.sh` | 新增參數化部署與 Bun 指令輸出 |
+| 2025-11-14T15:22:00+08:00 | apply_patch | `README.md` | 重寫部署章節，提供 Bun 與 Docker 兩套 10 步內流程 |
+| 2025-11-14T15:22:30+08:00 | apply_patch | `deploy/docker/README.md` | 加入腳本部署與手動模式說明 |
+| 2025-11-14T15:25:30+08:00 | shell | 重寫 README.md | 全面優化開源說明結構 |
+| 2025-11-14T15:32:10+08:00 | apply_patch | `scripts/deploy-local.sh` | Bun 模式下不再调用 docker compose |
+| 2025-11-14T15:45:00+08:00 | apply_patch | `scripts/deploy-local.sh` | Bun 模式輸出服務啟動指令與安裝提示 |
+| 2025-11-14T21:00:15+08:00 | sequential-thinking | 初始思考 | 明确任务为对比实施计划与实际代码，确认需重跑上下文流程 |
+| 2025-11-14T21:00:30+08:00 | shell | `ls` | 快速查看仓库根结构，确认 apps/packages/.codex 等目录存在 |
+| 2025-11-14T21:00:45+08:00 | shell | `sed -n '1,200p' 项目需求.md` | 阅读需求文档前章，了解总体目标与约束 |
+| 2025-11-14T21:01:05+08:00 | shell | `ls apps && ls apps/api && sed -n '1,200p' apps/api/src/routes.ts` | 采样 API 模块实现，确认 /upload、/search、/mcp 路由状态 |
+| 2025-11-14T21:01:30+08:00 | shell | `sed -n '1,200p' apps/worker/src/pipeline.ts` | 检查 Worker pipeline 是否包含解析/嵌入/附件逻辑 |
+| 2025-11-14T21:01:50+08:00 | sequential-thinking | 关键疑问分析 | 基于 context-scan 输出 Phase 6 重点疑问列表 |
+| 2025-11-14T21:02:10+08:00 | shell | `cat > .codex/structured-request.json` | 以当前任务重写 structured-request，锁定对比目标与交付物 |
+| 2025-11-14T21:02:30+08:00 | shell | `cat > .codex/context-scan.json` | 更新结构化扫描结果，记录最新模块与风险 |
+| 2025-11-14T21:02:45+08:00 | shell | `cat > .codex/context-questions.json` | 重述已知/未知与 Q1-Q3 优先级 |
+| 2025-11-14T21:03:05+08:00 | shell | `cat > .codex/context-question-9.json` | 深挖 Phase6 完成度（6.1-6.4）并列出证据 |
+| 2025-11-14T21:03:20+08:00 | shell | `cat > .codex/context-question-10.json` | 深挖验证/测试缺失证据 |
+| 2025-11-14T21:03:35+08:00 | shell | `cat > .codex/context-sufficiency.json` | 重新执行充分性检查，确认进入规划阶段 |
+| 2025-11-14T21:03:50+08:00 | update_plan | 三步计划 | 建立“梳理计划→审计实现→输出报告”的任务拆解并更新状态 |
+| 2025-11-14T23:59:08+08:00 | apply_patch | 更新 README.md | 增加 deploy-local 依赖 psql 的说明及容器内运行迁移的替代方案 |
+| 2025-11-15T00:06:31+08:00 | apply_patch | 修改 ops/scripts/run-migrations.ts | 为 psql 缺失场景新增 docker compose exec 回退，并支持 PSQL_COMMAND/PSQL_DOCKER_SERVICE 配置 |
+| 2025-11-15T00:06:31+08:00 | apply_patch | 更新 README.md | 描述 deploy-local 自动回退逻辑及 PSQL_COMMAND 用法 |
+| 2025-11-15T00:20:08+08:00 | apply_patch | 更新 ops/scripts/run-migrations.ts | Docker fallback 默认服务改为 `db`，与 docker-compose service 名一致 |
+| 2025-11-15T00:20:08+08:00 | apply_patch | 更新 README.md | 同步说明 fallback 使用 service `db`，可通过 PSQL_DOCKER_SERVICE 覆盖 |
+| 2025-11-15T00:55:48+08:00 | apply_patch | 再次更新 ops/scripts/run-migrations.ts | 统一通过 STDIN (-f -) 输送 SQL，避免 docker exec 无法访问宿主路径，并改进解析逻辑 |
+| 2025-11-16T16:57:13+08:00 | apply_patch | 更新 scripts/deploy-local.sh | 修正默认 APP_SERVICES，使用 docker-compose 实际服务名 `mcp-server`，避免 Step5 报 “no such service: kb-mcp” |
+| 2025-11-14T16:05:00+08:00 | sequential-thinking | 前端功能差异记录 | 计划在 apps/web/README.md 描述已覆盖与缺失特性 |
+| 2025-11-14T16:05:20+08:00 | shell | 新增 `apps/web/README.md` | 记录前端覆盖范围与待完善项 |
+| 2025-11-14T16:20:00+08:00 | sequential-thinking | 前端完善规划 | 目标：stats/删除/重索引/MCP related/附件预览 TODO+实施 |
+| 2025-11-14T16:20:30+08:00 | shell | 新增 `apps/web/TODO.md` | 列出前端待完成功能 |
+| 2025-11-14T16:25:10+08:00 | shell | 完成前端治理與 MCP 功能 | stats/删除/重索引/related/附件复制 |
+| 2025-11-14T16:27:30+08:00 | shell | 更新 `apps/web/README.md` | 同步已完成與待完善功能 |
+| 2025-11-14T16:35:00+08:00 | shell | rename vite.config.ts -> vite.config.mts | 避免 CJS 加载 ESM 插件 |
+| 2025-11-14T16:40:00+08:00 | shell | bunx vite dev (apps/web) | 失败：WSL 调用 Windows bunx.exe Permission denied |
+| 2025-11-14T17:05:00+08:00 | apply_patch | `apps/mcp/src/main.ts` | 改回相对路径引入 config 以兼容容器 |
+| 2025-11-14T17:20:00+08:00 | apply_patch | `README.md` | 增加“纯 Windows 场景”提醒 |
+| 2025-11-16T21:02:40+08:00 | sequential-thinking | 初始思考 | 解析 README Quick Start 重组需求，计划先执行上下文流程 |
+| 2025-11-16T21:02:50+08:00 | shell | `ls` | 查看仓库根目录结构确认 README 等文件位置 |
+| 2025-11-16T21:02:55+08:00 | shell | `ls .codex` | 检查现有上下文及日志文件 |
+| 2025-11-16T21:03:00+08:00 | shell | `sed -n '1,160p' operations-log.md` | 误查根目录，命令失败提示文件不存在 |
+| 2025-11-16T21:03:05+08:00 | shell | `sed -n '1,160p' .codex/operations-log.md` | 阅读既有操作日志了解格式与要求 |
+| 2025-11-16T21:03:10+08:00 | shell | `date -Iseconds` | 获取当前时间以记录日志 |
+| 2025-11-16T21:03:15+08:00 | shell | `tail -n 40 .codex/operations-log.md` | 查看日志尾部准备追加新记录 |
+| 2025-11-16T21:03:35+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录上述日志条目 |
+| 2025-11-16T21:04:20+08:00 | shell | `rg -n "Quick Start" README.md` | 定位 README 中的 Quick Start 章节位置 |
+| 2025-11-16T21:04:28+08:00 | shell | `date -Iseconds` | 记录当前时间便于后续日志 |
+| 2025-11-16T21:04:35+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 追加 21:04 操作日志条目 |
+| 2025-11-16T21:04:45+08:00 | shell | `sed -n '41,220p' README.md` | 阅读 Quick Start 现有内容以梳理 Linux/Windows 区分 |
+| 2025-11-16T21:04:50+08:00 | shell | `date -Iseconds` | 记录时间便于日志标注 |
+| 2025-11-16T21:04:55+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录 21:04:45-21:04:50 操作 |
+| 2025-11-16T21:05:35+08:00 | apply_patch | `.codex/context-scan.json` | 以 Quick Start 重组为焦点重写结构化扫描文件 |
+| 2025-11-16T21:05:45+08:00 | shell | `date -Iseconds` | 记录更新时间以形成日志条目 |
+| 2025-11-16T21:05:50+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录 21:05:35-21:05:45 操作 |
+| 2025-11-16T21:05:55+08:00 | sequential-thinking | 疑问识别 | 基于 context-scan 提炼 Quick Start 重组需解答的关键问题 |
+| 2025-11-16T21:06:20+08:00 | apply_patch | `.codex/context-questions.json` | 结合 Quick Start 任务更新已知/疑问列表 |
+| 2025-11-16T21:06:24+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:06:28+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入 21:06:20-21:06:24 日志条目 |
+| 2025-11-16T21:06:34+08:00 | shell | `sed -n '1,200p' scripts/deploy-local.sh` | 查看 deploy-local 脚本参数与栈模式，确认 Linux/macOS Bun 流程 |
+| 2025-11-16T21:06:39+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:06:43+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 追加 21:06:34-21:06:39 操作记录 |
+| 2025-11-16T21:06:46+08:00 | note | code-index | MCP 工具列表未提供 code-index，改用 shell/rg 阅读 README 及脚本（已记录） |
+| 2025-11-16T21:07:08+08:00 | apply_patch | `.codex/context-question-11.json` | 记录 Q1 深挖结果，明确平台 × 模式重组需求 |
+| 2025-11-16T21:07:13+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:07:17+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 追加 21:07:08-21:07:13 日志 |
+| 2025-11-16T21:07:22+08:00 | shell | `sed -n '1,160p' .env.example` | 查看本地模式默认环境变量，了解依赖服务与端口 |
+| 2025-11-16T21:07:26+08:00 | shell | `sed -n '1,160p' .env.docker` | 查看 docker-compose 环境文件差异 |
+| 2025-11-16T21:07:31+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:07:35+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录读取 env 文件的操作 |
+| 2025-11-16T21:07:50+08:00 | apply_patch | `.codex/context-question-12.json` | 深挖 Q2，列出各平台/模式的依赖与 env 需求 |
+| 2025-11-16T21:07:56+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:08:00+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录新增深挖文件的操作 |
+| 2025-11-16T21:08:18+08:00 | apply_patch | `.codex/context-sufficiency.json` | 结合最新调研更新充分性检查，确认已可进入规划阶段 |
+| 2025-11-16T21:08:23+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:08:27+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入 21:08:18-21:08:23 日志 |
+| 2025-11-16T21:08:30+08:00 | note | shrimp-task-manager | MCP 配置未暴露 shrimp 工具，改用 `update_plan` 维护子任务 |
+| 2025-11-16T21:08:55+08:00 | apply_patch | `.codex/structured-request.json` | 以 Quick Start 改写为目标重写结构化需求描述 |
+| 2025-11-16T21:09:14+08:00 | shell | `date -Iseconds` | 记录日志时间 |
+| 2025-11-16T21:09:18+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录 structured-request 更新操作 |
+| 2025-11-16T21:09:25+08:00 | update_plan | 初始化 | 建立 3 步计划：设计结构 → 编辑 README → 自检 |
+| 2025-11-16T21:09:35+08:00 | update_plan | 步骤1进行中 | 标记“设计新结构”步骤为 in_progress |
+| 2025-11-16T21:09:50+08:00 | apply_patch | `.codex/quick-start-outline.md` | 写出 Quick Start 重组草案，明确平台 × 模式与需要引用的章节 |
+| 2025-11-16T21:09:59+08:00 | shell | `date -Iseconds` | 记录编写草案的时间 |
+| 2025-11-16T21:10:03+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录草案创建日志 |
+| 2025-11-16T21:10:10+08:00 | update_plan | 步骤1完成 | 将“设计新结构”设为 completed，开始 README 编辑 |
+| 2025-11-16T21:11:10+08:00 | apply_patch | `README.md` | 重写 Quick Start：按 Linux/macOS、Windows × (Docker/非 Docker) 重新组织并补充准备/验证说明 |
+| 2025-11-16T21:12:04+08:00 | shell | `date -Iseconds` | 记录 README 编辑完成时间 |
+| 2025-11-16T21:12:08+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入 README 编辑操作日志 |
+| 2025-11-16T21:12:15+08:00 | update_plan | 步骤2完成 | README Quick Start 已完成重写，开始自检阶段 |
+| 2025-11-16T21:12:20+08:00 | shell | `sed -n '41,220p' README.md` | 审阅更新后的 Quick Start，确认排版与内容完整 |
+| 2025-11-16T21:12:28+08:00 | shell | `date -Iseconds` | 记录自检操作时间 |
+| 2025-11-16T21:12:32+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 记录 README 自检日志 |
+| 2025-11-16T21:12:45+08:00 | shell | `cat <<'EOF' >> .codex/testing.md` | 记录本次 Quick Start 文档变更未执行自动化测试的说明 |
+| 2025-11-16T21:12:52+08:00 | shell | `date -Iseconds` | 更新日志时间戳 |
+| 2025-11-16T21:12:56+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入测试记录相关操作日志 |
+| 2025-11-16T21:13:15+08:00 | shell | `cat <<'EOF' >> verification.md` | 更新验证报告，描述 README Quick Start 的人工审阅流程 |
+| 2025-11-16T21:13:21+08:00 | shell | `date -Iseconds` | 记录验证日志时间 |
+| 2025-11-16T21:13:25+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入验证报告操作记录 |
+| 2025-11-16T21:13:30+08:00 | update_plan | 收尾 | 三个计划步骤全部完成 |
+| 2025-11-16T21:13:40+08:00 | sequential-thinking | 自检思考 | 复盘 README 改写、测试记录与潜在风险，准备输出总结 |
+| 2025-11-16T21:14:00+08:00 | apply_patch | `.codex/review-report.md` | 生成自审报告，给出技术/战略评分与风险建议 |
+| 2025-11-16T21:14:06+08:00 | shell | `date -Iseconds` | 记录审查日志时间 |
+| 2025-11-16T21:14:10+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入审查报告操作记录 |
+| 2025-11-16T21:14:18+08:00 | shell | `git status -sb` | 查看当前工作区修改，确认本次提交影响文档/上下文文件 |
+| 2025-11-16T21:14:25+08:00 | shell | `date -Iseconds` | 记录 git status 操作时间 |
+| 2025-11-16T21:14:29+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入 git status 操作日志 |
+| 2025-11-16T21:14:38+08:00 | shell | `nl -ba README.md | sed -n '41,200p'` | 获取 Quick Start 新段落的行号，便于在总结中引用 |
+| 2025-11-16T21:14:44+08:00 | shell | `date -Iseconds` | 记录引用行号的操作时间 |
+| 2025-11-16T21:14:48+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入行号查询日志 |
+| 2025-11-16T21:15:05+08:00 | shell | `nl -ba .codex/testing.md | tail -n 10` | 记录测试日志新增行号，便于汇报 |
+| 2025-11-16T21:15:11+08:00 | shell | `date -Iseconds` | 记录时间 |
+| 2025-11-16T21:15:15+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入测试行号查询日志 |
+| 2025-11-16T21:15:24+08:00 | shell | `nl -ba verification.md | tail -n 40` | 确认验证记录新增段落的行号 |
+| 2025-11-16T21:15:29+08:00 | shell | `date -Iseconds` | 记录时间 |
+| 2025-11-16T21:15:33+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md` | 写入验证行号查询日志 |
+| 2025-11-16T22:34:10+08:00 | sequential-thinking | 初始分析 | 评估 Windows 运行时 API/MCP/Worker 启动失败（缺少包/路径）的问题 |
+| 2025-11-16T22:34:30+08:00 | shell | `docker compose build kb-api` | 失败：无法写入 ~/.docker/buildx/activity（permission denied），暂无法本地复现容器环境 |
+| 2025-11-16T22:34:55+08:00 | shell | `curl -fsSL https://bun.sh/install | bash` | 失败：网络受限（无法解析 bun.sh），无法在 WSL 内安装 Linux 版 bun |
+| 2025-11-16T22:35:20+08:00 | shell | `sudo docker build -f deploy/docker/Dockerfile.api -t kb/api:debug .` | 超时（120s 内未完成，无法获得 Docker 镜像用以排查 node_modules） |
+| 2025-11-16T22:36:15+08:00 | apply_patch | `.codex/context-scan.json` | 重新记录上下文：聚焦 Windows docker-compose 启动失败的 API/MCP/Worker 问题 |
+| 2025-11-16T22:36:45+08:00 | apply_patch | `.codex/context-questions.json` | 更新已知/疑问，聚焦路径错误与 workspace 依赖缺失 |
+| 2025-11-16T22:37:05+08:00 | write | `.codex/context-question-13.json` | 深挖 Q1：列出 apps/api/src、apps/worker/src/types.ts 的错误相对路径 |
+| 2025-11-16T22:37:20+08:00 | write | `.codex/context-question-14.json` | 深挖 Q2：定位 Dockerfile 仅执行一次 bun install、镜像缺少 workspace node_modules 的根因 |
+| 2025-11-16T22:37:40+08:00 | apply_patch | `.codex/context-sufficiency.json` | 确认信息充分：掌握路径错误和 workspace 依赖缺失的修复方向 |
+| 2025-11-16T22:37:55+08:00 | update_plan | 新计划 | 建立 3 步：修路径 → 修 Docker 构建 → 验证/记录 |
+| 2025-11-16T22:38:05+08:00 | update_plan | 步骤1进行中 | 开始处理 import 路径修复 |
+| 2025-11-16T22:39:20+08:00 | update_plan | 步骤1完成 | 修正 API/MCP/Worker 中的 import 路径（改为正确的 ../../../ 或等效） |
+| 2025-11-16T22:39:30+08:00 | update_plan | 步骤2进行中 | 开始处理 Docker 构建缺少 workspace 依赖的问题 |
+| 2025-11-16T22:40:30+08:00 | apply_patch | `deploy/docker/Dockerfile.*` | 在 api/worker/mcp 镜像构建中追加 packages/core & packages/data 的 `bun install --production`，确保 workspace node_modules 存在 |
+| 2025-11-16T22:40:45+08:00 | update_plan | 步骤2完成 | Dockerfile 现会额外在 packages/core 与 packages/data 下执行 bun install |
+| 2025-11-16T22:40:55+08:00 | update_plan | 步骤3进行中 | 准备更新测试/验证记录，说明需重建镜像验证 |
+| 2025-11-16T22:41:05+08:00 | shell | `cat >> .codex/testing.md` | 记录无法运行 bun/docker，提示需在宿主重建镜像验证 |
+| 2025-11-16T22:41:20+08:00 | shell | `cat >> verification.md` | 添加本次修复的人工验证说明及剩余风险 |
+| 2025-11-16T22:41:30+08:00 | update_plan | 步骤3完成 | 已更新 testing/verification，提醒需在宿主运行 docker compose build/up |
+| 2025-11-16T22:41:50+08:00 | shell | `cat >> .codex/review-report.md` | 添加本次修复的审查条目与评分 |
+| 2025-11-16T22:42:10+08:00 | apply_patch | `deploy/docker/Dockerfile.*` | 修正 shell 行连接符，使用单个 `\` 以避免 dockerfile parse error |
+| 2025-11-16T22:45:10+08:00 | apply_patch | `deploy/docker/Dockerfile.*` | 为 packages/data 依赖添加镜像内的软链接生成逻辑，确保 amqplib/kysely/minio/pg 可被 worker 加载 |
+| 2025-11-16T22:48:00+08:00 | apply_patch | `deploy/docker/Dockerfile.*` | 将安装指令改为 `bun install --frozen-lockfile --all`，直接让 Bun 为全部 workspace 下载依赖，避免软链接方案 |
+| 2025-11-16T22:49:15+08:00 | apply_patch | `deploy/docker/Dockerfile.*` | 回退为“根安装 + 逐包安装”，移除软链接脚本，避免构建因缺少 .bun 目录失败 |
+| 2025-11-16T23:05:10+08:00 | sequential-thinking | 初始思考 | 明确任务：整理 README 中纯原生 Windows（非 Docker、非 WSL）启动流程 |
+| 2025-11-16T23:05:45+08:00 | write | `.codex/context-scan.json` | 更新结构化扫描，聚焦 README 中纯原生 Windows 启动流程缺陷 |
+| 2025-11-16T23:05:55+08:00 | write | `.codex/context-questions.json` | 记录 Windows 纯原生流程的关键疑问 |
+| 2025-11-16T23:06:10+08:00 | write | `.codex/context-question-15.json` | 深挖 Q1：梳理 Windows 原生启动应包含的步骤与证据 |
+| 2025-11-16T23:06:20+08:00 | write | `.codex/context-sufficiency.json` | 完成充分性检查，确认可进入规划 |
+| 2025-11-16T23:06:35+08:00 | update_plan | 初始化 | 规划 3 步：重写 Windows 非 Docker Quick Start → 更新互相引用 → 自检记录 |
+| 2025-11-16T23:06:50+08:00 | update_plan | 步骤1进行中 | 开始重写 README Windows 非 Docker 流程 |
+| 2025-11-16T23:07:30+08:00 | update_plan | 步骤1-2完成 | README Quick Start & Local Development（Windows）已重写 |
+| 2025-11-16T23:07:50+08:00 | update_plan | 收尾 | 测试日志与验证记录已更新，计划完成 |

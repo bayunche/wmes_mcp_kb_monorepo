@@ -1,0 +1,31 @@
+{
+  "question_id": "Q2",
+  "focus": "测试矩阵缺口（integration / E2E）具体差在哪里？",
+  "reason_for_investigation": "要回答“项目做到哪一步”，必须确认是否已经通过实际依赖的集成测试；目前日志仅显示 bun test，缺少对 MinIO/Qdrant/RabbitMQ 的自动化验证。",
+  "evidence": [
+    {
+      "file": "tests/integration/api.integration.test.ts",
+      "lines": "1-70",
+      "quote": "MemoryDocumentRepository/MemoryChunkRepository/NoopQueue 仅使用内存数据，handleRequest 也未注入 attachments/storage。",
+      "implication": "所谓 integration test 仍然是纯内存单测，未触及 packages/data、MinIO 或队列。"
+    },
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "1-35",
+      "quote": "`test.skip(!process.env.E2E_ENABLED, ...)` 并直接调用 `/documents` JSON API + `/mcp/related` 占位注释。",
+      "implication": "端到端脚本默认跳过，且未覆盖 multipart 上传或附件预览，无法证明 UI/MCP 流程。"
+    },
+    {
+      "file": ".codex/testing.md",
+      "lines": "15-23",
+      "quote": "三次执行 `bun run scripts/test-matrix.ts` 均提示 integration/e2e 因依赖缺失被跳过。",
+      "implication": "负责 orchestrate 所有层级的脚本尚未成 功运行高阶用例，说明测试矩阵只验证了 unit 层。"
+    }
+  ],
+  "findings": [
+    "所有 integration/E2E 用例都仍停留在草稿或 skip 状态，没有任何证据显示真实依赖曾被引入。",
+    "API/Worker/MCP 单测虽完整，但缺乏跨服务验证，无法发现 storage/queue/Qdrant 的交互问题。",
+    "测试日志一再提示缺依赖，却没有后续补跑记录，表明 Step 6.2 尚未达到“可验收”的测试标准。"
+  ],
+  "conclusion": "当前测试矩阵只能证明业务逻辑在内存 stub 中可运行；若要宣布 Phase 6.2 完成，必须新增针对真实依赖的 integration/E2E，并提供成功日志。"
+}

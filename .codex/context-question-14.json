@@ -1,0 +1,32 @@
+{
+  "question_id": "Q2",
+  "focus": "docker 镜像缺少 packages/*/node_modules 的原因",
+  "reason_for_investigation": "Worker 报 `ENOENT /app/packages/data/node_modules/kysely`，需确认构建流程是否真正安装 workspace 依赖。",
+  "evidence": [
+    {
+      "file": "deploy/docker/Dockerfile.worker",
+      "lines": "1-30",
+      "quote": "RUN bun install --frozen-lockfile",
+      "finding": "Dockerfile 仅在仓库根执行一次 bun install，没有额外步骤确保 workspaces node_modules 生成。"
+    },
+    {
+      "file": "packages/data/node_modules/kysely",
+      "lines": "symlink",
+      "quote": "../../../node_modules/.bun/kysely@0.27.6/node_modules/kysely",
+      "finding": "本地安装时，packages/data/node_modules 由 bun 自动创建，指向 /node_modules/.bun 库。镜像内缺失说明构建阶段未执行成功或安装结果被清理。"
+    },
+    {
+      "file": ".dockerignore",
+      "lines": "1-12",
+      "quote": "node_modules",
+      "finding": "上下文不会携带 host node_modules，因此必须在 Dockerfile 内重新生成。"
+    },
+    {
+      "file": "docker-compose.yml",
+      "lines": "70-125",
+      "quote": "command: [\"bun\", \"run\", \"apps/worker/src/main.ts\"]",
+      "finding": "运行镜像时不会执行 bun install，所有依赖必须在 build 时准备好。"
+    }
+  ],
+  "conclusion": "需在 Dockerfile 中显式启用 Bun workspace 安装或在构建阶段遍历 apps/* & packages/* 执行 bun install，确保 /app/packages/*/node_modules 存在。否则 worker 会持续因为缺少 Kysely/pg/amqplib 等依赖而崩溃。"
+}

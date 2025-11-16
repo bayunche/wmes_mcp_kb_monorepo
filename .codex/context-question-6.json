@@ -1,0 +1,31 @@
+{
+  "question_id": "Q1",
+  "focus": "基础设施（Postgres/Qdrant/MinIO/RabbitMQ）是否已实际拉起并验证？",
+  "reason_for_investigation": "Phase 6.2 声称 API/Worker/MCP 全量实现，但缺少可运行环境证据；需确认 README/脚本之外是否有真实 compose/migration/seed 记录，否则无法认定项目已可部署。",
+  "evidence": [
+    {
+      "file": ".codex/testing.md",
+      "lines": "15-23",
+      "quote": "`bun run scripts/test-matrix.ts` | vitest 环境配置后再次运行：unit 通过，integration/e2e 因依赖缺失跳过。",
+      "implication": "官方测试矩阵未曾在具备依赖的环境中运行，说明 Postgres/Qdrant/MinIO/RabbitMQ 尚未被纳入自动验证。"
+    },
+    {
+      "file": "verification.md",
+      "lines": "33-52",
+      "quote": "Integration/E2E 仍依赖真实 Postgres/Qdrant/MinIO 环境；待具备依赖后需运行 `bun run scripts/test-matrix.ts`。",
+      "implication": "截至 2025-11-12 的复盘依旧把基础设施联调列为未完成风险。"
+    },
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "8-28",
+      "quote": "`test.skip(!process.env.E2E_ENABLED, "Enable by setting E2E_ENABLED=1 ...")` 并假定 `/mcp/related` HTTP 代理存在。",
+      "implication": "E2E 用例默认跳过且调用不存在的路由，进一步证明真实部署尚未跑通。"
+    }
+  ],
+  "findings": [
+    "虽然 README/docs/ops 脚本详述如何启动 compose，但仓库里没有任何执行输出或成功日志，测试记录也显示 integration/e2e 一直跳过。",
+    "验证报告明确指出需要等待真实依赖环境才能复测，意味着当前阶段仍停留在单元测试级别。",
+    "Playwright 脚本默认 skip，且引用的 `/mcp/related` HTTP 端点在 API routes 中不存在，说明尚无端到端路径可用。"
+  ],
+  "conclusion": "基础设施层面的“完成”仅停留在文档与脚本，缺乏任何运行证据；在给出部署或联调日志前，无法认定 Postgres/Qdrant/MinIO/RabbitMQ 已真正工作。"
+}

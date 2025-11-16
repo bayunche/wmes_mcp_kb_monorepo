@@ -42,3 +42,39 @@
   - `bun test packages/data/src/repositories/documents.test.ts`（PgDocumentRepository.stats Mock）
 - **结果**：API 单测覆盖 upload → search → documents → stats → delete/reindex，全部通过；数据层 stats mock 测试 1/1 通过。
 - **剩余风险**：Integration/E2E 仍依赖真实 Postgres/Qdrant/MinIO 环境；待具备依赖后需运行 `bun run scripts/test-matrix.ts` 以验证 Playwright/整合脚本。  
+
+---
+
+- **日期**：2025-11-14
+- **范围**：Docker 镜像化、REST /mcp 代理、Web 控制台 multipart 上传
+- **验证步骤**：尝试执行 `bun test apps/api/src/__tests__/api.test.ts`；因当前 WSL 无法执行 Windows bun.exe（Permission denied）而失败，尚未获得替代 Bun CLI。
+- **结果**：功能代码已完成，测试因环境受限未能运行；相关失败记录已写入 `.codex/testing.md`，待具备原生 Bun CLI 后需复跑 API/MCP/Worker 用例及 `scripts/test-matrix.ts`。
+- **剩余风险**：Docker compose 与 MCP HTTP 服务尚未在真实容器内联调；测试链路受 Bun CLI 影响仍未闭环。
+---
+
+- **日期**：2025-11-16
+- **范围**：README.md → Quick Start 重组
+- **验证步骤**：
+  - 手动阅读新结构（Linux/macOS Docker vs 非 Docker、Windows Docker vs 非 Docker），确认每个子节均包含“准备/步骤/验证”三段。
+  - 交叉检查引用的脚本与章节（🛠 Local Development、🐳 Docker Deployment、✅ Smoke Test）是否仍存在，并核对命令行示例（PowerShell 代码块、curl 验证）。
+- **测试情况**：纯文档改动，未运行自动化测试；所有命令示例保持与原章节一致。
+- **剩余风险**：实际执行仍依赖 Docker/Bun/PowerShell 环境，需在具备相应平台时复核命令是否需要根据端口或凭证自定义。
+---
+
+- **日期**：2025-11-16
+- **范围**：API/MCP/Worker 运行失败修复
+- **验证步骤**：
+  - 静态检查 import 路径，确认 `apps/api/src/*` 与 `apps/mcp/src/*` 现已引用正确的 `../../../packages` 或 `../../../../packages`。
+  - 审阅 `deploy/docker/Dockerfile.{api,worker,mcp}`，确保新增的 `bun install --production` 在 `packages/core` 与 `packages/data` 下执行，可生成缺失的 node_modules。
+  - 由于本机无法安装 Linux 版 Bun 亦无法成功构建 Docker 镜像，已在 `.codex/testing.md` 记录需在具备权限的 Windows 宿主运行 `docker compose build --no-cache` + `docker compose up` 复现。 
+- **测试情况**：未运行自动化测试；需由用户在宿主环境重建镜像后验证三服务可以启动。
+- **剩余风险**：若 `bun install --production` 在 packages/* 目录失败，构建会直接报错；需确保宿主网络允许下载依赖。镜像更新后必须重新 build 才能生效。
+---
+
+- **日期**：2025-11-16
+- **范围**：README Windows 纯原生 Quick Start
+- **验证步骤**：
+  - 通读新段落，确认“前置依赖→初始化→启动→验证”顺序完整，命令与 Local Development 一致。
+  - 检查锚点引用（指向 Quick Start、Smoke Test、Local Development）是否存在。
+- **测试情况**：文档变更，无需执行自动化测试。
+- **剩余风险**：依赖安装仍需根据用户环境（MSI/ZIP）单独确认，文档提供的是最小指引。

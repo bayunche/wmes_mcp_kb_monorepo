@@ -1,0 +1,44 @@
+{
+  "question_id": "Q1",
+  "focus": "Phase 6 各子步骤（6.1-6.4）的实际完成度?",
+  "reason_for_investigation": "实施计划仍将 Phase 6 标记为未完成，但代码中似乎已经补齐部分功能，需要辨别哪些环节真有代码/证据，哪些仍是纸面计划。",
+  "evidence": [
+    {
+      "file": ".codex/implementation-plan.md",
+      "lines": "87-99",
+      "quote": "Phase 6：验收与生产落地（新增）\n- [ ] Step 6.1 …\n- [ ] Step 6.2 …\n- [ ] Step 6.3 …\n- [ ] Step 6.4 …",
+      "implication": "计划文件明确表示四个子步骤仍未勾选，当前仓库缺少正式的完成确认与验收记录。"
+    },
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "1-210",
+      "quote": "fetchSource 从 MinIO 读取 source 对象，parseDocument 允许注入 UnstructuredParser，chunkDocument/prepareAttachments 处理图片/table fragment，embedChunks 调用 VectorClient（支持远程/本地模型）并回写 attachments。",
+      "implication": "Step 6.1 的核心代码已存在，但尚无日志/文档说明这些路径在真实文件与模型上运行过。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "33-194",
+      "quote": "handleRequest 覆盖 /documents CRUD、/upload（multipart + MinIO 写入 + queue）、/search（过滤 contentTypes/attachmentTypes/hasAttachments 并补充 sourceUri）、/stats、/mcp/{search,related,preview} 代理。",
+      "implication": "Step 6.2 所列的 API/MCP 功能已经在代码层交付，并带有多租户/治理能力。"
+    },
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "13-55",
+      "quote": "test.describe… test.skip(!process.env.E2E_ENABLED, …)；测试流程直接假定 worker 已完成索引，仅校验 /documents → /search → /mcp。",
+      "implication": "Step 6.3 要求解除 skip 并提供端到端样例，目前 Playwright 用例仍默认跳过且缺少等待真实 worker 的逻辑。"
+    },
+    {
+      "file": ".codex/testing.md",
+      "lines": "19-34",
+      "quote": "test-matrix 多次记录“integration/e2e 因依赖缺失跳过”；最新 2025-11-14 再跑 `bun test apps/api/...` 仍失败（WSL 无 bun CLI）。",
+      "implication": "Step 6.4 期望的部署/监控闭环与运行日志未出现，现有测试记录止于单元级且多次失败/跳过。"
+    }
+  ],
+  "findings": [
+    "Step 6.1：代码涵盖解析→附件→嵌入→持久化全链路，但未提供任何成功运行的记录或 README/文档中的截图/指标，无法确认真实数据可通过该路径。",
+    "Step 6.2：API/MCP 相关功能已经落地并有单元测试支撑（apps/api/src/__tests__、apps/mcp/src/__tests__），说明该子项基本完成，只缺附加验收证据。",
+    "Step 6.3：端到端脚本仍 skip 且缺乏真实等待/fixture，test-matrix 也始终跳过 integration/e2e，说明此子项尚未开始。",
+    "Step 6.4：operations-log/testing/verification 没有任何成功的 docker-compose、备份/恢复、reindex 运行记录，当前只记录脚本/测试失败，部署闭环尚未建立。"
+  ],
+  "conclusion": "Phase 6 的代码交付呈现“部分实现但未验收”的状态：6.1/6.2 在代码层基本具备功能，6.3/6.4 仍空缺；缺乏可运行的证据与日志导致整阶段无法宣告完成，需以真实数据、通过的 test-matrix、部署脚本执行记录来补足。"
+}

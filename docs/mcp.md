@@ -24,3 +24,8 @@ createMcpServer() 默认依赖 @kb/data：PgChunkRepository + Qdrant 提供向�
 - MCP 与 REST 共用 tenantId 过滤逻辑；若 Agent 层还需更细粒度权限，可扩展 McpToolContext（例如 roles）。
 - 附件返回的 object key 默认为 MinIO preview bucket 下的路径，调用方在需要下载时再使用各自凭据生成签名 URL。
 - 如需禁止某些工具，可在 handleMcpRequest 外层增加白名单，或在 createMcpServer 注册前过滤。
+
+## 5. HTTP 代理与部署
+- `apps/mcp/src/main.ts` 提供轻量 HTTP 入口（默认 `POST /mcp/<tool>`），配合 `START_MCP_SERVER=true PORT_MCP=9090` 即可独立运行。
+- REST API 亦内置 `/mcp/search|related|preview` 路由，便于 Web 控制台或脚本在同一端口验证工具行为。
+- Docker Compose 使用 `deploy/docker/Dockerfile.mcp` 构建 MCP 镜像，可通过 `docker compose up kb-mcp` 拉起供 Agent 调用的服务。

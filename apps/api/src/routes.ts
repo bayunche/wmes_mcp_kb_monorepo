@@ -1,4 +1,4 @@
-import { HybridRetriever } from "../../packages/core/src/retrieval";
+import { HybridRetriever } from "../../../packages/core/src/retrieval";
 import type {
   AttachmentRepository,
   DocumentRepository,
@@ -13,6 +13,11 @@ import {
   SearchRequestSchema,
   SearchResponseSchema
 } from "@kb/shared-schemas";
+import { DbMcpRepository } from "@kb/mcp-server/src/repository/db";
+import { createSearchTool } from "@kb/mcp-server/src/tools/search";
+import { createRelatedTool } from "@kb/mcp-server/src/tools/related";
+import { createPreviewTool } from "@kb/mcp-server/src/tools/preview";
+import type { McpToolContext } from "@kb/mcp-server/src/types";
 
 export interface ApiRoutesDeps {
   documents: DocumentRepository;
@@ -116,6 +121,18 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
       results: filteredResults
     });
     return json(payload);
+  }
+
+  if (request.method === "POST" && url.pathname === "/mcp/search") {
+    return handleMcpSearch(request, deps);
+  }
+
+  if (request.method === "POST" && url.pathname === "/mcp/related") {
+    return handleMcpRelated(request, deps);
+  }
+
+  if (request.method === "POST" && url.pathname === "/mcp/preview") {
+    return handleMcpPreview(request, deps);
   }
 
   const chunkMatch = url.pathname.match(/^\/chunks\/(.+)/);
@@ -303,4 +320,41 @@ function json(payload: unknown, status = 200) {
     status,
     headers: { "content-type": "application/json" }
   });
+}
+
+async function handleMcpSearch(request: Request, deps: ApiRoutesDeps) {
+  const body = await request.json();
+  const parsed = SearchRequestSchema.parse(body);
+  const tenantId = resolveTenant(request, deps.defaultTenantId, parsed.filters?.tenantId);
+  const repo = new DbMcpRepository(deps.chunks, deps.attachments);
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const tool = createSearchTool(deps.retriever, repo);
+  const result = await tool.handle(parsed, ctx);
+  return json(result);
+}
+
+async function handleMcpRelated(request: Request, deps: ApiRoutesDeps) {
+  const payload = await request.json();
+  if (!payload.chunkId) {
+    return new Response("chunkId is required", { status: 400 });
+  }
+  const tenantId = resolveTenant(request, deps.defaultTenantId, payload.tenantId);
+  const repo = new DbMcpRepository(deps.chunks, deps.attachments);
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const tool = createRelatedTool(repo);
+  const result = await tool.handle(payload, ctx);
+  return json(result);
+}
+
+async function handleMcpPreview(request: Request, deps: ApiRoutesDeps) {
+  const payload = await request.json();
+  if (!payload.chunkId) {
+    return new Response("chunkId is required", { status: 400 });
+  }
+  const tenantId = resolveTenant(request, deps.defaultTenantId, payload.tenantId);
+  const repo = new DbMcpRepository(deps.chunks, deps.attachments);
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const tool = createPreviewTool(repo);
+  const result = await tool.handle(payload, ctx);
+  return json(result);
 }

@@ -1,63 +1,36 @@
 {
-  "timestamp": "2025-11-12T08:57:42+08:00",
-  "workspace": "d:\\mcp知识库",
-  "modules": [
-    {
-      "name": "Phase 6 总计划",
-      "path": ".codex/implementation-plan.md",
-      "description": "Step 6.2 仍为未勾选状态，要求 REST/MCP 对齐上传、过滤、治理、租户隔离与审计，后续 Step 6.3/6.4 依赖其完工。"
-    },
-    {
-      "name": "Step 6.2 设计稿",
-      "path": ".codex/phase6-step6-2-design.md",
-      "description": "细化 `/upload`、`/search`、`/documents/:id`、`/stats` 以及 MCP kb.search/related/preview 的契约、删除/重索引流程与附件字段。"
-    },
-    {
-      "name": "API Routes",
-      "path": "apps/api/src/routes.ts",
-      "description": "已提供 upload/search/delete/reindex/stats；filters 仅在 contentType/附件层面生效，tenant 仍依赖调用者显式传 filters，头部 `X-Tenant-Id` 仅在 delete/reindex 使用。"
-    },
-    {
-      "name": "MCP 工具层",
-      "path": "apps/mcp/src",
-      "description": "DbMcpRepository 拉取 chunk+attachments，并让 kb.search/related/preview 输出 `attachments + kb://chunk/* sourceUri`，尚未感知租户或治理结果。"
-    },
-    {
-      "name": "数据访问层",
-      "path": "packages/data/src",
-      "description": "PgDocumentRepository/PgAttachmentRepository/PgChunkRepository/QdrantVectorIndex 已实现 delete/count/list 与附件检索，但 chunk filters 仅处理 tenant/docId，缺少 topic/hierarchy/pagination。"
-    },
-    {
-      "name": "共享 Schema 与测试样例",
-      "path": "packages/shared-schemas/src/index.ts, apps/api/src/__tests__/api.test.ts, apps/mcp/src/__tests__/mcp.test.ts",
-      "description": "Schema 已包含 attachments/sourceUri；API/MCP 单测只覆盖 upload/search/preview happy path，缺乏删除、reindex、stats、多租户过滤与错误场景。"
-    }
-  ],
-  "current_state": "Step 6.2 的主要代码骨架已出现（API 路由、MCP 工具、数据层接口、schema 与 README 说明），但租户注入、治理端点测试、统计字段以及与 Phase 6.1 解析链路的联动仍缺乏验证记录；实现计划与日志仍显示“未开始”状态。",
+  "timestamp": "2025-11-16T23:05:40+08:00",
+  "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
+  "focus": "README 中 Windows 纯原生（无 Docker / 无 WSL）启动流程",
+  "location": {
+    "file": "README.md",
+    "sections": [
+      "🚀 Quick Start → Windows（纯原生，不依赖 WSL）",
+      "🛠 Local Development → Windows（纯原生）",
+      "🐳 Docker Deployment → Windows 注意事项"
+    ]
+  },
+  "current_state": "Quick Start 目前将 Windows 部分拆成“使用 Docker Desktop”和“本地原生（Bun + 手动依赖）”，但步骤散落：非 Docker 场景只有初始化/迁移，然后让读者跳到 Local Development；缺少完整的依赖准备、服务启动与验证路径。多处使用 PowerShell 片段但未同步提示如何检查依赖服务，文案显得凌乱。",
   "similar_assets": [
-    "README.md 第 2 章 Phase 6.2 速览（上传/治理端点与 MinIO 桶准备）",
-    "docs/mcp.md（已描述 attachments/sourceUri，但未覆盖租户隔离与治理场景）",
-    "tests/integration/api.integration.test.ts（旧版搜索示例，可作为新的治理端到端测试蓝本）"
+    "scripts/run-migrations.ts / scripts/bootstrap-storage.ts（Quick Start 引用的 PowerShell 命令）",
+    "apps/worker/src/main.ts、apps/api/src/main.ts（Local Development 中的启动命令）",
+    "docs/ingestion.md（解释依赖服务及端口要求）"
   ],
   "tech_stack": [
-    "Bun 1.x + TypeScript，Vitest/Bun test 覆盖单元与轻量集成场景。",
-    "数据层使用 Kysely 驱动 Postgres/pgvector，QdrantVectorIndex 负责向量相似度，MinIO 通过 ObjectStorage 适配器写入 raw/preview。",
-    "HybridRetriever 结合 `packages/core/src/vector.ts` 的本地/远程嵌入；@xenova/transformers 通过 MODELS_DIR 支持离线模型。",
-    "消息链路沿用 RabbitMQ QueueAdapter，`/upload`→`queue.enqueue` 驱动 Worker ingestion。"
+    "Bun 1.1.x Windows 版（PowerShell 安装命令）",
+    "Postgres/Qdrant/MinIO/Redis/RabbitMQ（可通过 MSI 或 Docker Desktop 单容器安装）",
+    "PowerShell 环境变量（$env:...）" 
   ],
   "tests": {
-    "files": [
-      "apps/api/src/__tests__/api.test.ts",
-      "apps/mcp/src/__tests__/mcp.test.ts",
-      "tests/integration/api.integration.test.ts",
-      "scripts/test-matrix.ts"
+    "references": [
+      "✅ Smoke Test（curl /documents、/search、/mcp/preview）",
+      "🛠 Local Development（Windows）步骤"
     ],
-    "notes": "API/MCP 单测仅断言 search/upload/preview happy path；integration/e2e 仍是旧示例（未包含附件、租户、治理链路），`scripts/test-matrix.ts` 在缺 Playwright/Vitest 环境下会跳过高阶用例，尚无 Phase 6.2 验收证据。"
+    "notes": "需要让 Quick Start 在非 Docker 场景中明确如何完成 Smoke Test 或至少访问 /health。"
   },
   "observation_report": [
-    "API `/search` 没有自动填充 `filters.tenantId`（也未读取 `X-Tenant-Id`），导致默认请求会跨租户返回 chunk，与 Step 6.2 租户要求冲突（apps/api/src/routes.ts）。",
-    "`/upload` 仅依赖 multipart 字段 `tenantId`，若调用方遗漏字段则强制写入默认租户，缺乏从 Header/body 统一解析与校验（apps/api/src/routes.ts）。",
-    "`/stats` 目前仅返回 documents/attachments 计数，没有 chunk 或最新 ingestion 状态，无法对照 Step 6.2 设计里的治理指标（apps/api/src/routes.ts + packages/data/src/repositories/documents.ts）。",
-    "测试层面尚未覆盖 delete/reindex/stats/租户隔离与 MCP 工具异常用例，Phase 6.2 的验证证据仍缺（apps/api/src/__tests__/api.test.ts, apps/mcp/src/__tests__/mcp.test.ts）。"
+    "Windows 非 Docker 步骤缺少“依赖是否就绪”的检查，用户需要知道如何验证 Postgres/Qdrant/MinIO/RabbitMQ/Redis 运行。",
+    "Local Development（Windows）重复 Quick Start 命令，可考虑在 Quick Start 内给出完整流程，并在 Local Development 中引用，减少跳转。",
+    "文档没有描述如何在无 Docker / WSL 环境安装依赖（提供 MSI 或 Docker Desktop 单容器思路），应加入最小建议链接或提示。"
   ]
 }

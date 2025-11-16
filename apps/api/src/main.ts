@@ -1,9 +1,9 @@
 import { startApiServer } from "./server";
-import { HybridRetriever } from "../../packages/core/src/retrieval";
-import { VectorClient } from "../../packages/core/src/vector";
-import { MetricsRegistry, startMetricsServer } from "../../packages/tooling/src/metrics";
+import { HybridRetriever } from "../../../packages/core/src/retrieval";
+import { VectorClient } from "../../../packages/core/src/vector";
+import { MetricsRegistry, startMetricsServer } from "../../../packages/tooling/src/metrics";
 import { createDataLayer } from "@kb/data";
-import { loadConfig } from "../../packages/core/src/config";
+import { loadConfig } from "../../../packages/core/src/config";
 
 async function bootstrap() {
   const config = loadConfig();

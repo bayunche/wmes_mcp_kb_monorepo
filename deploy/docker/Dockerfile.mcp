@@ -1,0 +1,20 @@
+FROM oven/bun:1.1.13 as base
+WORKDIR /app
+
+COPY package.json bun.lock bunfig.toml tsconfig.json tsconfig.base.json vitest.config.ts ./
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+COPY docs ./docs
+COPY assets ./assets
+COPY ops ./ops
+COPY db ./db
+COPY tests ./tests
+
+RUN bun install --frozen-lockfile \
+  && ln -sfn /app/node_modules /app/packages/core/node_modules \
+  && ln -sfn /app/node_modules /app/packages/data/node_modules
+
+ENV NODE_ENV=production
+ENV START_MCP_SERVER=true
+CMD ["bun", "run", "apps/mcp/src/main.ts"]

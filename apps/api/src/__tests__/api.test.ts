@@ -187,6 +187,24 @@ function makeDeps() {
     createdAt: new Date().toISOString()
   };
 
+  const neighborRecord: ChunkRecord = {
+    chunk: ChunkSchema.parse({
+      chunkId: crypto.randomUUID(),
+      docId: document.docId,
+      hierPath: ["合同", "交付"],
+      contentText: "交付条款在这里",
+      contentType: "text"
+    }),
+    document: {
+      docId: document.docId,
+      title: document.title,
+      sourceUri: document.sourceUri
+    },
+    neighbors: [],
+    topicLabels: ["交付"],
+    createdAt: new Date().toISOString()
+  };
+
   const documents = new MemoryDocumentRepository([document]);
   const attachments = new MemoryAttachmentRepository([
     AttachmentSchema.parse({
@@ -198,7 +216,7 @@ function makeDeps() {
       mimeType: "image/png"
     })
   ]);
-  const chunks = new MemoryChunkRepository([chunkRecord]);
+  const chunks = new MemoryChunkRepository([chunkRecord, neighborRecord]);
   const retriever = new HybridRetriever({
     vectorClient: new VectorClient({ fallbackDim: 4 }),
     repo: chunks
@@ -338,5 +356,53 @@ describe("API routes", () => {
     const response = await handleRequest(request, setup.deps);
     expect(response.status).toBe(403);
     expect(setup.queue.jobs).toHaveLength(0);
+  });
+
+  test("/mcp/search returns MCP enriched payload", async () => {
+    const request = new Request("http://test/mcp/search", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({ query: "付款", limit: 2 })
+    });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.results[0].attachments).toHaveLength(1);
+    expect(json.results[0].sourceUri).toMatch(/^kb:\/\/chunk/);
+  });
+
+  test("/mcp/related returns neighbors", async () => {
+    const request = new Request("http://test/mcp/related", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({ chunkId: setup.chunkRecord.chunk.chunkId, limit: 5 })
+    });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.source.attachments).toHaveLength(1);
+    expect(json.neighbors.length).toBeGreaterThan(0);
+  });
+
+  test("/mcp/preview returns chunk snapshot", async () => {
+    const request = new Request("http://test/mcp/preview", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...authHeader
+      },
+      body: JSON.stringify({ chunkId: setup.chunkRecord.chunk.chunkId })
+    });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.chunk.chunkId).toBe(setup.chunkRecord.chunk.chunkId);
+    expect(json.attachments).toHaveLength(1);
   });
 });

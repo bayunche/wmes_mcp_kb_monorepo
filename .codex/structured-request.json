@@ -1,31 +1,33 @@
 {
-  "timestamp": "2025-11-11T15:35:00+08:00",
+  "timestamp": "2025-11-16T21:08:55+08:00",
   "request": {
-    "raw": "开始推进phase6",
+    "raw": "重新组织 README 的 Quick Start，按 Linux/macOS 与 Windows、Docker 与非 Docker 区分，让用户更易按部署逻辑操作。",
     "language": "zh-CN",
-    "interpreted_goal": "依据实施计划执行 Phase 6（验收与生产落地）内的全部步骤，补齐真实解析/切块/嵌入、多模态 API/MCP 功能、端到端测试与部署验证。"
+    "interpreted_goal": "改写 README.md → 🚀 Quick Start，使其结构按平台 × 运行模式展开，描述依赖、初始化、启动与验证步骤，保持与仓库脚本/章节一致。"
   },
   "source_context": {
-    "implementation_plan": ".codex/implementation-plan.md",
-    "requirements_doc": "项目需求.md",
-    "current_phase_status": {
-      "completed": ["Phase 0", "Phase 1", "Phase 2", "Phase 3", "Phase 4", "Phase 5"],
-      "pending": ["Phase 6"]
-    }
+    "primary_doc": "README.md",
+    "supporting_refs": [
+      "scripts/deploy-local.sh",
+      "scripts/run-migrations.ts",
+      "scripts/bootstrap-storage.ts",
+      "docs/ingestion.md",
+      "docs/mcp.md"
+    ]
   },
   "constraints": [
-    "必须按实施计划顺序执行 Phase 6 的 Step 6.1-6.4，阶段内保留破坏性改动权。",
-    "复用现有 bun + TypeScript 架构与 packages/* 模块，不得引入冗余自研组件。",
-    "全流程需要更新上下文/日志/测试/审查文档，并使用本地自动化验证。"
+    "严格区分平台（Linux/macOS vs Windows）与运行模式（Docker vs 非 Docker），每条路径需说明前提、命令、验证。",
+    "优先复用现有脚本/章节，避免在 Quick Start 中复制长命令；必要时引用或链接到 Local Development / Docker Deployment / Smoke Test。",
+    "保持 README 其余章节不受影响，整体语气与中文文档风格一致，并记录所有操作到 .codex/operations-log.md。"
   ],
   "inputs_needed": [
-    "最新代码现状（apps/worker、packages/core、packages/data、apps/api、apps/mcp）",
-    "Phase 6 交付标准与验收用例（项目需求.md 第 12 章）",
-    "模型与存储配置（.env/.env.example, ops/scripts/sync-models.ts）"
+    "现有 Quick Start、Local Development、Docker Deployment、Smoke Test 章节内容",
+    "脚本与环境文件用途（deploy-local、run-migrations、bootstrap-storage、.env/.env.docker）",
+    "Windows 平台对 PowerShell/Docker Desktop 的要求与 WSL 限制"
   ],
   "deliverables": [
-    "Phase 6 代码实现（解析/切块/嵌入、API/MCP 多模态与治理能力）",
-    "端到端测试与样例数据、自动化脚本更新",
-    "部署与监控闭环的文档与运行记录"
+    "更新后的 README Quick Start 章节（含清晰子节与指南）",
+    "若有新的链接或引用，确保 README 结构一致",
+    "必要时在 `.codex/testing.md` / `verification.md` 记录验证（如无法运行脚本需注明原因）"
   ]
 }

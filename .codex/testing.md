@@ -31,3 +31,7 @@
 | 2025-11-12T09:01:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Phase 6.2 Step2：/stats 多指標用例 4/4 通过。 |
 | 2025-11-12T09:12:00+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | Phase 6.2 Step3：删除/重索引/租戶審計用例 6/6 通过。 |
 | 2025-11-12T09:20:00+08:00 | bun test | `bun test apps/mcp/src/__tests__/mcp.test.ts` | MCP 工具 search/related/preview 用例 3/3 通过。 |
+| 2025-11-14T15:55:42 | bun test | `bun test apps/api/src/__tests__/api.test.ts` | 失败：WSL 无法执行 Windows bun.exe (Permission denied)。需在具备 Linux bun CLI 的环境复跑。 |
+| 2025-11-16T21:12:45+08:00 | 说明 | N/A | 本次仅调整 README Quick Start 结构，未涉及代码；已人工复核步骤与链接准确性。 |
+| 2025-11-16T22:41:05+08:00 | 说明 | N/A | 无法在 WSL 环境安装 Bun/Docker（build 受限），未能运行 `bun run` 或 `docker compose`；需在 Windows 宿主执行 `docker compose build --no-cache kb-api kb-worker mcp-server` 后再验证启动。 |
+| 2025-11-16T23:07:40+08:00 | 说明 | N/A | 仅更新 README Windows 纯原生流程，无代码改动，未执行自动化测试；已人工校对步骤与链接。 |

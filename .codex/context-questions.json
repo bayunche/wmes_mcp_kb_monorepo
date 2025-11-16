@@ -1,26 +1,26 @@
 {
-  "timestamp": "2025-11-12T08:59:04+08:00",
+  "timestamp": "2025-11-16T23:05:55+08:00",
   "known": [
-    "Step 6.2 设计（.codex/phase6-step6-2-design.md）明确要求 REST/MCP 覆盖上传、过滤、治理、附件溯源及租户隔离，并指定 `/upload`、`/search`、`/documents/:id`、`/stats` 契约。",
-    "apps/api/src/routes.ts 已经实现 upload/search/delete/reindex/stats，并依赖 packages/data 提供的 Document/Attachment/Chunk repositories；然而 tenant 解析只在 delete/reindex 路径使用 `X-Tenant-Id`。",
-    "apps/mcp/src 工具与 packages/shared-schemas 已输出 attachments + `kb://chunk/*` 溯源，数据层（packages/data/src）内的过滤目前仅处理 tenant/docId，治理统计与测试覆盖尚未就绪。"
+    "Quick Start 已经列出 Windows Docker 与非 Docker 两部分，但非 Docker 只包含 3 个步骤（初始化 env、运行迁移、跳转至 Local Development），缺少依赖检查与验证。",
+    "Local Development（Windows）同样使用 PowerShell 命令启动 Worker/API/MCP/Web，与 Quick Start 重复却顺序不同。",
+    "用户需要“无 Docker / 无 WSL”场景下的完整流程：安装依赖 → 初始化 env → 迁移/存储 → 启动服务 → Smoke Test。"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "多租户契约应如何落地？是否需要在 REST/MCP 层统一解析 `X-Tenant-Id` 并自动注入到 Document/Chunk filters，避免默认请求跨租户返回结果？",
+      "question": "Windows 非 Docker 场景应该按照什么顺序呈现？需要涵盖哪些依赖（Postgres、Qdrant、MinIO、Redis、RabbitMQ）、脚本（run-migrations、bootstrap-storage）、服务启动命令？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "治理端点（/stats、/documents/:id DELETE、/documents/:id/reindex）需要输出/清理哪些字段？是否必须同时处理 MinIO raw/preview、attachments 表与 Qdrant 向量？",
-      "priority": "high",
-      "blocking": true
+      "question": "如何避免 Quick Start 与 Local Development 重复？是否应在 Quick Start 提供完整步骤，再在 Local Development 只复用/引用？",
+      "priority": "medium",
+      "blocking": false
     },
     {
       "id": "Q3",
-      "question": "Phase 6.2 完成的验证标准为何？需要新增哪些单元/整合/E2E 测试与 operations-log 记录，才能证明上传/检索/治理与 MCP 行为符合验收用例？",
+      "question": "需要向用户提供哪些“依赖安装”指引（例如链接到官方 MSI 或 Docker Desktop 单容器）以覆盖无 WSL/无 Docker 场景？",
       "priority": "medium",
       "blocking": false
     }

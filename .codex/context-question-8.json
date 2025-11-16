@@ -1,0 +1,31 @@
+{
+  "question_id": "Q3",
+  "focus": "Web 控制台与 MCP 体验是否覆盖真实上传/附件/Agent 流程？",
+  "reason_for_investigation": "当前 Web 仅通过 JSON /documents 接口创建占位文档，不涉及文件 Multipart 上传或 MCP 预览，可能无法用于用户验收。",
+  "evidence": [
+    {
+      "file": "apps/web/src/components/UploadForm.tsx",
+      "lines": "10-49",
+      "quote": "createDocument({ docId: crypto.randomUUID(), title, ingestStatus: 'uploaded', tenantId, tags })",
+      "implication": "这里只发送 JSON 请求，未上传文件或写入 MinIO，无法触发 Worker 真实 ingestion。"
+    },
+    {
+      "file": "apps/web/src/api.ts",
+      "lines": "9-47",
+      "quote": "createDocument 调用 POST /documents，searchDocuments 只传 query/limit",
+      "implication": "前端 API 客户端缺少 /upload、/stats、MCP 代理等方法。"
+    },
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "14-48",
+      "quote": "test.skip(!process.env.E2E_ENABLED, ...) ... request.post(`${API_BASE}/mcp/related`)",
+      "implication": "E2E 默认跳过且假设存在 /mcp/related HTTP 代理，与实际路由不符，说明 UI/Agent 场景未完成。"
+    }
+  ],
+  "findings": [
+    "Web 控制台无法上传实际文件或展示附件，仅能操作文档元数据。",
+    "没有 MCP 工具调用入口或预览 UI，用户无法在界面上验证多模态检索与附件内容。",
+    "Playwright 脚本仍停留在草稿，与真实 API 契约不匹配，无法作为 UI 验收依据。"
+  ],
+  "conclusion": "要达成“可使用”目标，需要让 Web 支持 multipart /upload、展示附件列表、触发 search/preview/related，并提供 MCP HTTP 代理或 Inspector 集成，同时更新 E2E 流程。"
+}

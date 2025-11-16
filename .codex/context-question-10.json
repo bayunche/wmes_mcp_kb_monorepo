@@ -1,0 +1,43 @@
+{
+  "question_id": "Q2",
+  "focus": "仓库是否有“已执行成功”的验证记录？",
+  "reason_for_investigation": "用户要求确认实现进度，必须知道 README/计划声称的链路是否真的跑过。",
+  "evidence": [
+    {
+      "file": ".codex/testing.md",
+      "lines": "19-34",
+      "quote": "test-matrix 多次只记录 unit passed、integration/e2e 因依赖缺失跳过；2025-11-14 最新一次 `bun test apps/api/src/__tests__/api.test.ts` 失败：WSL 无法执行 Windows bun.exe。",
+      "implication": "当前测试记录停留在单元层，integration/e2e 始终跳过且最近一次基本命令都未成功。"
+    },
+    {
+      "file": "scripts/test-matrix.ts",
+      "lines": "1-40",
+      "quote": "矩阵仅包含 unit/vitest/playwright，但 integration/e2e 被标记为 optional；若命令缺失直接标记 skipped (exit code)。",
+      "implication": "官方测试脚本允许在缺少 Vitest/Playwright 时跳过而不视为失败，因此 README 所称“test-matrix 通过”并不能证明真正跑过。"
+    },
+    {
+      "file": "tests/e2e/knowledge.e2e.ts",
+      "lines": "13-36",
+      "quote": "`test.skip(!process.env.E2E_ENABLED, …)`，并在 TODO 中说明“真实场景应等待 worker 完成索引”。",
+      "implication": "默认情况下 E2E 根本不会执行，而且就算启用也缺乏可靠等待机制，无法保证真正覆盖多模态链路。"
+    },
+    {
+      "file": "verification.md",
+      "lines": "48-52",
+      "quote": "2025-11-14：尝试执行 `bun test apps/api/...`；因 WSL 无法执行 Windows bun.exe 而失败，Docker compose 与 MCP 服务仍未联调。",
+      "implication": "最新验证报告明确指出 Bun CLI/容器尚未在真实环境中跑通。"
+    },
+    {
+      "file": ".codex/operations-log.md",
+      "lines": "499-538",
+      "quote": "最新一批操作以新增 Dockerfile/脚本为主，唯一一次 `bun test apps/api/...` 条目（行 525）注明 Permission denied；没有任何 “docker compose up/test-matrix 成功” 记录。",
+      "implication": "日志佐证仓库尚未完成计划中的“执行并验证”步骤。"
+    }
+  ],
+  "findings": [
+    "没有任何证据显示 integration 或 e2e 层级的测试实际运行成功；test-matrix 设计成 optional，更进一步掩盖了这一缺口。",
+    "最新的 bun test 命令直接失败（无 Linux bun），说明即便是单元测试也无法在当前环境复现 README 中宣称的成功状态。",
+    "operations/verification 文档没有记录 docker compose、备份/恢复 或 MCP HTTP 实测的输出，只描述失败或待办。"
+  ],
+  "conclusion": "仓库目前缺乏可验证的运行记录：除了旧的单元测试之外，所有高阶验证（integration、E2E、部署脚本）都未执行或被环境限制阻断。因此在评估实现进度时必须指出“功能代码存在但未经实测”，并将补充验证列为优先任务。"
+}

@@ -22,15 +22,24 @@ function parseOptions(): PublishOptions {
 
 const options = parseOptions();
 const services = [
-  { name: "api", path: "apps/api", image: "kb-api" },
-  { name: "worker", path: "apps/worker", image: "kb-worker" },
-  { name: "mcp", path: "apps/mcp", image: "kb-mcp" }
+  { name: "api", dockerfile: "deploy/docker/Dockerfile.api", image: "kb-api" },
+  { name: "worker", dockerfile: "deploy/docker/Dockerfile.worker", image: "kb-worker" },
+  { name: "mcp", dockerfile: "deploy/docker/Dockerfile.mcp", image: "kb-mcp" }
 ];
 
 for (const service of services) {
   const tag = `${options.registry}/${service.image}:${options.version}`;
   console.log(`\n=== Building ${service.name} image (${tag}) ===`);
-  const buildArgs = ["docker", "buildx", "build", service.path, "-t", tag];
+  const buildArgs = [
+    "docker",
+    "buildx",
+    "build",
+    ".",
+    "-f",
+    service.dockerfile,
+    "-t",
+    tag
+  ];
   if (options.push) {
     buildArgs.push("--push");
   } else {

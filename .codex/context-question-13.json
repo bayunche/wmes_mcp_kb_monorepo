@@ -1,0 +1,32 @@
+{
+  "question_id": "Q1",
+  "focus": "确认哪些文件的 `../../packages` 导入指向错误路径",
+  "reason_for_investigation": "API 容器报错说明 `../../packages` 无法定位 root，需精确列出所有受影响文件并评估统一改法。",
+  "evidence": [
+    {
+      "file": "apps/api/src/main.ts",
+      "lines": "1-10",
+      "quote": "import { HybridRetriever } from \"../../packages/core/src/retrieval\";",
+      "finding": "两层 .. 只能到 apps 目录，导致解析 /app/apps/packages/core。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "1-20",
+      "quote": "import { HybridRetriever } from \"../../packages/core/src/retrieval\";",
+      "finding": "与 main.ts 相同，需改成 ../../../ 或改用 @kb/core。"
+    },
+    {
+      "file": "apps/api/src/main.ts",
+      "lines": "2-7",
+      "quote": "import { MetricsRegistry, startMetricsServer } from \"../../packages/tooling/src/metrics\";",
+      "finding": "同样路径不足。"
+    },
+    {
+      "file": "apps/worker/src/types.ts",
+      "lines": "1-7",
+      "quote": "import { MetricsRegistry } from \"../../packages/tooling/src/metrics\";",
+      "finding": "worker/types.ts 亦使用 ../../，导致引用 apps/packages。"
+    }
+  ],
+  "conclusion": "所有位于 apps/*/src 根目录的文件都必须将 `../../packages` 改为 `../../../packages`（回退到仓库根）。更可取的方式是统一引用 workspace 包（@kb/core/@kb/tooling），但需先保证 node_modules 中存在 symlink。"
+}

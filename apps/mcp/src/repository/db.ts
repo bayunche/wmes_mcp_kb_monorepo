@@ -1,5 +1,5 @@
 import type { AttachmentRepository } from "@kb/data";
-import type { ChunkRepository, ChunkRecord } from "../../../packages/core/src/retrieval";
+import type { ChunkRepository, ChunkRecord } from "../../../../packages/core/src/retrieval";
 import type { Attachment } from "@kb/shared-schemas";
 
 export interface ChunkContext {

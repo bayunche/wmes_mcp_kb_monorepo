@@ -2,6 +2,8 @@ import { useState } from "react";
 import { UploadForm } from "./components/UploadForm";
 import { SearchPanel } from "./components/SearchPanel";
 import { MetadataEditor } from "./components/MetadataEditor";
+import { McpSearchPanel } from "./components/McpSearchPanel";
+import { MetricsPanel } from "./components/MetricsPanel";
 
 export default function App() {
   const [refreshFlag, setRefreshFlag] = useState(0);
@@ -15,6 +17,8 @@ export default function App() {
         <UploadForm onUploaded={() => setRefreshFlag((flag) => flag + 1)} />
         <SearchPanel key={refreshFlag} />
         <MetadataEditor key={`meta-${refreshFlag}`} />
+        <McpSearchPanel />
+        <MetricsPanel />
       </div>
       <footer>
         <small>

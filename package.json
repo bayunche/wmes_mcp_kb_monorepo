@@ -15,7 +15,8 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "zod": "^3.23.8",
-    "@xenova/transformers": "^2.6.1"
+    "@xenova/transformers": "^2.6.1",
+    "kysely": "^0.27.2"
   },
   "module": "index.ts",
   "private": true,

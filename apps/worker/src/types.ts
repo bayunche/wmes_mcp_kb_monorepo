@@ -1,6 +1,6 @@
 import { AppConfig } from "@kb/core/src/config";
 import { Attachment, Chunk, Document, Embedding, IngestionTask } from "@kb/shared-schemas";
-import { MetricsRegistry } from "../../packages/tooling/src/metrics";
+import { MetricsRegistry } from "../../../packages/tooling/src/metrics";
 import type { KnowledgeWriter, QueueAdapter, DocumentRepository, ObjectStorage } from "@kb/data";
 import type { ParsedElement, DocumentParser, ChunkFactory, ChunkFragment } from "../../../packages/core/src/parsing";
 import type { VectorClient } from "../../../packages/core/src/vector";

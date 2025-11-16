@@ -1,0 +1,31 @@
+{
+  "question_id": "Q1",
+  "focus": "如何在 README Quick Start 中按照“操作系统 × 运行模式”重新分组，使步骤更贴合真实部署流程？",
+  "reason_for_investigation": "用户要求 Quick Start 对 Linux/macOS 与 Windows 分别说明 Docker/非 Docker 场景。需要弄清当前文本是如何组织的、与其他章节（Local Development、Docker Deployment）的依赖关系，以便规划新的结构。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "41-84",
+      "quote": "Linux / macOS 章节先描述“非 Docker（Bun 模式）”的 4 步，再描述“Docker Compose”的 4 步，末尾还提示 `./scripts/deploy-local.sh --stack-mode docker --start-apps`。",
+      "implication": "Linux/macOS 用户若优先考虑 Docker，需要跳过前半段；命令也与“🛠 Local Development（Linux / macOS）”重复。"
+    },
+    {
+      "file": "README.md",
+      "lines": "86-108",
+      "quote": "Windows（纯原生）章节同样以“非 Docker（Bun 模式）”开头，罗列一系列 PowerShell 命令，再在底部追加 Docker Compose 步骤。",
+      "implication": "Windows Docker 与非 Docker 手册放在一起，用户需要手动筛选；Docker 场景还混有 `bun install`、`bun run scripts/run-migrations.ts` 等非容器命令。"
+    },
+    {
+      "file": "README.md",
+      "lines": "110-176",
+      "quote": "🛠 Local Development / 🐳 Docker Deployment 章节提供更长的命令清单和 Smoke Test，但 Quick Start 没有引用这些章节的编号或链接。",
+      "implication": "Quick Start 重复维护大量命令，一旦部署流程更新需要同步多处。"
+    }
+  ],
+  "findings": [
+    "当前结构按“平台 → 非 Docker → Docker”排列，导致 Docker 用户必须跳读；也没有统一列出 prerequisites（Bun、psql、Docker Desktop）。",
+    "Local Development 与 Docker Deployment 段落已经覆盖详细命令，Quick Start 更适合提供压缩版步骤 + 指向章节的链接。",
+    "Windows Docker 场景需要强调 PowerShell/CMD、Docker Desktop 以及避免 WSL 的提示，可作为独立子节。"
+  ],
+  "conclusion": "重组后应先按平台分为 Linux/macOS 与 Windows，再在每个平台内部写出“使用 Docker Compose”与“本地原生（Bun）”两个子节：每个子节包含前置条件、初始化、启动脚本/命令、Smoke Test 引导，并引用详细章节以避免重复。"
+}

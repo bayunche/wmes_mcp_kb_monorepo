@@ -13,7 +13,7 @@ const authHeaders = {
 test.describe("Knowledge base E2E", () => {
   test.skip(!process.env.E2E_ENABLED, "Enable by setting E2E_ENABLED=1 and启动 API/Worker 环境");
 
-  test("上传 + 切块 + 检索 + MCP", async ({ request }) => {
+  test("上传 + 检索 + MCP 预览", async ({ request }) => {
     const docPayload = {
       docId: crypto.randomUUID(),
       title: "E2E 合同",
@@ -46,5 +46,11 @@ test.describe("Knowledge base E2E", () => {
       data: { chunkId }
     });
     expect(relatedResp.status()).toBeLessThan(500);
+
+    const previewResp = await request.post(`${API_BASE}/mcp/preview`, {
+      headers: authHeaders,
+      data: { chunkId }
+    });
+    expect(previewResp.ok()).toBeTruthy();
   });
 });
