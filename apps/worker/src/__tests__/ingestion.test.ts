@@ -66,7 +66,8 @@ describe("Ingestion worker pipeline", () => {
       {
         jobId: crypto.randomUUID(),
         docId: crypto.randomUUID(),
-        tenantId: "tenant-test"
+        tenantId: "tenant-test",
+        libraryId: "lib-test"
       },
       deps
     );
@@ -74,5 +75,81 @@ describe("Ingestion worker pipeline", () => {
     expect(persisted).toHaveLength(1);
     expect(persisted[0].chunks).toHaveLength(2);
     expect(persisted[0].embeddings?.length).toBe(2);
+    expect(persisted[0].document.tags?.length).toBeGreaterThan(0);
+  });
+
+  test("merges remote tags when model settings are available", async () => {
+    const persisted: KnowledgeBundle[] = [];
+    const config = loadConfig({ envFile: ".env.example" });
+    const queue = new StubQueue();
+    const storage = new StubStorage();
+    const vectorClient = new VectorClient({ fallbackDim: 4 });
+    const fetchResponse = {
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({ tags: ["远程标签", "金融"] })
+          }
+        }
+      ]
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(fetchResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })) as typeof fetch;
+
+    const deps: WorkerDependencies = resolveDependencies({
+      config,
+      queue,
+      knowledgeWriter: {
+        persistBundle: async (bundle) => {
+          persisted.push(bundle);
+        }
+      },
+      storage,
+      vectorClient,
+      fetchSource: async () => ({
+        rawText: "第一段\n\n第二段",
+        metadata: { title: "合同示例" },
+        tenantId: "tenant-test",
+        libraryId: "lib-test"
+      }),
+      modelSettings: {
+        async get() {
+          return {
+            tenantId: "tenant-test",
+            libraryId: "lib-test",
+            provider: "openai",
+            baseUrl: "https://mock.example/v1",
+            modelName: "mock-model",
+            apiKey: "fake-key"
+          };
+        },
+        async upsert() {
+          throw new Error("not implemented");
+        }
+      },
+      logger: {}
+    });
+
+    try {
+      await processIngestionTask(
+        {
+          jobId: crypto.randomUUID(),
+          docId: crypto.randomUUID(),
+          tenantId: "tenant-test",
+          libraryId: "lib-test"
+        },
+        deps
+      );
+
+      expect(persisted[0].document.tags).toEqual(
+        expect.arrayContaining(["远程标签", "金融"])
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

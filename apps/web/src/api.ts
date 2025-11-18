@@ -1,17 +1,19 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8080";
 const API_TOKEN = import.meta.env.VITE_API_TOKEN ?? "dev-token";
 const PREVIEW_BASE = import.meta.env.VITE_PREVIEW_BASE ?? "";
+const DEFAULT_LIBRARY = import.meta.env.VITE_LIBRARY_ID ?? "default";
 
 const headers = {
   "content-type": "application/json",
-  Authorization: `Bearer ${API_TOKEN}`
+  Authorization: `Bearer ${API_TOKEN}`,
+  "x-library-id": DEFAULT_LIBRARY
 };
 
 export async function createDocument(payload: Record<string, unknown>) {
   const response = await fetch(`${API_BASE}/documents`, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ libraryId: DEFAULT_LIBRARY, ...payload })
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -19,20 +21,25 @@ export async function createDocument(payload: Record<string, unknown>) {
   return response.json();
 }
 
-export async function uploadDocument(input: {
-  file: File;
+export async function uploadDocuments(input: {
+  files: File[];
   title?: string;
+  titles?: string[];
   tenantId?: string;
   tags?: string[];
+  libraryId?: string;
 }) {
   const formData = new FormData();
-  formData.append("file", input.file);
+  const fieldName = input.files.length > 1 ? "files" : "file";
+  input.files.forEach((file) => formData.append(fieldName, file));
+  input.titles?.forEach((title) => formData.append("titles[]", title));
   if (input.title) formData.append("title", input.title);
   if (input.tenantId) formData.append("tenantId", input.tenantId);
+  formData.append("libraryId", input.libraryId ?? DEFAULT_LIBRARY);
   input.tags?.forEach((tag) => formData.append("tags[]", tag));
   const response = await fetch(`${API_BASE}/upload`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${API_TOKEN}` },
+    headers: { Authorization: `Bearer ${API_TOKEN}`, "x-library-id": input.libraryId ?? DEFAULT_LIBRARY },
     body: formData
   });
   if (!response.ok) {
@@ -41,9 +48,12 @@ export async function uploadDocument(input: {
   return response.json();
 }
 
-export async function listDocuments(tenantId?: string) {
-  const response = await fetch(`${API_BASE}/documents`, {
-    headers: tenantId ? { ...headers, "x-tenant-id": tenantId } : headers
+export async function listDocuments(tenantId?: string, libraryId: string = DEFAULT_LIBRARY) {
+  const url = new URL(`${API_BASE}/documents`);
+  if (tenantId) url.searchParams.set("tenantId", tenantId);
+  if (libraryId) url.searchParams.set("libraryId", libraryId);
+  const response = await fetch(url, {
+    headers: tenantId ? { ...headers, "x-tenant-id": tenantId, "x-library-id": libraryId } : { ...headers, "x-library-id": libraryId }
   });
   return response.json();
 }
@@ -60,11 +70,23 @@ export async function updateDocumentTags(docId: string, tags: string[], tenantId
   return response.json();
 }
 
-export async function searchDocuments(query: string) {
+export async function searchDocuments(
+  payload: string | { query: string; limit?: number; filters?: Record<string, unknown>; includeNeighbors?: boolean },
+  libraryId: string = DEFAULT_LIBRARY
+) {
+  const normalized =
+    typeof payload === "string"
+      ? { query: payload, limit: 5, includeNeighbors: true, filters: { libraryId } }
+      : {
+          limit: 5,
+          includeNeighbors: true,
+          ...payload,
+          filters: { libraryId, ...(payload.filters ?? {}) }
+        };
   const response = await fetch(`${API_BASE}/search`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ query, limit: 5, includeNeighbors: true })
+    body: JSON.stringify(normalized)
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -72,11 +94,11 @@ export async function searchDocuments(query: string) {
   return response.json();
 }
 
-export async function previewChunk(chunkId: string) {
+export async function previewChunk(chunkId: string, libraryId: string = DEFAULT_LIBRARY) {
   const response = await fetch(`${API_BASE}/mcp/preview`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ chunkId })
+    body: JSON.stringify({ chunkId, libraryId })
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -84,11 +106,14 @@ export async function previewChunk(chunkId: string) {
   return response.json();
 }
 
-export async function mcpSearch(payload: { query: string; limit?: number; filters?: Record<string, unknown> }) {
+export async function mcpSearch(
+  payload: { query: string; limit?: number; filters?: Record<string, unknown> },
+  libraryId: string = DEFAULT_LIBRARY
+) {
   const response = await fetch(`${API_BASE}/mcp/search`, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ ...payload, filters: { ...payload.filters, libraryId } })
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -96,13 +121,17 @@ export async function mcpSearch(payload: { query: string; limit?: number; filter
   return response.json();
 }
 
-export async function fetchStats(tenantId?: string) {
-  const response = await fetch(`${API_BASE}/stats${tenantId ? `?tenantId=${tenantId}` : ""}`, {
+export async function fetchStats(tenantId?: string, libraryId: string = DEFAULT_LIBRARY) {
+  const params = new URLSearchParams();
+  if (tenantId) params.set("tenantId", tenantId);
+  if (libraryId) params.set("libraryId", libraryId);
+  const response = await fetch(`${API_BASE}/stats${params.toString() ? `?${params.toString()}` : ""}`, {
     method: "GET",
     headers: tenantId
       ? {
           ...headers,
-          "x-tenant-id": tenantId
+          "x-tenant-id": tenantId,
+          "x-library-id": libraryId
         }
       : headers
   });
@@ -122,10 +151,10 @@ export async function deleteDocument(docId: string, tenantId?: string) {
   }
 }
 
-export async function reindexDocument(docId: string, tenantId?: string) {
+export async function reindexDocument(docId: string, tenantId?: string, libraryId: string = DEFAULT_LIBRARY) {
   const response = await fetch(`${API_BASE}/documents/${docId}/reindex`, {
     method: "POST",
-    headers: tenantId ? { ...headers, "x-tenant-id": tenantId } : headers
+    headers: tenantId ? { ...headers, "x-tenant-id": tenantId, "x-library-id": libraryId } : { ...headers, "x-library-id": libraryId }
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -133,11 +162,162 @@ export async function reindexDocument(docId: string, tenantId?: string) {
   return response.json();
 }
 
-export async function relatedChunks(chunkId: string, limit = 5) {
+export async function relatedChunks(chunkId: string, limit = 5, libraryId: string = DEFAULT_LIBRARY) {
   const response = await fetch(`${API_BASE}/mcp/related`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ chunkId, limit })
+    body: JSON.stringify({ chunkId, limit, libraryId })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchLibraryChunks(libraryId = DEFAULT_LIBRARY, options: { tenantId?: string; limit?: number; docId?: string } = {}) {
+  const url = new URL(`${API_BASE}/libraries/${libraryId}/chunks`);
+  if (options.tenantId) url.searchParams.set("tenantId", options.tenantId);
+  if (options.limit) url.searchParams.set("limit", String(options.limit));
+  if (options.docId) url.searchParams.set("docId", options.docId);
+  const response = await fetch(url, {
+    headers: options.tenantId
+      ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
+      : { ...headers, "x-library-id": libraryId }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchDocumentChunks(docId: string, options: { tenantId?: string; libraryId?: string } = {}) {
+  const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
+  const response = await fetch(`${API_BASE}/documents/${docId}/chunks`, {
+    headers: options.tenantId
+      ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
+      : { ...headers, "x-library-id": libraryId }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchDocumentStructure(docId: string, options: { tenantId?: string; libraryId?: string } = {}) {
+  const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
+  const response = await fetch(`${API_BASE}/documents/${docId}/structure`, {
+    headers: options.tenantId
+      ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
+      : { ...headers, "x-library-id": libraryId }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchVectorLogs(params: {
+  tenantId?: string;
+  libraryId?: string;
+  docId?: string;
+  chunkId?: string;
+  limit?: number;
+}) {
+  const url = new URL(`${API_BASE}/vector-logs`);
+  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
+  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
+  if (params.docId) url.searchParams.set("docId", params.docId);
+  if (params.chunkId) url.searchParams.set("chunkId", params.chunkId);
+  if (params.limit) url.searchParams.set("limit", String(params.limit));
+  const response = await fetch(url, {
+    headers: params.tenantId
+      ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+      : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function updateChunkTags(chunkId: string, tags: string[], options: { tenantId?: string; libraryId?: string } = {}) {
+  const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
+  const response = await fetch(`${API_BASE}/chunks/${chunkId}`, {
+    method: "PATCH",
+    headers: options.tenantId
+      ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
+      : { ...headers, "x-library-id": libraryId },
+    body: JSON.stringify({ topicLabels: tags })
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchModelSettings(params: { tenantId?: string; libraryId?: string; modelRole?: string } = {}) {
+  const url = new URL(`${API_BASE}/model-settings`);
+  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
+  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
+  if (params.modelRole) url.searchParams.set("modelRole", params.modelRole);
+  const response = await fetch(url, {
+    headers: params.tenantId
+      ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+      : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function saveModelSettings(payload: {
+  tenantId?: string;
+  libraryId?: string;
+  provider: "openai" | "ollama";
+  baseUrl: string;
+  modelName: string;
+  modelRole?: "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure";
+  displayName?: string;
+  apiKey?: string;
+  options?: Record<string, unknown>;
+}) {
+  const requestHeaders: Record<string, string> = {
+    ...headers,
+    "x-library-id": payload.libraryId ?? DEFAULT_LIBRARY
+  };
+  if (payload.tenantId) {
+    requestHeaders["x-tenant-id"] = payload.tenantId;
+  }
+  const response = await fetch(`${API_BASE}/model-settings`, {
+    method: "PUT",
+    headers: requestHeaders,
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchModelSettingsList(params: { tenantId?: string; libraryId?: string } = {}) {
+  const url = new URL(`${API_BASE}/model-settings/list`);
+  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
+  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
+  const response = await fetch(url, {
+    headers: params.tenantId
+      ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+      : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchModelCatalog() {
+  const response = await fetch(`${API_BASE}/model-settings/catalog`, {
+    headers
   });
   if (!response.ok) {
     throw new Error(await response.text());

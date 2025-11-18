@@ -17,10 +17,14 @@ type CollectionConfig = {
   distance: "Cosine" | "Euclid" | "Dot";
 };
 
-const collections: CollectionConfig[] = [
-  { name: "knowledge_text", dim: 1024, distance: "Cosine" },
-  { name: "knowledge_image", dim: 768, distance: "Cosine" }
-];
+const defaultCollections = (cfg: ReturnType<typeof loadConfig>): CollectionConfig[] => {
+  const textDim = cfg.PGVECTOR_DIM;
+  const imageDim = cfg.VECTOR_FALLBACK_DIM ?? cfg.PGVECTOR_DIM;
+  return [
+    { name: "knowledge_text", dim: textDim, distance: "Cosine" },
+    { name: "knowledge_image", dim: imageDim, distance: "Cosine" }
+  ];
+};
 
 const region = "us-east-1";
 
@@ -133,6 +137,8 @@ async function main() {
   const cfg = loadConfig({ envFile: process.env.ENV_FILE ?? ".env" });
   const minioEndpoint = new URL(cfg.MINIO_ENDPOINT);
   const qdrantEndpoint = new URL(cfg.QDRANT_URL);
+
+  const collections = defaultCollections(cfg);
 
   for (const bucket of buckets) {
     await ensureBucket(bucket, minioEndpoint, cfg.MINIO_ACCESS_KEY, cfg.MINIO_SECRET_KEY);

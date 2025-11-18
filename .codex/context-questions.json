@@ -1,26 +1,33 @@
 {
-  "timestamp": "2025-11-16T23:05:55+08:00",
+  "timestamp": "2025-11-18T21:07:12+08:00",
   "known": [
-    "Quick Start 已经列出 Windows Docker 与非 Docker 两部分，但非 Docker 只包含 3 个步骤（初始化 env、运行迁移、跳转至 Local Development），缺少依赖检查与验证。",
-    "Local Development（Windows）同样使用 PowerShell 命令启动 Worker/API/MCP/Web，与 Quick Start 重复却顺序不同。",
-    "用户需要“无 Docker / 无 WSL”场景下的完整流程：安装依赖 → 初始化 env → 迁移/存储 → 启动服务 → Smoke Test。"
+    "README.md 已定义 API、Worker、MCP、Web 以及 packages/* 的职责划分，核心 runtime 为 Bun + TypeScript，数据面包括 Postgres/pgvector/Qdrant/MinIO/RabbitMQ。",
+    "apps/api/src/main.ts 与 routes.ts 构成上传、队列入栈、检索、治理及 /mcp/* 代理的实现入口，startApiServer 负责 CORS/Auth/Metrics。",
+    "apps/worker/src/worker.ts + pipeline.ts 实现 fetch → parse → chunk → metadata → embed → persist 的 ingestion 流程，并依赖 packages/core 中的 parser、OCR、vector client、semantic metadata 等模块。",
+    "apps/mcp/src/server.ts 和 tools/{search,related,preview}.ts 暴露 kb.* 工具，复用数据库与 HybridRetriever；packages/data 将各 storage/repo/queue 抽象。"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "Windows 非 Docker 场景应该按照什么顺序呈现？需要涵盖哪些依赖（Postgres、Qdrant、MinIO、Redis、RabbitMQ）、脚本（run-migrations、bootstrap-storage）、服务启动命令？",
+      "question": "最终功能拆解文档需要覆盖哪些一级业务功能？是否以\"上传/治理/检索/MCP/运维脚本\"为纲，还是按 API/Worker/MCP/Packages 模块划分？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "如何避免 Quick Start 与 Local Development 重复？是否应在 Quick Start 提供完整步骤，再在 Local Development 只复用/引用？",
-      "priority": "medium",
-      "blocking": false
+      "question": "每个功能对应的核心 TypeScript 文件与关键函数有哪些？需要逐个定位 apps/api、apps/worker、apps/mcp、packages/core/data 的实现以便文档引用。",
+      "priority": "high",
+      "blocking": true
     },
     {
       "id": "Q3",
-      "question": "需要向用户提供哪些“依赖安装”指引（例如链接到官方 MSI 或 Docker Desktop 单容器）以覆盖无 WSL/无 Docker 场景？",
+      "question": "数据在\"上传→对象存储→队列→worker→向量/数据库→检索/MCP\"过程中，哪些模块负责转换/过滤/打标签？需要确认 pipeline.ts、retrieval.ts、routes.ts、mcp 工具之间的调用链并描述。",
+      "priority": "high",
+      "blocking": true
+    },
+    {
+      "id": "Q4",
+      "question": "文档是否需要包含 Web 控制台或脚本（ops/scripts、scripts/）的功能点，还是聚焦后端？若需涵盖，需要找到对应 TS 实现。",
       "priority": "medium",
       "blocking": false
     }

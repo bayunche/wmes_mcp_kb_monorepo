@@ -1,0 +1,32 @@
+{
+  "question_id": "Q3",
+  "focus": "向量化日志记录与追踪需要怎样的结构？",
+  "reason_for_investigation": "用户要求“向量化也要记录 log”，但当前系统仅有总 pipeline 计时，没有任何 per-chunk 模型日志或持久化。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "30-88",
+      "quote": "processIngestionTask 只在成功后调用 measureLatency('kb_ingestion_pipeline_seconds')，没有记录 embedChunks 的模型名/耗时/输入长度，也没有错误日志结构。",
+      "implication": "无法审计每个 chunk 的向量化过程，更无法追踪失败重试。"
+    },
+    {
+      "file": "packages/core/src/vector.ts",
+      "lines": "1-210",
+      "quote": "VectorClient.embedText/embedImage 只在 logger.debug? 调用 remote endpoint；logger 默认 console，不会把输入/输出信息写入数据层。",
+      "implication": "即使启用本地模型，也没有统一的日志钩子提供给 Worker。"
+    },
+    {
+      "file": "db/migrations/0001_init.sql",
+      "lines": "1-140",
+      "quote": "数据库只建 documents/chunks/embeddings/attachments/ingestion_jobs 等表，没有 vector_logs 或 embedding_audit。",
+      "implication": "后端缺少持久化表来查询向量化记录，UI/API 也无法提供日志列表。"
+    }
+  ],
+  "findings": [
+    "需要定义 VectorLog 实体（chunkId/docId/modelName/modality/inputLength/vectorDim/cost/tokenUsage/status/timestamps），并在 knowledgeWriter 或独立 repository 中写入。",
+    "Worker embedChunks 阶段要收集上下文（本地或远程模型）并将日志写入数据库+metrics，失败时也要回写 error。",
+    "API 需新增 /vector-logs 或附加到 /documents/:id/chunks 响应，供 UI 回显。"
+  ],
+  "conclusion": "必须扩展数据层迁移和 worker instrumentation 来捕获向量化日志，同时提供 API/UI 查询能力。",
+  "cost_alert": "第 3 次深挖，需评估后续信息收集成本，避免过度挖掘。"
+}

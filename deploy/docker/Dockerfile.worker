@@ -1,4 +1,5 @@
-FROM oven/bun:1.1.13 as base
+FROM oven/bun:canary AS base
+
 WORKDIR /app
 
 COPY package.json bun.lock bunfig.toml tsconfig.json tsconfig.base.json vitest.config.ts ./
@@ -11,11 +12,19 @@ COPY ops ./ops
 COPY db ./db
 COPY tests ./tests
 
-# 只在 data 包里装一次（不再 ln）
-WORKDIR /app/packages/data
-RUN bun install --frozen-lockfile
+# ⭐ 关键：先清掉可能脏的缓存和 node_modules，再重新安装
+RUN rm -rf /root/.bun \
+  && rm -rf node_modules \
+  && bun install
 
+# ⭐ 再针对 data 包单独装一遍（让它自己的 node_modules 完整）
+WORKDIR /app/packages/data
+RUN rm -rf node_modules \
+  && bun install
+
+# 回到根目录，启动 worker
 WORKDIR /app
 ENV NODE_ENV=production
 ENV START_WORKER=true
+
 CMD ["bun", "run", "apps/worker/src/main.ts"]

@@ -37,6 +37,11 @@ const envSchema = z.object({
     .transform((value) => (typeof value === "boolean" ? value : value === "true"))
     .default(true),
   OCR_LANG: z.string().default("chi_sim"),
+  OCR_MODE: z.enum(["auto", "local", "http"]).default("auto"),
+  OCR_LOCAL_COMMAND: optionalString,
+  OCR_API_URL: optionalUrl,
+  OCR_API_KEY: optionalString,
+  RAW_OBJECT_MAX_MEMORY_MB: z.coerce.number().int().positive().default(128),
   UNSTRUCTURED_API_URL: optionalUrl,
   UNSTRUCTURED_API_KEY: optionalString,
   TEXT_EMBEDDING_ENDPOINT: optionalUrl,
@@ -50,10 +55,13 @@ const envSchema = z.object({
   LOCAL_TEXT_MODEL_ID: optionalString,
   LOCAL_IMAGE_MODEL_ID: optionalString,
   VECTOR_FALLBACK_DIM: z.coerce.number().int().positive().default(512),
+  CHUNK_MAX_CHARS: z.coerce.number().int().positive().default(900),
+  CHUNK_OVERLAP_CHARS: z.coerce.number().int().nonnegative().default(120),
   JWT_ISSUER: z.string(),
   JWT_AUDIENCE: z.string(),
   JWT_PUBLIC_KEY: z.string(),
-  DEFAULT_TENANT_ID: z.string().default("default")
+  DEFAULT_TENANT_ID: z.string().default("default"),
+  DEFAULT_LIBRARY_ID: z.string().default("default")
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

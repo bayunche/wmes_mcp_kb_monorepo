@@ -5,12 +5,13 @@ export function McpSearchPanel() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [libraryId, setLibraryId] = useState("default");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setStatus("MCP 搜索中…");
     try {
-      const response = await mcpSearch({ query, limit: 5 });
+      const response = await mcpSearch({ query, limit: 5 }, libraryId || "default");
       setResults(response.results ?? []);
       setStatus(`MCP 命中 ${response.total ?? response.results?.length ?? 0} 条`);
     } catch (error) {
@@ -20,34 +21,38 @@ export function McpSearchPanel() {
 
   return (
     <section className="card">
-      <h2>MCP Search</h2>
-      <form onSubmit={handleSubmit}>
+      <header className="card-header">
+        <div>
+          <p className="eyebrow">工具链</p>
+          <h2>MCP Search</h2>
+        </div>
+        {status && <span className="status-pill">{status}</span>}
+      </header>
+      <form onSubmit={handleSubmit} className="stacked-form">
         <label>
           关键词
-          <input value={query} onChange={(e) => setQuery(e.target.value)} required />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="例如：审批" />
         </label>
-        <button type="submit">执行</button>
-        {status && <p>{status}</p>}
+        <label>
+          Library ID
+          <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} placeholder="default" />
+        </label>
+        <div className="button-row">
+          <button type="submit">执行</button>
+        </div>
       </form>
-      <ul>
+      <div className="result-list compact">
         {results.map((item) => (
-          <li key={item.chunk.chunkId}>
-            <strong>{item.chunk.hierPath?.join(" / ")}</strong>
+          <article key={item.chunk.chunkId} className="result-card compact">
+            <header>
+              <strong>{item.chunk.hierPath?.join(" / ") || item.chunk.chunkId}</strong>
+              <span className="badge subtle">score {item.score?.toFixed?.(3) ?? item.score}</span>
+            </header>
             <p>{item.chunk.contentText}</p>
-            <small>score: {item.score}</small>
-            {item.attachments?.length ? (
-              <details>
-                <summary>附件 {item.attachments.length}</summary>
-                <ul>
-                  {item.attachments.map((att: any) => (
-                    <li key={att.assetId}>{att.assetType} · {att.objectKey}</li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </li>
+          </article>
         ))}
-      </ul>
+        {results.length === 0 && <p className="placeholder">MCP 结果将展示在此。</p>}
+      </div>
     </section>
   );
 }

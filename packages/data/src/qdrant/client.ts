@@ -26,7 +26,8 @@ export class QdrantVectorIndex implements VectorIndex {
       body: JSON.stringify(body)
     }).then(async (res) => {
       if (!res.ok) {
-        throw new Error(`Qdrant upsert failed (${res.status})`);
+        const details = await res.text().catch(() => "");
+        throw new Error(`Qdrant upsert failed (${res.status}): ${details}`);
       }
     });
   }
@@ -44,7 +45,8 @@ export class QdrantVectorIndex implements VectorIndex {
       body: JSON.stringify(body)
     });
     if (!response.ok) {
-      throw new Error(`Qdrant search failed (${response.status})`);
+      const details = await response.text().catch(() => "");
+      throw new Error(`Qdrant search failed (${response.status}): ${details}`);
     }
     const data = (await response.json()) as {
       result?: Array<{ id: string | { uuid: string }; score: number }>;
@@ -70,7 +72,8 @@ export class QdrantVectorIndex implements VectorIndex {
       }
     );
     if (!response.ok) {
-      throw new Error(`Qdrant delete failed (${response.status})`);
+      const details = await response.text().catch(() => "");
+      throw new Error(`Qdrant delete failed (${response.status}): ${details}`);
     }
   }
 

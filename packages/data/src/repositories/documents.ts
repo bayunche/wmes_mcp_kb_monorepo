@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import type { Kysely } from "kysely";
-import type { Document } from "@kb/shared-schemas";
-import { DocumentSchema } from "@kb/shared-schemas";
+import type { Document, DocumentSection } from "@kb/shared-schemas";
+import { DocumentSchema, DocumentSectionSchema } from "@kb/shared-schemas";
 import type { Database, DocumentsTable } from "../db/schema";
 import type { DocumentRepository, DocumentStats } from "../types";
 
@@ -13,9 +13,13 @@ function mapRow(row: DocumentsTable): Document {
     mimeType: row.mime_type ?? undefined,
     language: row.language ?? undefined,
     checksum: row.checksum ?? undefined,
-    sizeBytes: row.size_bytes ?? undefined,
+    sizeBytes:
+      row.size_bytes === null || row.size_bytes === undefined
+        ? undefined
+        : Number(row.size_bytes),
     ingestStatus: row.ingest_status as Document["ingestStatus"],
     tenantId: row.tenant_id,
+    libraryId: row.library_id,
     tags: row.tags ?? undefined,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
@@ -37,6 +41,7 @@ export class PgDocumentRepository implements DocumentRepository {
       size_bytes: document.sizeBytes ?? null,
       ingest_status: document.ingestStatus,
       tenant_id: document.tenantId ?? "default",
+      library_id: document.libraryId ?? "default",
       tags: document.tags ?? null,
       updated_at: now,
       created_at: document.createdAt ? new Date(document.createdAt) : now
@@ -55,6 +60,7 @@ export class PgDocumentRepository implements DocumentRepository {
           size_bytes: payload.size_bytes,
           ingest_status: payload.ingest_status,
           tenant_id: payload.tenant_id,
+          library_id: payload.library_id,
           tags: payload.tags,
           updated_at: payload.updated_at
         })
@@ -73,9 +79,15 @@ export class PgDocumentRepository implements DocumentRepository {
     return mapRow(row);
   }
 
-  async list(tenantId?: string): Promise<Document[]> {
-    const query = this.db.selectFrom("documents").selectAll().orderBy("updated_at", "desc");
-    const rows = tenantId ? await query.where("tenant_id", "=", tenantId).execute() : await query.execute();
+  async list(tenantId?: string, libraryId?: string): Promise<Document[]> {
+    let query = this.db.selectFrom("documents").selectAll().orderBy("updated_at", "desc");
+    if (tenantId) {
+      query = query.where("tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("library_id", "=", libraryId);
+    }
+    const rows = await query.execute();
     return rows.map(mapRow);
   }
 
@@ -96,61 +108,112 @@ export class PgDocumentRepository implements DocumentRepository {
     return this.get(docId);
   }
 
+  async updateStatus(docId: string, status: Document["ingestStatus"]): Promise<void> {
+    await this.db
+      .updateTable("documents")
+      .set({
+        ingest_status: status,
+        updated_at: sql`NOW()`
+      })
+      .where("doc_id", "=", docId)
+      .execute();
+  }
+
   async delete(docId: string): Promise<void> {
     await this.db.deleteFrom("documents").where("doc_id", "=", docId).execute();
   }
 
-  async count(tenantId?: string): Promise<number> {
-    const query = this.db.selectFrom("documents").select(({ fn }) => fn.countAll().as("count"));
-    const row = tenantId
-      ? await query.where("tenant_id", "=", tenantId).executeTakeFirst()
-      : await query.executeTakeFirst();
+  async count(tenantId?: string, libraryId?: string): Promise<number> {
+    let query = this.db.selectFrom("documents").select(({ fn }) => fn.countAll().as("count"));
+    if (tenantId) {
+      query = query.where("tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("library_id", "=", libraryId);
+    }
+    const row = await query.executeTakeFirst();
     return Number(row?.count ?? 0);
   }
 
-  async stats(tenantId?: string): Promise<DocumentStats> {
+  async stats(tenantId?: string, libraryId?: string): Promise<DocumentStats> {
     const [documents, attachments, chunks, pendingJobs] = await Promise.all([
-      this.count(tenantId),
-      this.countAttachments(tenantId),
-      this.countChunks(tenantId),
-      this.countPendingJobs(tenantId)
+      this.count(tenantId, libraryId),
+      this.countAttachments(tenantId, libraryId),
+      this.countChunks(tenantId, libraryId),
+      this.countPendingJobs(tenantId, libraryId)
     ]);
     return { documents, attachments, chunks, pendingJobs };
   }
 
-  private async countAttachments(tenantId?: string): Promise<number> {
+  private async countAttachments(tenantId?: string, libraryId?: string): Promise<number> {
     let query = this.db.selectFrom("attachments").select(({ fn }) => fn.countAll().as("count"));
+    if (tenantId || libraryId) {
+      query = query.innerJoin("documents", "documents.doc_id", "attachments.doc_id");
+    }
     if (tenantId) {
-      query = query
-        .innerJoin("documents", "documents.doc_id", "attachments.doc_id")
-        .where("documents.tenant_id", "=", tenantId);
+      query = query.where("documents.tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("documents.library_id", "=", libraryId);
     }
     const row = await query.executeTakeFirst();
     return Number(row?.count ?? 0);
   }
 
-  private async countChunks(tenantId?: string): Promise<number> {
+  private async countChunks(tenantId?: string, libraryId?: string): Promise<number> {
     let query = this.db.selectFrom("chunks").select(({ fn }) => fn.countAll().as("count"));
+    if (tenantId || libraryId) {
+      query = query.innerJoin("documents", "documents.doc_id", "chunks.doc_id");
+    }
     if (tenantId) {
-      query = query
-        .innerJoin("documents", "documents.doc_id", "chunks.doc_id")
-        .where("documents.tenant_id", "=", tenantId);
+      query = query.where("documents.tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("documents.library_id", "=", libraryId);
     }
     const row = await query.executeTakeFirst();
     return Number(row?.count ?? 0);
   }
 
-  private async countPendingJobs(tenantId?: string): Promise<number> {
+  private async countPendingJobs(tenantId?: string, libraryId?: string): Promise<number> {
     let query = this.db
       .selectFrom("ingestion_jobs")
       .select(({ fn }) => fn.countAll().as("count"))
       .where("status", "in", ["pending", "running"]);
+    if (tenantId || libraryId) {
+      query = query.innerJoin("documents", "documents.doc_id", "ingestion_jobs.doc_id");
+    }
     if (tenantId) {
-      query = query
-        .innerJoin("documents", "documents.doc_id", "ingestion_jobs.doc_id")
-        .where("documents.tenant_id", "=", tenantId);
+      query = query.where("documents.tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("documents.library_id", "=", libraryId);
     }
     const row = await query.executeTakeFirst();
     return Number(row?.count ?? 0);
+  }
+
+  async listSections(docId: string): Promise<DocumentSection[]> {
+    const rows = await this.db
+      .selectFrom("document_sections")
+      .selectAll()
+      .where("doc_id", "=", docId)
+      .orderBy("order_index", "asc")
+      .execute();
+    return rows.map((row) =>
+      DocumentSectionSchema.parse({
+        sectionId: row.section_id,
+        docId: row.doc_id,
+        parentSectionId: row.parent_section_id ?? undefined,
+        title: row.title,
+        summary: row.summary ?? undefined,
+        level: row.level,
+        path: row.path ?? [],
+        order: row.order_index,
+        tags: row.tags ?? undefined,
+        keywords: row.keywords ?? undefined,
+        createdAt: row.created_at.toISOString()
+      })
+    );
   }
 }

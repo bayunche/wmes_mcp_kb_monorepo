@@ -1,4 +1,4 @@
-FROM oven/bun:1.1.13 as base
+FROM oven/bun:canary AS base
 WORKDIR /app
 
 COPY package.json bun.lock bunfig.toml tsconfig.json tsconfig.base.json vitest.config.ts ./
@@ -11,9 +11,7 @@ COPY ops ./ops
 COPY db ./db
 COPY tests ./tests
 
-RUN bun install --frozen-lockfile \
-  && ln -sfn /app/node_modules /app/packages/core/node_modules \
-  && ln -sfn /app/node_modules /app/packages/data/node_modules
+RUN bun install 
 
 ENV NODE_ENV=production
 ENV START_API_SERVER=true

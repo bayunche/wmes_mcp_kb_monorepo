@@ -7,6 +7,8 @@ import { QdrantVectorIndex } from "./qdrant/client";
 import { RabbitQueueAdapter } from "./queue/rabbitmq";
 import { MinioStorageClient } from "./storage/minio";
 import { PgAttachmentRepository } from "./repositories/attachments";
+import { PgModelSettingsRepository } from "./repositories/modelSettings";
+import { PgVectorLogRepository } from "./repositories/vectorLogs";
 import type { DataLayer } from "./types";
 
 export interface DataLayerOptions {
@@ -34,6 +36,8 @@ export function createDataLayer(config: AppConfig, options: DataLayerOptions = {
     }
   );
   const attachments = new PgAttachmentRepository(db);
+  const modelSettings = new PgModelSettingsRepository(db);
+  const vectorLogs = new PgVectorLogRepository(db);
 
   return {
     documents,
@@ -42,6 +46,8 @@ export function createDataLayer(config: AppConfig, options: DataLayerOptions = {
     queue,
     vectorIndex,
     attachments,
+    modelSettings,
+    vectorLogs,
     storage,
     async close() {
       await destroy();

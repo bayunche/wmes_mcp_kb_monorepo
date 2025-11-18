@@ -3,6 +3,7 @@ import { SearchRequest, SearchResponse, Chunk, Attachment } from "@kb/shared-sch
 export interface McpToolContext {
   requestId: string;
   tenantId: string;
+  libraryId: string;
 }
 
 export interface McpToolHandler<Request, Response> {

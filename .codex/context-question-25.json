@@ -1,0 +1,38 @@
+{
+  "question_id": "Q4",
+  "focus": "是否提供模型列表 API 以支持可视化切换？",
+  "reason_for_investigation": "需求要求“模型列表通过 API 接口获取、带回显可手动切换配置和模型”。需确认后端是否提供列表接口、前端是否消费。",
+  "evidence": [
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "468-508",
+      "quote": "handleGetModelSettings 只返回单条 { setting }，参数仅支持 tenantId/libraryId/modelRole，handleSaveModelSettings 亦是单条 upsert；没有 /model-settings/list 或 provider 模型枚举。",
+      "implication": "API 无法列出所有模型配置，更不支持“模型列表”响应。"
+    },
+    {
+      "file": "packages/data/src/repositories/modelSettings.ts",
+      "lines": "1-60",
+      "quote": "仓储虽然实现了 list(tenantId, libraryId)，但 APP 层未调用，所有入口都只调用 get/upsert。",
+      "implication": "即使数据库支持多条，API/UI 也无法访问列表。"
+    },
+    {
+      "file": "apps/web/src/pages/ModelSettingsPage.tsx",
+      "lines": "1-165",
+      "quote": "ModelSettingsPage 在 useEffect 中调用 fetchModelSettings({ tenantId, libraryId, modelRole }) 取得单条 setting，并通过下拉选择 modelRole 再次 fetch；没有模型列表或切换面板，provider/modelName 需手动输入。",
+      "implication": "前端体验与 maxkb 的模型列表/切换不同，无法展示“API 返回的模型列表”。"
+    },
+    {
+      "file": "apps/web/src/api.ts",
+      "lines": "245-309",
+      "quote": "fetchModelSettings/fetchVectorLogs 等 API 仅操作单条配置；代码库没有 fetchModelCatalog 或模型枚举接口。",
+      "implication": "缺少“模型列表通过 API 获取”的基础能力。"
+    }
+  ],
+  "findings": [
+    "后端只实现 GET/PUT 单条模型配置，没有列表或可用模型查询 API，更谈不上调用外部 provider 获取模型集合。",
+    "数据仓储的 list 方法未被 API 暴露，说明“模型列表”需求未实现。",
+    "前端表单要求用户手动输入 provider/baseUrl/modelName，并通过角色切换重新加载单条 setting，与“通过 API 获取列表并切换”要求不符。"
+  ],
+  "conclusion": "项目缺少模型列表/切换 API 及 UI 支撑，不满足“模型列表通过 API 接口获取并可手动切换”的要求。",
+  "cost_alert": "第 4 次深挖：建议停止继续收集上下文，避免过度信息堆积。"
+}

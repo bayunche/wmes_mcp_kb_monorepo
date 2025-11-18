@@ -78,3 +78,61 @@
   - 检查锚点引用（指向 Quick Start、Smoke Test、Local Development）是否存在。
 - **测试情况**：文档变更，无需执行自动化测试。
 - **剩余风险**：依赖安装仍需根据用户环境（MSI/ZIP）单独确认，文档提供的是最小指引。
+---
+
+- **日期**：2025-11-17
+- **范围**：CORS & Web 控制台样式
+- **验证步骤**：
+  - 静态审查 `apps/api/src/server.ts`，确认新增 `OPTIONS` 处理与 `CORS_ALLOWED_ORIGINS` 配置逻辑；未经授权与异常响应同样附带 CORS 头。
+  - 通读 web 端组件与 `styles.css`，确保布局/状态/按钮与文档描述一致。
+- **测试情况**：本地环境无法运行 Bun/Vite（参见 `.codex/testing.md`），需在宿主机器实际运行 `bun dev` + 浏览器访问 http://localhost:5173 验证跨域/样式。
+- **剩余风险**：若生产环境需要允许更多域名，需在部署时配置 `CORS_ALLOWED_ORIGINS`；前端外观依赖于最新 CSS，浏览器缓存需刷新。
+
+---
+
+- **日期**：2025-11-17
+- **范围**：语义知识库重构规划 + 数据层扩展（语义元数据列、vector_logs、模型配置多角色）
+- **验证步骤**：
+  - 审阅 `docs/refactor/semantic-kb-plan.md`，确认 doc/pdf→OCR→语义标签→向量日志 全流程及 TODO/验收契约已成文。
+  - 静态检查 `db/migrations/0004_semantic_pipeline.sql` 与 `packages/data/src/db/schema.ts`，确保新增列/表与 ModelRole 列在仓储（knowledge/chunks/modelSettings）中均有映射，并更新了 API/前端 UI。
+  - 尝试执行 `bun test` 以回归 shared-schemas/API/worker 单测，但因当前 WSL 环境仍无法执行 `bun.exe`（Permission denied）导致失败，已在 `.codex/testing.md` 记录。需在具备 Bun CLI 的宿主环境复跑 `bun test` 与相关脚本。
+- **剩余风险**：
+  - 向量日志/语义元数据尚未接入 worker pipeline（待后续步骤），当前改动仅完成 schema 与配置层铺垫。
+  - Bun 测试无法在本地环境执行，需待宿主机复测以验证 API/memory 仓储调整未引入回归。
+  - Web 模型配置 UI 仅静态验证 JSX 结构，需运行 `bun run web` 实测角色切换/回显。 
+
+---
+
+- **日期**：2025-11-17
+- **范围**：Worker OCR/语义元数据/向量日志改造 & `/vector-logs`/语义筛选 API
+- **验证步骤**：
+  - 静态审查 `apps/worker/src/pipeline.ts`，确认 `parseDocument` 在 parser 失败后会调用 OCR Adapter、`extractMetadata` 通过 metadata 模型生成上下文摘要，并在 `embedChunks` 里记录 vector log。
+  - 手动请求构造：检查 `apps/api/src/routes.ts` 新增的 `/vector-logs`、语义过滤逻辑以及对应测试 `apps/api/src/__tests__/api.test.ts`。
+  - 尝试在当前环境运行 `bun test` 验证 API/worker 用例，但同样因为 WSL 无法执行 Windows 版 bun.exe（Permission denied）而失败，已记录在 `.codex/testing.md`。需在宿主机复跑全量 Vitest。 
+- **剩余风险**：
+  - OCR Adapter 依赖外部 HTTP 服务，尚未在实际模型上联调；需要提供可访问的 OCR API 或在本地实现服务端。
+  - 语义元数据/向量日志目前仅有单元测试覆盖，缺少端到端验证；待 Bun CLI 可用后需运行 `bun test` + `scripts/test-matrix.ts`。
+  - Web 端尚未消费 `/vector-logs` 与语义筛选参数，需后续步骤补齐 UI。 
+- **日期**：2025-11-18
+- **范围**：README PaddleOCR compose 指南 + OCR 调用契约说明
+- **验证步骤**：
+  - 通读 README Quick Start 与 PaddleOCR 章节，确认均引用 `/paddle` 目录、`cd paddle && docker compose up -d --build`、`.env` 片段以及 curl 验证命令。
+  - 对照 `apps/worker/src/worker.ts` 与 `packages/core/src/ocr.ts`，确认文档描述的 `HttpOcrAdapter` 行为（multipart 字段、Authorization 头）与代码一致。
+  - 检查 `paddle/docker-compose.yml`、`paddle/Dockerfile`、`paddle/server.py`，确保 README 中的端口与返回结构与实际实现匹配。
+- **测试情况**：仅更新文档，未运行 Bun/Compose（WSL 环境仍无法执行 bun/docker，详见 `.codex/testing.md` 中的说明记录）。
+- **剩余风险**：README 中示例端口与路径假定用户保留默认 `8000`/`/ocr`；如在 compose 或反向代理中修改，需要同步更新 `.env` 的 `OCR_API_URL`。
+
+---
+
+---
+
+- **日期**：2025-11-18
+- **范围**：新增《功能拆解》文档（功能点映射 + 数据流）
+- **验证步骤**：
+  - 静态审查 `功能拆解.md`，确保所有功能描述都引用真实存在的 TS 文件路径（apps/api、apps/worker、apps/mcp、packages/core、packages/data、apps/web、scripts）。
+  - 对照源码片段与 `.codex/context-question-29/30/31.json` 中的证据，逐条核对上传→索引→检索→MCP flow 的叙述是否与代码一致。
+  - 通过 `git diff 功能拆解.md` 自查 Markdown 结构（表格/列表/章节）是否满足阅读需求并与 README/需求文档信息相符。
+- **测试情况**：变更仅限文档，未触发代码执行路径；受限于当前环境无法运行 Bun/Vite/脚本，未追加自动化测试（记录于 `.codex/testing.md`）。
+- **剩余风险**：
+  - 功能拆解文档未覆盖 future roadmap（例如 Web 新页面、AI Agent 扩展）；后续功能上线需同步更新该文档。
+  - Flow 描述依赖当前实现，如队列或存储技术栈更换（RabbitMQ/Qdrant）需要重新校准 TS 路径。

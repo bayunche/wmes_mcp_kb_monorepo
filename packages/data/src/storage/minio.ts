@@ -1,5 +1,11 @@
 import { Client } from "minio";
 import { Buffer } from "node:buffer";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promises as fs } from "node:fs";
+import { createWriteStream } from "node:fs";
+import { randomUUID } from "node:crypto";
+import type { RawObjectHandle, RawObjectOptions } from "../types";
 
 export interface MinioStorageOptions {
   rawBucket: string;
@@ -25,11 +31,38 @@ export class MinioStorageClient {
     });
   }
 
-  async getRawObject(objectKey: string): Promise<Uint8Array> {
-    return this.getObject(this.options.rawBucket, objectKey);
+  async getRawObject(objectKey: string, options?: RawObjectOptions): Promise<RawObjectHandle> {
+    const stat = await this.client
+      .statObject(this.options.rawBucket, objectKey)
+      .catch(() => undefined);
+    const contentType = stat?.metaData?.["content-type"] ?? stat?.metaData?.["Content-Type"];
+    const size = typeof stat?.size === "number" ? Number(stat?.size) : undefined;
+    const threshold = options?.maxInMemoryBytes ?? 64 * 1024 * 1024;
+
+    if (typeof size === "number" && size > threshold) {
+      return this.streamObjectToFile(this.options.rawBucket, objectKey, size, contentType);
+    }
+
+    const data = await this.getObjectBuffer(this.options.rawBucket, objectKey);
+    return {
+      type: "buffer",
+      data,
+      size: size ?? data.byteLength,
+      mimeType: contentType
+    };
   }
 
-  async putRawObject(objectKey: string, payload: Buffer | Uint8Array, contentType?: string) {
+  async putRawObject(objectKey: string, payload: Buffer | Uint8Array | string, contentType?: string) {
+    if (typeof payload === "string") {
+      await this.client.fPutObject(
+        this.options.rawBucket,
+        objectKey,
+        payload,
+        undefined,
+        { "Content-Type": contentType ?? "application/octet-stream" }
+      );
+      return objectKey;
+    }
     await this.putObject(this.options.rawBucket, objectKey, payload, contentType);
     return objectKey;
   }
@@ -64,7 +97,7 @@ export class MinioStorageClient {
     }
   }
 
-  private async getObject(bucket: string, objectKey: string): Promise<Uint8Array> {
+  private async getObjectBuffer(bucket: string, objectKey: string): Promise<Uint8Array> {
     const stream = await this.client.getObject(bucket, objectKey);
     const chunks: Buffer[] = [];
     return await new Promise<Uint8Array>((resolve, reject) => {
@@ -74,6 +107,34 @@ export class MinioStorageClient {
       stream.on("end", () => resolve(Buffer.concat(chunks)));
       stream.on("error", reject);
     });
+  }
+
+  private async streamObjectToFile(
+    bucket: string,
+    objectKey: string,
+    size: number,
+    mimeType?: string
+  ): Promise<RawObjectHandle> {
+    const dir = await fs.mkdtemp(join(tmpdir(), "kb-raw-"));
+    const filePath = join(dir, `${randomUUID()}-${objectKey.split("/").pop() ?? "object"}`);
+    const stream = await this.client.getObject(bucket, objectKey);
+    await new Promise<void>((resolve, reject) => {
+      const writable = createWriteStream(filePath);
+      stream.pipe(writable);
+      stream.on("error", reject);
+      writable.on("error", reject);
+      writable.on("finish", () => resolve());
+    });
+    const cleanup = async () => {
+      await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    };
+    return {
+      type: "file",
+      path: filePath,
+      size,
+      mimeType,
+      cleanup
+    };
   }
 
   private async putObject(

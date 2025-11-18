@@ -1,0 +1,48 @@
+[2025-11-17T12:17:48.244Z] INFO  Worker subscription ready.
+[2025-11-17T12:17:48.244Z] INFO  Worker subscription ready
+[2025-11-17T13:03:55.108Z] INFO  Worker subscription ready.
+[2025-11-17T13:03:55.109Z] INFO  Worker subscription ready
+[2025-11-17T13:04:33.399Z] INFO  Ingestion pipeline completed for 7fc9184f-ce2f-4655-88be-9ed7a9726e0e
+[2025-11-17T15:44:17.445Z] INFO  Worker subscription ready.
+[2025-11-17T15:44:17.446Z] INFO  Worker subscription ready
+[2025-11-17T15:44:29.272Z] ERROR Ingestion task failed for 7fc9184f-ce2f-4655-88be-9ed7a9726e0e: column "model_role" does not exist
+[2025-11-17T15:45:25.261Z] ERROR Failed to append vector logs: insert or update on table "vector_logs" violates foreign key constraint "vector_logs_chunk_id_fkey"
+[2025-11-17T15:45:27.563Z] INFO  Ingestion pipeline completed for 7fc9184f-ce2f-4655-88be-9ed7a9726e0e
+[2025-11-17T15:46:21.576Z] INFO  Worker subscription ready.
+[2025-11-17T15:46:21.576Z] INFO  Worker subscription ready
+[2025-11-17T15:46:40.118Z] ERROR Failed to append vector logs: insert or update on table "vector_logs" violates foreign key constraint "vector_logs_chunk_id_fkey"
+[2025-11-17T15:46:53.827Z] INFO  Ingestion pipeline completed for 2d5ce353-4106-40e8-a7c2-a5720d218373
+[2025-11-17T16:05:34.870Z] INFO  Worker subscription ready.
+[2025-11-17T16:05:34.871Z] INFO  Worker subscription ready
+[2025-11-17T16:05:43.503Z] ERROR OCR extraction failed: Command failed: paddleocr --image C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\kb-raw-CMSBFf\\537faf6f-4d35-4ef5-b795-1b9e6c4f0332-source.pdf --lang chi_sim --format json
+'paddleocr' is not recognized as an internal or external command,
+operable program or batch file.
+
+[2025-11-17T16:05:43.534Z] ERROR Ingestion task failed for 2d5ce353-4106-40e8-a7c2-a5720d218373: [
+  {
+    "validation": "uuid",
+    "code": "invalid_string",
+    "message": "Invalid uuid",
+    "path": [
+      "chunkId"
+    ]
+  }
+]
+[2025-11-18T04:21:07.488Z] INFO  Worker subscription ready.
+[2025-11-18T04:21:07.489Z] INFO  Worker subscription ready
+[2025-11-18T04:21:16.082Z] ERROR OCR extraction failed: Unable to connect. Is the computer able to access the url?
+[2025-11-18T04:21:16.112Z] ERROR Ingestion task failed for 2d5ce353-4106-40e8-a7c2-a5720d218373: [
+  {
+    "validation": "uuid",
+    "code": "invalid_string",
+    "message": "Invalid uuid",
+    "path": [
+      "chunkId"
+    ]
+  }
+]
+[2025-11-18T06:34:08.200Z] INFO  Worker subscription ready.
+[2025-11-18T06:34:08.201Z] INFO  Worker subscription ready
+[2025-11-18T06:34:14.050Z] ERROR OCR extraction failed: Unable to connect. Is the computer able to access the url?
+[2025-11-18T06:34:14.063Z] ERROR Failed to append vector logs: insert or update on table "vector_logs" violates foreign key constraint "vector_logs_chunk_id_fkey"
+[2025-11-18T06:34:16.353Z] INFO  Ingestion pipeline completed for 2d5ce353-4106-40e8-a7c2-a5720d218373

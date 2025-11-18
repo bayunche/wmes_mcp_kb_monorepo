@@ -18,7 +18,7 @@ export interface HybridRetrieverConfig {
 
 export interface ChunkRecord {
   chunk: Chunk;
-  document: Pick<Document, "docId" | "title" | "sourceUri">;
+  document: Pick<Document, "docId" | "title" | "sourceUri" | "tags" | "ingestStatus" | "libraryId" | "tenantId">;
   topicLabels?: string[];
   neighbors?: Chunk[];
   createdAt?: string;
@@ -28,6 +28,8 @@ export interface ChunkRepository {
   searchCandidates(request: SearchRequest, queryVector: number[]): Promise<ChunkRecord[]>;
   get(chunkId: string): Promise<ChunkRecord | null>;
   listByDocument?(docId: string): Promise<ChunkRecord[]>;
+  listByLibrary?(libraryId: string, options?: { docId?: string; limit?: number }): Promise<ChunkRecord[]>;
+  updateTopicLabels?(chunkId: string, labels: string[]): Promise<void>;
 }
 
 export interface HybridRetrieverDeps {
@@ -138,7 +140,8 @@ export class HybridRetriever {
       SearchResultChunkSchema.parse({
         chunk: item.record.chunk,
         score: item.score,
-        neighbors: request.includeNeighbors ? item.record.neighbors : undefined
+        neighbors: request.includeNeighbors ? item.record.neighbors : undefined,
+        document: item.record.document
       })
     );
 

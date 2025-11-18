@@ -1,26 +1,15 @@
 {
-  "timestamp": "2025-11-16T23:06:20+08:00",
-  "checks": [
-    {
-      "item": "接口/流程清晰",
-      "status": true,
-      "notes": "已明确 Windows 非 Docker 需要涵盖的步骤：依赖准备→初始化→迁移+存储→启动服务→ Smoke Test。"
-    },
-    {
-      "item": "技术选型理解",
-      "status": true,
-      "notes": "熟悉 Bun PowerShell 命令、run-migrations/bootstrap-storage 脚本及 Worker/API/MCP 的启动方式。"
-    },
-    {
-      "item": "主要风险识别",
-      "status": true,
-      "notes": "风险在于 README 多处重复/引用，需避免信息分裂；还需提醒用户如何获取 Postgres/Qdrant 等依赖。"
-    },
-    {
-      "item": "验证方式",
-      "status": true,
-      "notes": "最终以 README 的 ✅ Smoke Test 和 /health 检查作为验证指引。"
-    }
-  ],
-  "result": "ready"
+  "timestamp": "2025-11-18T21:08:10+08:00",
+  "checklist": {
+    "interface_contract": true,
+    "tech_choices": true,
+    "risks_identified": true,
+    "verification_plan": true
+  },
+  "notes": {
+    "interface_contract": "REST API (/upload,/documents,/search,/mcp/*,/vector-logs) 与 Worker pipeline（fetch→parse→chunk→metadata→embed→persist）及 MCP kb.* 工具的输入输出均已定位到具体 TS 文件，可在文档中给出契约说明。",
+    "tech_choices": "架构采用 Bun + TypeScript + RabbitMQ + MinIO + Postgres/pgvector/Qdrant + HybridRetriever，所有关键依赖路径 (apps/*, packages/core, packages/data) 已明确。",
+    "risks_identified": "主要风险是功能拆解文档可能遗漏 Web/脚本或某些数据流分支；需确保引用的 TS 路径真实存在并注明多租户/库隔离语义。",
+    "verification_plan": "编写文档时引用 README、项目需求和源码行号；交付前以 git diff/.codex 文件自查，同时在 testing.md/verification.md 标注“纯文档更新”理由。"
+  }
 }

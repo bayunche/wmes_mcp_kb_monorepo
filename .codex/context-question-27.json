@@ -1,0 +1,30 @@
+{
+  "question_id": "Q2",
+  "focus": "README 需要如何指导 `.env` 配置以调用 /paddle docker compose 暴露的 OCR 服务",
+  "reason_for_investigation": "用户需要清楚地在 `.env` 中填入 OCR_MODE 与 OCR_API_URL，否则 Worker 无法调用 Paddle 服务。目前 README 的说明仍围绕旧端口/路径。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "365-445",
+      "quote": "配置 `.env` 指南中写的是 `OCR_MODE=local` + `OCR_LOCAL_COMMAND=...docker run...` 以及 HTTP 模式 `OCR_API_URL=http://localhost:9009/paddle/ocr`，并未提到 `/paddle/docker-compose.yml` 的 8000 端口与 `/ocr` 路径。",
+      "implication": "跟随说明的用户要么套用 docker run 命令（与 compose 不一致），要么填错 OCR_API_URL。"
+    },
+    {
+      "file": ".env.example",
+      "lines": "22-27",
+      "quote": "OCR_ENABLED=true / OCR_MODE=auto / OCR_LOCAL_COMMAND= / OCR_API_URL=（空）",
+      "implication": "默认情况会 fallback 到无 OCR，README 必须明确如何把 OCR_MODE=http 与 OCR_API_URL=http://localhost:8000/ocr 写进 `.env`。"
+    },
+    {
+      "file": "paddle/docker-compose.yml",
+      "lines": "1-12",
+      "quote": "服务名 paddleocr，端口映射 8000:8000，restart unless-stopped。",
+      "implication": "文档应告知用户 `cd paddle && docker compose up -d` 后服务地址就是 http://localhost:8000/ocr，可用于 `.env`。"
+    }
+  ],
+  "findings": [
+    "当前 README 的变量示例与实际 compose 服务不同，缺少明确的 `.env` 片段说明。",
+    "需要在 README 中添加配套的 `OCR_MODE=http`、`OCR_API_URL=http://localhost:8000/ocr`、`OCR_LANG=chi_sim` 示例，以及如何通过 compose 服务名（`http://paddleocr:8000/ocr`）供 Worker 容器内访问。"
+  ],
+  "conclusion": "README 应在 PaddleOCR 章节新增一个 “使用 /paddle docker compose” 小节，包含 `cd paddle && docker compose up -d`、`.env` 配置示例以及如何验证 /health 与 /ocr，确保用户按步骤完成。"
+}

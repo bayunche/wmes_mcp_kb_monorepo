@@ -40,7 +40,10 @@ async function bootstrap() {
     retriever,
     storage: dataLayer.storage,
     vectorIndex: dataLayer.vectorIndex,
+    modelSettings: dataLayer.modelSettings,
+    vectorLogs: dataLayer.vectorLogs,
     defaultTenantId: config.DEFAULT_TENANT_ID,
+    defaultLibraryId: config.DEFAULT_LIBRARY_ID,
     metrics
   });
 
@@ -48,7 +51,7 @@ async function bootstrap() {
   console.log(`Metrics endpoint at http://localhost:${metricsServer.port}/metrics`);
 }
 
-if (import.meta.main && process.env.START_API_SERVER === "true") {
+if (import.meta.main && process.env.START_API_SERVER !== "false") {
   bootstrap().catch((error) => {
     console.error("Failed to start API server", error);
     process.exit(1);

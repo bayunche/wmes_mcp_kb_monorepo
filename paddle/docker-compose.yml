@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  paddleocr:
+    build: .
+    container_name: paddleocr_win
+    ports:
+      - "8000:8000"   # 宿主机 8000 -> 容器 8000
+    volumes:
+      - ./data:/data  # 可选：映射一个数据目录（不用也行）
+    shm_size: "8g"    # 避免大模型共享内存不足
+    restart: unless-stopped

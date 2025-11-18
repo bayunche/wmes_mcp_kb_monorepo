@@ -12,14 +12,19 @@ CREATE TABLE IF NOT EXISTS documents (
     size_bytes    BIGINT,
     ingest_status TEXT NOT NULL DEFAULT 'uploaded',
     tenant_id     TEXT NOT NULL DEFAULT 'default',
+    library_id    TEXT NOT NULL DEFAULT 'default',
     tags          TEXT[],
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE documents
+  ADD COLUMN IF NOT EXISTS library_id TEXT NOT NULL DEFAULT 'default';
+
 CREATE TABLE IF NOT EXISTS chunks (
     chunk_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doc_id        UUID NOT NULL REFERENCES documents(doc_id) ON DELETE CASCADE,
+    library_id    TEXT NOT NULL DEFAULT 'default',
     hier_path     TEXT[] NOT NULL,
     section_title TEXT,
     content_text  TEXT,
@@ -34,8 +39,14 @@ CREATE TABLE IF NOT EXISTS chunks (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE chunks
+  ADD COLUMN IF NOT EXISTS library_id TEXT NOT NULL DEFAULT 'default';
+
 CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_hier_path ON chunks USING GIN (hier_path);
+CREATE INDEX IF NOT EXISTS idx_chunks_library ON chunks(library_id);
+
+CREATE INDEX IF NOT EXISTS idx_documents_library ON documents(library_id);
 
 CREATE TABLE IF NOT EXISTS embeddings (
     emb_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -65,6 +76,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     asset_id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doc_id     UUID REFERENCES documents(doc_id) ON DELETE CASCADE,
     chunk_id   UUID REFERENCES chunks(chunk_id) ON DELETE CASCADE,
+    library_id TEXT NOT NULL DEFAULT 'default',
     asset_type TEXT NOT NULL,
     object_key TEXT NOT NULL,
     mime_type  TEXT NOT NULL,
@@ -73,12 +85,23 @@ CREATE TABLE IF NOT EXISTS attachments (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE attachments
+  ADD COLUMN IF NOT EXISTS library_id TEXT NOT NULL DEFAULT 'default';
+
+CREATE INDEX IF NOT EXISTS idx_attachments_library ON attachments(library_id);
+
 CREATE TABLE IF NOT EXISTS ingestion_jobs (
     job_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doc_id        UUID REFERENCES documents(doc_id) ON DELETE CASCADE,
+    library_id    TEXT NOT NULL DEFAULT 'default',
     status        TEXT NOT NULL,
     error_message TEXT,
     attempts      INTEGER NOT NULL DEFAULT 0,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE ingestion_jobs
+  ADD COLUMN IF NOT EXISTS library_id TEXT NOT NULL DEFAULT 'default';
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_library ON ingestion_jobs(library_id);

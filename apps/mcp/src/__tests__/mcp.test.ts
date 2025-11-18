@@ -56,7 +56,7 @@ describe("MCP server tools", () => {
     attachments: new MemoryAttachmentRepository(attachments),
     vectorClient: new VectorClient({ fallbackDim: 4 })
   });
-  const context = { requestId: crypto.randomUUID(), tenantId: "default" };
+  const context = { requestId: crypto.randomUUID(), tenantId: "default", libraryId: "default" };
 
   test("kb.search returns attachments and sourceUri", async () => {
     const request = SearchRequestSchema.parse({ query: "付款", limit: 2 });

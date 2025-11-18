@@ -11,7 +11,8 @@ export function createSearchTool(retriever: HybridRetriever, repo: DbMcpReposito
         ...input,
         filters: {
           ...input.filters,
-          tenantId: input.filters?.tenantId ?? ctx.tenantId
+          tenantId: input.filters?.tenantId ?? ctx.tenantId,
+          libraryId: input.filters?.libraryId ?? ctx.libraryId
         }
       };
       const result = await retriever.search(request);

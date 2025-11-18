@@ -677,3 +677,456 @@
 | 2025-11-16T23:06:50+08:00 | update_plan | 步骤1进行中 | 开始重写 README Windows 非 Docker 流程 |
 | 2025-11-16T23:07:30+08:00 | update_plan | 步骤1-2完成 | README Quick Start & Local Development（Windows）已重写 |
 | 2025-11-16T23:07:50+08:00 | update_plan | 收尾 | 测试日志与验证记录已更新，计划完成 |
+| 2025-11-17T00:40:10+08:00 | sequential-thinking | 初始思考 | 排查 `@kb/mcp-server` 模块解析失败，计划检查 tsconfig & package 别名 |
+| 2025-11-17T00:40:30+08:00 | apply_patch | `apps/api/src/routes.ts` | 将 `@kb/mcp-server` import 改为 `@apps/mcp` 别名，匹配 tsconfig paths |
+| 2025-11-17T00:45:20+08:00 | apply_patch | `apps/api/src/routes.ts` | 将 MCP import 改为相对路径 `../../mcp/src/...` 以便 Bun 运行时解析 |
+| 2025-11-17T00:52:40+08:00 | apply_patch | `apps/api/src/main.ts` | 将 `START_API_SERVER` 守卫改为默认开启（只在变量为 "false" 时跳过），方便 `bun dev` 直接启动 |
+| 2025-11-17T00:59:20+08:00 | apply_patch | `package.json` | 新增 `web` 脚本，调用 `bun --cwd apps/web x vite dev --host 0.0.0.0 --port 5173` |
+| 2025-11-17T01:00:10+08:00 | apply_patch | `scripts/dev-all.ts` | 新增一次启动 Worker/API/MCP/Web 的脚本，便于 `bun dev` 调用 |
+| 2025-11-17T01:00:15+08:00 | apply_patch | `package.json` | 将 `dev` 脚本指向 `scripts/dev-all.ts`，并保留 `web` 脚本 |
+| 2025-11-17T01:00:20+08:00 | apply_patch | `README.md` | 在 Local Development 章节说明 `bun dev` 可一键启动所有服务 |
+| 2025-11-17T01:05:20+08:00 | apply_patch | `README.md` | 增加“常用启动命令”表格，列出 Worker/API/MCP/Web 在 POSIX 与 PowerShell 下的指令 |
+| 2025-11-17T01:10:15+08:00 | apply_patch | `scripts/dev-all.ts` | 为 web 进程新增 cwd，并改用 `bunx vite dev`，避免 `bun --cwd ... x` 报错 |
+| 2025-11-17T01:15:30+08:00 | write | `apps/web/index.html` | 新增 Vite 入口文件，解决 dev server “找不到此页” 提示 |
+| 2025-11-17T10:05:00+08:00 | sequential-thinking | 初始思考 | 任务：解决本地跨域 + 统一前端样式互动；准备上下文扫描 |
+| 2025-11-17T10:06:35+08:00 | update_plan | 初始化 | 规划 CORS + 前端 UI + 文档三步 |
+| 2025-11-17T10:06:40+08:00 | update_plan | 步骤1进行中 | 着手实现 API CORS |
+| 2025-11-17T10:20:40+08:00 | apply_patch | `apps/api/src/server.ts` | 引入 CORS 允许列表、OPTIONS 处理以及响应头装饰 |
+| 2025-11-17T10:20:45+08:00 | update_plan | 步骤1完成 | CORS 处理已实现，转向前端样式调优 |
+| 2025-11-17T10:30:00+08:00 | apply_patch | `apps/web/src/*` | 重构 UploadForm/SearchPanel/MetadataEditor/McpSearchPanel/MetricsPanel 及 App 布局，新增 index.html 与深色 CSS |
+| 2025-11-17T10:30:20+08:00 | update_plan | 收尾 | 文档/测试记录更新完毕 |
+| 2025-11-17T10:40:10+08:00 | apply_patch | `apps/web/src/App.tsx` | 增加导航 tabs，按功能分屏展示各模块 |
+| 2025-11-17T10:40:15+08:00 | apply_patch | `apps/web/src/styles.css` | 为 tab 导航、单列面板补充样式 |
+| 2025-11-17T11:05:05+08:00 | apply_patch | `apps/web/vite.config.mts` | 配置 Vite dev server 代理（支持 `VITE_PROXY_TARGET`），减少跨域问题 |
+| 2025-11-17T11:05:10+08:00 | apply_patch | `README.md` | 说明 Vite 代理变量 `VITE_PROXY_TARGET` 的用途 |
+| 2025-11-17T11:15:00+08:00 | apply_patch | `.env.example` | 新增 `CORS_ALLOWED_ORIGINS` 默认值（http://localhost:5173） |
+| 2025-11-17T11:15:05+08:00 | apply_patch | `.env.docker` | 同步新增 `CORS_ALLOWED_ORIGINS`，便于 Docker 场景配置 |
+| 2025-11-17T11:35:05+08:00 | bun test | `bun test` | 集成/单元测试已全量通过 |
+| 2025-11-17T11:45:00+08:00 | apply_patch | `apps/web/package.json` | 引入 `react-router-dom` 依赖 |
+| 2025-11-17T11:45:05+08:00 | add files | `apps/web/src/pages/*` | 新增 IngestionDashboard/DocumentsList/DocumentDetail/DocumentEdit/SearchPage/McpPage |
+| 2025-11-17T11:45:10+08:00 | apply_patch | `apps/web/src/App.tsx` | 改为 React Router 布局，加入导航与多页面结构 |
+| 2025-11-17T11:45:15+08:00 | apply_patch | `apps/web/src/styles.css` | 增加导航、表格、详情等样式 |
+| 2025-11-17T11:50:05+08:00 | bun test | `bun test` | 路由改造后回归测试全部通过 |
+| 2025-11-17T12:05:05+08:00 | apply_patch | `scripts/api-smoke.ts` | 新增 API 烟测脚本，可对运行中的服务执行巡检 |
+| 2025-11-17T12:05:10+08:00 | apply_patch | `package.json` | 增加 `smoke:api` 脚本入口 |
+| 2025-11-17T12:05:15+08:00 | apply_patch | `README.md` | 说明 API 烟测脚本及环境变量用法 |
+| 2025-11-17T12:20:00+08:00 | apply_patch | `apps/api/src/logger.ts` | 新增日志工具，按环境写入 logs/dev 或 logs/prod |
+| 2025-11-17T12:20:05+08:00 | apply_patch | `apps/api/src/server.ts` | 接入日志记录（请求+错误） |
+| 2025-11-17T12:25:00+08:00 | apply_patch | `apps/api/src/routes.ts` | 上传接口改用 Buffer 写入 MinIO，修复 "third argument should be Buffer" 错误 |
+| 2025-11-17T12:35:00+08:00 | apply_patch | `packages/tooling/src/logger.ts` 等 | 新增统一日志模块（1MB 轮转），API/Worker/MCP 接入文件日志 |
+| 2025-11-17T12:35:05+08:00 | bun test | `bun test` | 日志改造后全量测试通过 |
+| 2025-11-17T12:20:23+08:00 | shell | ls -a | 列出仓库根目录文件 |
+| 2025-11-17T12:20:31+08:00 | shell | ls .codex | 列出 .codex 目录内容 |
+| 2025-11-17T12:20:37+08:00 | shell | printf >> operations-log | 上一条命令引号错误未执行成功 |
+| 2025-11-17T12:20:41+08:00 | shell | tail -n 20 .codex/operations-log.md | 查看操作日志最近记录 |
+| 2025-11-17T12:20:47+08:00 | sequential-thinking | task init | 阶段0开始，整理问题 |
+| 2025-11-17T12:21:43+08:00 | shell | sed -n 1,200p scripts/dev-all.ts | 查看 dev-all 启动脚本 |
+| 2025-11-17T12:21:51+08:00 | shell | sed -n 1,200p README.md | 浏览 README Quick Start |
+| 2025-11-17T12:21:56+08:00 | shell | sed -n 1,200p packages/data/src/qdrant/client.ts | 查看 Qdrant 客户端实现 |
+| 2025-11-17T12:22:02+08:00 | shell | sed -n 1,200p apps/worker/src/main.ts | 查看 worker 入口 |
+| 2025-11-17T12:22:06+08:00 | shell | sed -n 1,200p apps/worker/src/worker.ts | 查看 worker 配置 |
+| 2025-11-17T12:22:31+08:00 | shell | python write context-scan | python 不存在，需改用 python3 |
+| 2025-11-17T12:22:47+08:00 | shell | python3 write context-scan | 更新 context-scan.json |
+| 2025-11-17T12:23:32+08:00 | shell | python3 update context-questions | JSON 序列化失败（NameError），重试 |
+| 2025-11-17T12:23:37+08:00 | shell | python3 write context-questions | 更新 context-questions.json |
+| 2025-11-17T12:23:59+08:00 | shell | sed -n 1,200p scripts/bootstrap-storage.ts | 查看存储引导入口 |
+| 2025-11-17T12:24:05+08:00 | shell | sed -n 1,200p ops/scripts/bootstrap-storage.ts | 阅读 bootstrap-storage 细节 |
+| 2025-11-17T12:24:19+08:00 | shell | sed -n 1,200p packages/data/src/index.ts | 查阅 data layer 创建流程 |
+| 2025-11-17T12:24:28+08:00 | shell | sed -n 1,240p apps/api/src/routes.ts | 审阅 API 路由上传逻辑 |
+| 2025-11-17T12:24:39+08:00 | shell | sed -n 1,200p packages/shared-schemas/src/index.ts | 查看 DocumentSchema 定义 |
+| 2025-11-17T12:24:47+08:00 | shell | sed -n 1,200p packages/data/src/repositories/chunks.ts | 了解 chunk repo 与向量索引 |
+| 2025-11-17T12:24:55+08:00 | shell | sed -n 1,200p packages/data/src/repositories/knowledge.ts | 查看向量 upsert payload |
+| 2025-11-17T12:25:04+08:00 | shell | sed -n 1,220p packages/data/src/repositories/documents.ts | 查看 sizeBytes 映射 |
+| 2025-11-17T12:25:13+08:00 | shell | sed -n 1,200p apps/worker/src/pipeline.ts | 研究 ingestion pipeline |
+| 2025-11-17T12:25:34+08:00 | shell | sed -n 1,200p packages/core/src/vector.ts | 了解向量维度 fallback |
+| 2025-11-17T12:25:45+08:00 | shell | sed -n 1,240p packages/core/src/config.ts | 查看配置默认值 |
+| 2025-11-17T12:26:01+08:00 | shell | tail -n 40 logs/dev/api.log | 检查 sizeBytes 错误日志 |
+| 2025-11-17T12:26:07+08:00 | shell | printf error tail api.log | 引号转义失误命令失败 |
+| 2025-11-17T12:26:33+08:00 | shell | sed -n 200,480p apps/worker/src/pipeline.ts | 查看 fallback vector 逻辑 |
+| 2025-11-17T12:26:43+08:00 | shell | sed -n 200,400p packages/core/src/vector.ts | 查看 embedImage fallback |
+| 2025-11-17T12:27:31+08:00 | shell | python3 write context-question-16 | 深挖 Q1 结论 |
+| 2025-11-17T12:28:12+08:00 | shell | sed -n 1,200p apps/web/src/api.ts | 查看前端上传实现 |
+| 2025-11-17T12:28:36+08:00 | shell | nl -ba apps/api/src/routes.ts | sed -n 1,120p | 标注行号定位 sizeBytes 报错 |
+| 2025-11-17T12:29:55+08:00 | shell | python3 write context-question-17 | 深挖 Q2 结论 |
+| 2025-11-17T12:30:16+08:00 | shell | python3 write context-sufficiency | 完成充分性检查 |
+| 2025-11-17T12:31:10+08:00 | shell | rg -n "ingestion_jobs" -g* | 命令超时需重新执行 |
+| 2025-11-17T12:31:21+08:00 | shell | rg -n "ingestion_jobs" | 定位 ingestion_jobs 使用 |
+| 2025-11-17T12:31:36+08:00 | shell | rg -n "IngestionJob" | 命令超时已部分输出 |
+| 2025-11-17T12:31:46+08:00 | shell | rg -n "IngestionJob" | 确认仅 schema 定义无 use |
+| 2025-11-17T12:33:04+08:00 | shell | rg -n "ingestion_jobs" -g* | 再次命令超时未完成 |
+| 2025-11-17T12:33:38+08:00 | shell | sed -n 1,200p apps/worker/src/types.ts | 查看 WorkerDependencies |
+| 2025-11-17T12:33:54+08:00 | shell | sed -n 1,240p packages/data/src/types.ts | 查看 DocumentRepository 接口 |
+| 2025-11-17T12:34:40+08:00 | apply_patch | apps/worker/src/pipeline.ts | fallback 维度改用 PGVECTOR_DIM |
+| 2025-11-17T12:34:52+08:00 | apply_patch | .env.example | 将 VECTOR_FALLBACK_DIM 调整为 1024 |
+| 2025-11-17T12:35:19+08:00 | apply_patch | .env.docker | 将 VECTOR_FALLBACK_DIM 改为 1024 |
+| 2025-11-17T12:35:35+08:00 | apply_patch | ops/scripts/bootstrap-storage.ts | 集合维度改为读取配置 |
+| 2025-11-17T12:35:56+08:00 | apply_patch | packages/data/src/qdrant/client.ts | 增强 Qdrant 错误日志 |
+| 2025-11-17T12:36:32+08:00 | apply_patch | packages/data/src/types.ts | DocumentRepository 增加 updateStatus |
+| 2025-11-17T12:36:54+08:00 | apply_patch | packages/data/src/repositories/documents.ts | 新增 updateStatus 实现 |
+| 2025-11-17T12:37:15+08:00 | apply_patch | apps/worker/src/pipeline.ts | 入库前将状态标记为 indexed |
+| 2025-11-17T12:37:36+08:00 | apply_patch | apps/worker/src/pipeline.ts | 失败时更新文档状态为 failed |
+| 2025-11-17T12:37:51+08:00 | apply_patch | apps/worker/src/pipeline.ts | processIngestionTask 返回最终状态 |
+| 2025-11-17T12:38:13+08:00 | shell | sed -n 240,320p apps/api/src/routes.ts | 查看 reindex 逻辑 |
+| 2025-11-17T12:38:40+08:00 | apply_patch | apps/api/src/routes.ts | reindex 前重置 ingestStatus |
+| 2025-11-17T12:39:15+08:00 | shell | sed -n 1,200p apps/web/src/styles.css | 查看现有 UI 样式 |
+| 2025-11-17T12:39:37+08:00 | shell | sed -n 200,320p apps/web/src/styles.css | 查看状态 pill 样式 |
+| 2025-11-17T12:40:37+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 新增处理进度面板 |
+| 2025-11-17T12:40:59+08:00 | apply_patch | apps/web/src/pages/IngestionDashboard.tsx | 引入处理进度面板 |
+| 2025-11-17T12:41:20+08:00 | apply_patch | apps/web/src/styles.css | 新增状态色彩样式 |
+| 2025-11-17T12:41:36+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | Reindex 按钮仅对 indexed/failed 可用 |
+| 2025-11-17T12:42:15+08:00 | apply_patch | tests/integration/api.integration.test.ts | 内存仓库实现 updateStatus |
+| 2025-11-17T12:42:27+08:00 | bun test | bun test | 首次运行失败：MemoryDocumentRepository 缺少 updateStatus |
+| 2025-11-17T12:42:33+08:00 | bun test | bun test | 全部 29 项测试通过 |
+| 2025-11-17T15:36:34+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 括号调整避免 ?? 与 || 冲突 |
+| 2025-11-17T15:44:18+08:00 | shell | python3 update context-scan | 新 focus 记录自动标签/检索/引导问题 |
+| 2025-11-17T15:44:42+08:00 | shell | python3 update context-questions | 聚焦自动标签/检索/引导 |
+| 2025-11-17T15:48:53+08:00 | apply_patch | packages/shared-schemas/src/index.ts | 新增 DocumentSummary 与搜索结果携带文档信息 |
+| 2025-11-17T15:49:21+08:00 | apply_patch | packages/core/src/retrieval.ts | 搜索结果附带文档信息 |
+| 2025-11-17T15:49:42+08:00 | apply_patch | packages/data/src/repositories/chunks.ts | 选择 doc_tags/ingest_status 供检索响应使用 |
+| 2025-11-17T15:50:45+08:00 | apply_patch | apps/worker/src/pipeline.ts | 增加自动标签生成与合并逻辑 |
+| 2025-11-17T15:51:15+08:00 | apply_patch | apps/worker/src/__tests__/ingestion.test.ts | 增加自动标签断言 |
+| 2025-11-17T15:51:44+08:00 | apply_patch | apps/web/src/components/FlowGuide.tsx | 新增引导步骤组件 |
+| 2025-11-17T15:51:59+08:00 | apply_patch | apps/web/src/App.tsx | 导入 FlowGuide 并展示引导步骤 |
+| 2025-11-17T15:52:31+08:00 | apply_patch | apps/web/src/pages/IngestionDashboard.tsx | 增加分步提示文案 |
+| 2025-11-17T15:53:20+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 表格展示自动标签并新增提示 |
+| 2025-11-17T15:53:56+08:00 | apply_patch | apps/web/src/components/SearchPanel.tsx | 检索卡片展示文档信息与自动标签 |
+| 2025-11-17T15:55:27+08:00 | apply_patch | apps/web/src/styles.css | 添加 FlowGuide/标签/提示等样式 |
+| 2025-11-17T15:55:47+08:00 | bun test | bun test | 自动标签/前端改造后全部测试通过 |
+| 2025-11-17T16:22:36+08:00 | shell | python3 update context-scan | 聚焦库/块级治理 |
+| 2025-11-17T16:23:21+08:00 | shell | python3 update context-questions | 重新定义库相关疑问 |
+| 2025-11-17T17:14:00+08:00 | log | schema-update | 引入 libraryId、库级 API 与治理 UI |
+| 2025-11-17T18:43:14+08:00 | sequential-thinking | 迁移+解析+OCR 修复评估 | 明确修复优先级 |
+| 2025-11-17T18:43:20+08:00 | shell | ls | 查看仓库根目录 |
+| 2025-11-17T18:43:24+08:00 | shell | cat .codex/context-scan.json | 回顾上下文扫描 |
+| 2025-11-17T18:43:28+08:00 | shell | cat .codex/context-questions.json | 回顾关键疑问 |
+| 2025-11-17T18:43:32+08:00 | shell | cat .codex/context-sufficiency.json | 确认充分性状态 |
+| 2025-11-17T18:43:36+08:00 | shell | tail -n 40 .codex/operations-log.md | 查看历史操作 |
+| 2025-11-17T18:44:34+08:00 | plan | update_plan | 记录三阶段执行计划 |
+| 2025-11-17T18:45:42+08:00 | apply_patch | packages/data/src/repositories/documents.ts | 修复统计查询对 library 过滤时的 JOIN 逻辑 |
+| 2025-11-17T18:46:22+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 避免 ?? 与 || 混用导致的 Babel 解析错误 |
+| 2025-11-17T18:46:37+08:00 | bun test | bun test | 全量测试验证统计修复 |
+| 2025-11-17T18:46:56+08:00 | plan | update_plan | 记录 stats join 修复进度 |
+| 2025-11-17T19:05:21+08:00 | apply_patch | .codex/context-scan.json | 批量上传+自动标签新上下文扫描 |
+| 2025-11-17T19:06:02+08:00 | shell | update context-questions | 批量上传/模型配置关键疑问 |
+| 2025-11-17T19:06:45+08:00 | shell | update context-sufficiency | 批量上传/模型配置充分性确认 |
+| 2025-11-17T19:07:12+08:00 | plan | update_plan | 重设批量上传/模型配置执行计划 |
+| 2025-11-17T19:08:55+08:00 | shell | add migration 0003 | 建立 model_settings 表 |
+| 2025-11-17T19:09:24+08:00 | apply_patch | packages/data/src/db/schema.ts | 新增 model_settings 表结构 |
+| 2025-11-17T19:10:28+08:00 | apply_patch | packages/shared-schemas/src/index.ts | 新增模型配置 Schema/类型 |
+| 2025-11-17T19:11:34+08:00 | shell | add packages/data/src/repositories/modelSettings.ts | 新增模型配置仓库 |
+| 2025-11-17T19:12:08+08:00 | apply_patch | packages/data/src/types.ts | 暴露 ModelSettingsRepository 接口 |
+| 2025-11-17T19:12:40+08:00 | apply_patch | packages/data/src/index.ts | data layer 暴露 modelSettings 仓库 |
+| 2025-11-17T19:13:14+08:00 | apply_patch | apps/worker/src/types.ts | Worker 依赖加入 modelSettings |
+| 2025-11-17T19:13:40+08:00 | apply_patch | apps/worker/src/worker.ts | 将 modelSettings 注入 worker 依赖 |
+| 2025-11-17T19:14:05+08:00 | apply_patch | apps/worker/src/pipeline.ts | resolveDependencies 传递 modelSettings |
+| 2025-11-17T19:15:50+08:00 | shell | add packages/core/src/tagging.ts | 新增远程标签生成器 |
+| 2025-11-17T19:16:58+08:00 | apply_patch | apps/worker/src/pipeline.ts | 接入远程模型标签生成 |
+| 2025-11-17T19:20:05+08:00 | apply_patch | apps/api/src/routes.ts | 批量上传 & 模型配置 API 改造 |
+| 2025-11-17T19:20:27+08:00 | apply_patch | apps/api/src/main.ts | 注入 modelSettings 仓库 |
+| 2025-11-17T19:21:54+08:00 | apply_patch | apps/web/src/api.ts | API 客户端支持批量上传与模型配置 |
+| 2025-11-17T19:22:57+08:00 | apply_patch | apps/web/src/components/UploadForm.tsx | 前端支持多文件上传与结果展示 |
+| 2025-11-17T19:23:32+08:00 | apply_patch | apps/web/src/styles.css | 上传面板样式补充 |
+| 2025-11-17T19:25:13+08:00 | shell | add apps/web/src/pages/ModelSettingsPage.tsx | 新增模型配置界面 |
+| 2025-11-17T19:25:41+08:00 | apply_patch | apps/web/src/App.tsx | 导航加入设置页 |
+| 2025-11-17T19:26:02+08:00 | apply_patch | apps/web/src/styles.css | 新增 muted-text 样式 |
+| 2025-11-17T19:27:45+08:00 | apply_patch | apps/worker/src/__tests__/ingestion.test.ts | 增加远程标签单测 |
+| 2025-11-17T19:28:12+08:00 | bun test | bun test | 验证批量上传与模型配置改动 |
+| 2025-11-17T19:28:24+08:00 | plan | update_plan | 批量上传&模型配置任务收尾 |
+| 2025-11-17T19:30:10+08:00 | plan | update_plan | 页面毛玻璃样式规划 |
+| 2025-11-17T19:32:58+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 增加状态筛选与动态提示 |
+| 2025-11-17T19:33:02+08:00 | apply_patch | apps/web/src/styles.css | 毛玻璃主题与动态切换样式 |
+| 2025-11-17T19:33:06+08:00 | apply_patch | apps/web/src/App.tsx | 路由切换动画 & BrowserRouter shell |
+| 2025-11-17T19:33:20+08:00 | bun test | bun test | 样式更新后回归 |
+| 2025-11-17T19:33:32+08:00 | plan | update_plan | 毛玻璃样式任务收尾 |
+| 2025-11-17T19:35:02+08:00 | apply_patch | apps/api/src/server.ts | /metrics 在 API 端口直接暴露 |
+| 2025-11-17T19:35:32+08:00 | bun test | bun test | 确认 /metrics 暴露后回归 |
+| 2025-11-17T19:36:15+08:00 | apply_patch | apps/api/src/server.ts | 允许自定义 maxRequestBodySize 并直接暴露 /metrics |
+| 2025-11-17T19:36:20+08:00 | apply_patch | apps/api/src/routes.ts | 大文件上传落盘 streaming + /upload 改造 |
+| 2025-11-17T19:36:24+08:00 | apply_patch | packages/data/src/types.ts | ObjectStorage putRawObject 支持文件路径 |
+| 2025-11-17T19:36:28+08:00 | apply_patch | packages/data/src/storage/minio.ts | 使用 fPutObject 处理临时文件 |
+| 2025-11-17T19:36:32+08:00 | apply_patch | apps/api/src/__tests__/api.test.ts | MemoryStorage 兼容 string payload |
+| 2025-11-17T19:36:36+08:00 | apply_patch | .env.example/.env.docker | 新增 API_MAX_BODY_MB / API_UPLOAD_STREAM_THRESHOLD_MB |
+| 2025-11-17T19:36:40+08:00 | apply_patch | README.md | 记录大文件上传相关 env | 
+| 2025-11-17T19:37:12+08:00 | bun test | bun test | 大文件上传改造后回归测试 |
+| 2025-11-17T19:37:55+08:00 | todo | pipeline-overhaul | 1) schema 扩展 metadata/OCR 字段；2) 解析链路：DOC 解析+OCR parser+语义切分；3) LLM 元数据生成 & chunk tags；4) HybridRetriever 支持 metadata filter；5) Web 控制台参考 maxkb 交互；6) 完善指标与日志 |
+| 2025-11-17T21:27:30+08:00 | sequential-thinking | 初始思考 | 根据用户重构请求梳理任务范围与阶段要求 |
+| 2025-11-17T21:27:35+08:00 | sequential-thinking | 需求拆解 | 进一步分解上传→OCR→语义标签→向量化等环节 |
+| 2025-11-17T21:27:40+08:00 | sequential-thinking | 风险识别 | 明确待解问题并计划进入上下文收集 |
+| 2025-11-17T21:27:45+08:00 | shell | `ls` | 查看仓库根目录结构 |
+| 2025-11-17T21:27:50+08:00 | shell | `ls .codex` | 检查既有上下文文件 |
+| 2025-11-17T21:27:55+08:00 | shell | `sed -n '1,160p' README.md` | 阅读项目概览与架构描述 |
+| 2025-11-17T21:28:00+08:00 | shell | `ls apps` | 确认 apps 子目录 |
+| 2025-11-17T21:28:05+08:00 | shell | `ls apps/worker/src` | 查看 worker 模块文件 |
+| 2025-11-17T21:28:10+08:00 | shell | `sed -n '1,200p' apps/worker/src/pipeline.ts` | 解析 ingestion pipeline 开头 |
+| 2025-11-17T21:28:15+08:00 | shell | `sed -n '200,400p' apps/worker/src/pipeline.ts` | 继续阅读 chunk/metadata 逻辑 |
+| 2025-11-17T21:28:20+08:00 | shell | `sed -n '400,800p' apps/worker/src/pipeline.ts` | 查看 embed 与标签生成段落 |
+| 2025-11-17T21:28:25+08:00 | shell | `ls apps/api/src` | 查看 API 目录 |
+| 2025-11-17T21:28:30+08:00 | shell | `sed -n '1,200p' apps/api/src/routes.ts` | 阅读 API 上传/列表逻辑 |
+| 2025-11-17T21:28:35+08:00 | shell | `sed -n '200,400p' apps/api/src/routes.ts` | 查看搜索与 MCP 端点 |
+| 2025-11-17T21:28:40+08:00 | shell | `sed -n '1,200p' packages/core/src/vector.ts` | 了解 VectorClient 本地/远程实现 |
+| 2025-11-17T21:28:45+08:00 | shell | `sed -n '200,400p' packages/core/src/vector.ts` | 阅读本地模型加载流程 |
+| 2025-11-17T21:28:50+08:00 | shell | `ls apps/web/src` | 查看 Web 入口 |
+| 2025-11-17T21:28:55+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/IngestionDashboard.tsx` | 理解前端 Step UI |
+| 2025-11-17T21:29:00+08:00 | shell | `sed -n '1,200p' apps/web/src/components/UploadForm.tsx` | 查看上传表单实现 |
+| 2025-11-17T21:29:05+08:00 | shell | `ls apps/web/src/components` | 列出组件（Search/MCP 等） |
+| 2025-11-17T21:29:10+08:00 | shell | `cat package.json` | 查看脚本与依赖 |
+| 2025-11-17T21:29:15+08:00 | shell | `cat .codex/context-scan.json` | 阅读旧的 context scan |
+| 2025-11-17T21:29:20+08:00 | shell | `sed -n '1,200p' .codex/operations-log.md` | 了解日志格式 |
+| 2025-11-17T21:29:25+08:00 | shell | `date -Iseconds` | 获取当前时间戳 |
+| 2025-11-17T21:29:30+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json` | 写入新版 context scan 初稿 |
+| 2025-11-17T21:29:35+08:00 | apply_patch | 删除 `.codex/context-scan.json` | 移除含错误内容的初稿 |
+| 2025-11-17T21:29:40+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json` | 写入修订后的 context scan |
+| 2025-11-17T21:29:45+08:00 | apply_patch | 更新 `.codex/context-scan.json` | 清理多余空格 |
+| 2025-11-17T21:29:50+08:00 | sequential-thinking | 识别疑问 | 基于扫描总结高优先级问题 |
+| 2025-11-17T21:29:55+08:00 | sequential-thinking | 疑问排序 | 评估优先级并准备深挖 |
+| 2025-11-17T21:30:00+08:00 | shell | `cat .codex/context-questions.json` | 阅读旧的疑问列表 |
+| 2025-11-17T21:30:05+08:00 | apply_patch | 删除 `.codex/context-questions.json` | 清空旧疑问数据 |
+| 2025-11-17T21:30:10+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json` | 写入新的疑问与优先级 |
+| 2025-11-17T21:30:15+08:00 | shell | `sed -n '1,200p' apps/worker/src/main.ts` | 查看 worker bootstrap |
+| 2025-11-17T21:30:20+08:00 | shell | `sed -n '1,200p' apps/worker/src/worker.ts` | 分析 parser/vector client 注入 |
+| 2025-11-17T21:30:25+08:00 | shell | `rg -n "OCR" -n` | 搜索 OCR 相关实现 |
+| 2025-11-17T21:30:30+08:00 | shell | `sed -n '1,200p' packages/core/src/parsing.ts` | 确认 parser 功能 |
+| 2025-11-17T21:30:35+08:00 | shell | `nl -ba apps/worker/src/worker.ts | sed -n '1,200p'` | 获取带行号的 worker 片段 |
+| 2025-11-17T21:30:40+08:00 | shell | `nl -ba packages/core/src/parsing.ts | sed -n '1,200p'` | 记录 parser 证据行号 |
+| 2025-11-17T21:30:45+08:00 | shell | `cat .codex/context-question-1.json` | 参考既有深挖文件格式 |
+| 2025-11-17T21:30:50+08:00 | shell | `cat <<'EOF' > .codex/context-question-18.json` | 记录 Q1（OCR 路径）深挖结果 |
+| 2025-11-17T21:30:55+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '120,260p'` | 获取 metadata 提取段落行号 |
+| 2025-11-17T21:31:00+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '300,520p'` | 获取标签/附件逻辑行号 |
+| 2025-11-17T21:31:05+08:00 | shell | `sed -n '1,200p' packages/core/src/tagging.ts` | 查看 generateTagsViaModel 实现 |
+| 2025-11-17T21:31:10+08:00 | shell | `sed -n '1,200p' packages/shared-schemas/src/index.ts` | 查阅 Chunk/Document schema |
+| 2025-11-17T21:31:15+08:00 | shell | `cat <<'EOF' > .codex/context-question-19.json` | 记录 Q2（语义元数据）深挖 |
+| 2025-11-17T21:31:20+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '1,120p'` | 捕捉向量化日志缺失段落 |
+| 2025-11-17T21:31:25+08:00 | shell | `sed -n '1,200p' db/migrations/0001_init.sql` | 检查数据库表结构 |
+| 2025-11-17T21:31:30+08:00 | shell | `cat <<'EOF' > .codex/context-question-20.json` | 记录 Q3（向量日志）深挖 |
+| 2025-11-17T21:31:35+08:00 | shell | `rg -n "modelSettings" -n` | 搜索模型配置引用 |
+| 2025-11-17T21:31:40+08:00 | shell | `sed -n '1,200p' packages/data/src/repositories/modelSettings.ts` | 阅读模型配置仓储 |
+| 2025-11-17T21:31:45+08:00 | shell | `sed -n '70,120p' packages/data/src/types.ts` | 查看 ModelSettingsRepository 接口 |
+| 2025-11-17T21:31:50+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '400,520p'` | 获取 /model-settings API 行号 |
+| 2025-11-17T21:31:55+08:00 | shell | `rg -n "model" apps/web/src -g"*.tsx"` | 查找前端模型配置页面 |
+| 2025-11-17T21:32:00+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/ModelSettingsPage.tsx` | 阅读模型配置 UI |
+| 2025-11-17T21:32:05+08:00 | shell | `cat <<'EOF' > .codex/context-question-21.json` | 记录 Q4（模型切换）深挖并提示成本 |
+| 2025-11-17T21:32:10+08:00 | apply_patch | 更新 `.codex/context-question-21.json` | 修正 conclusion 中的换行问题 |
+| 2025-11-17T21:32:15+08:00 | shell | `cat .codex/context-question-21.json` | 验证最新深挖文件 |
+| 2025-11-17T21:32:20+08:00 | shell | `cat .codex/context-sufficiency.json` | 阅读旧充分性检查 |
+| 2025-11-17T21:32:25+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json` | 写入新的充分性检查结果 |
+| 2025-11-17T21:36:30+08:00 | note | shrimp-task-manager | 当前环境未提供对应 MCP 工具，后续以 update_plan + 手工规划代替并在总结中说明 |
+| 2025-11-17T21:36:35+08:00 | update_plan | 创建 6 步计划 | 记录架构/数据/worker/API/Web/测试等重构步骤 |
+| 2025-11-17T21:36:40+08:00 | shell | `mkdir -p docs/refactor` | 为重构计划文档创建目录 |
+| 2025-11-17T21:36:45+08:00 | shell | `cat <<'EOF' > docs/refactor/semantic-kb-plan.md` | 撰写语义知识库重构计划与 TODO |
+| 2025-11-17T21:36:50+08:00 | update_plan | 完成步骤1 | 标记架构&验收规划完成 |
+| 2025-11-17T21:37:00+08:00 | shell | `cat <<'EOF' > db/migrations/0004_semantic_pipeline.sql` | 新增语义元数据/向量日志/model_role 的数据库迁移 |
+| 2025-11-17T21:37:05+08:00 | apply_patch | 更新 `packages/data/src/db/schema.ts` | Schema 增加语义字段、model_role 及 vector_logs 表定义 |
+| 2025-11-17T21:37:10+08:00 | apply_patch | 更新 `packages/shared-schemas/src/index.ts` | 增加 ModelRole、语义元数据、Chunk 扩展字段及 VectorLog schema |
+| 2025-11-17T21:37:15+08:00 | apply_patch | 更新 `packages/data/src/types.ts` | ModelSettingsRepository 支持 modelRole/list/delete，新建 ModelRole 引用 |
+| 2025-11-17T21:37:20+08:00 | apply_patch | 调整 `packages/data/src/repositories/modelSettings.ts` | 支持 modelRole list/delete 并修正缩进 |
+| 2025-11-17T21:37:25+08:00 | apply_patch | 更新 `db/migrations/0004_semantic_pipeline.sql` | 增加 `semantic_tags` 列 |
+| 2025-11-17T21:37:30+08:00 | apply_patch | 补充 `packages/data/src/db/schema.ts` | 加入 `semantic_tags` 列定义 |
+| 2025-11-17T21:37:35+08:00 | apply_patch | 更新 `packages/data/src/repositories/knowledge.ts` | 写库时同步语义元数据/标签/摘要列 |
+| 2025-11-17T21:37:40+08:00 | apply_patch | 更新 `packages/data/src/repositories/chunks.ts` | 查询结果包含语义元数据/标签/摘要列 |
+| 2025-11-17T21:37:45+08:00 | apply_patch | 更新 `apps/api/src/routes.ts` | /model-settings 支持 modelRole 参数与 displayName 字段 |
+| 2025-11-17T21:37:50+08:00 | apply_patch | 更新 `apps/web/src/api.ts` | 模型配置 API 支持 modelRole/displayName 参数 |
+| 2025-11-17T21:37:55+08:00 | shell | `cat <<'EOF' > apps/web/src/pages/ModelSettingsPage.tsx` | 重写模型配置页面以支持 modelRole/displayName 选择 |
+| 2025-11-17T21:38:00+08:00 | apply_patch | 更新 `apps/worker/src/pipeline.ts` | loadModelSetting 支持 modelRole，generateRemoteTags 指定 tagging |
+| 2025-11-17T21:38:05+08:00 | apply_patch | 更新 `apps/api/src/__tests__/api.test.ts` | 内存模型配置仓储实现新接口 |
+| 2025-11-17T21:38:10+08:00 | apply_patch | 更新 `apps/api/src/__tests__/api.test.ts` | 模型配置测试覆盖 modelRole/displayName 与查询参数 |
+| 2025-11-17T21:38:15+08:00 | apply_patch | 调整 `apps/api/src/__tests__/api.test.ts` 导入与 delete 签名 | 使用 ModelRole 类型以匹配新接口 |
+| 2025-11-17T21:38:20+08:00 | shell | `bun test` | 失败：/mnt/c/.../bun.exe Permission denied（当前环境无法执行 bun） |
+| 2025-11-17T21:38:25+08:00 | update_plan | 完成步骤2 | 标记数据层/配置改造阶段完成 |
+| 2025-11-17T21:38:30+08:00 | sequential-thinking | Step3/4分析 | 拆解 OCR/语义元数据/向量日志方案与风险 |
+| 2025-11-17T21:38:35+08:00 | shell | `rg -n "OCR" docs` | 确认重构计划中对 OCR Adapter 的描述 |
+| 2025-11-17T21:38:40+08:00 | apply_patch | 更新 shared-schemas | SearchFilter 增加语义筛选字段与 VectorLog schema 调整 |
+| 2025-11-17T21:38:45+08:00 | apply_patch | 新增 PgVectorLogRepository | 数据层引入 vector_logs 表仓储并扩展 DataLayer/types |
+| 2025-11-17T21:38:50+08:00 | apply_patch | 新增 `packages/core/src/ocr.ts` | 实现 HttpOcrAdapter 与 MIME 检测 |
+| 2025-11-17T21:38:55+08:00 | apply_patch | 新增 `packages/core/src/semantic-metadata.ts` | 提供语义元数据 LLM 适配器 |
+| 2025-11-17T21:39:05+08:00 | apply_patch | 重构 worker pipeline | parseDocument 接入 OCR、extractMetadata 调用 LLM、embedChunks 记录 vector log |
+| 2025-11-17T21:39:15+08:00 | apply_patch | 更新 worker start | 注入 OCR Adapter、语义元数据生成器与 vector log repo |
+| 2025-11-17T21:39:25+08:00 | apply_patch | API `/vector-logs` & 语义筛选 | routes.ts 增加新端点与语义过滤辅助函数 |
+| 2025-11-17T21:39:35+08:00 | apply_patch | API/Web 配置联动 | ModelSettings API/interface/UI 支持 modelRole/displayName；web 表单新增角色选择 |
+| 2025-11-17T21:39:45+08:00 | apply_patch | API 测试扩展 | 内存 vector log 仓储 + `/vector-logs` 用例 |
+| 2025-11-17T21:39:55+08:00 | apply_patch | Env Sample | `.env.example`/`.env.docker` 增加 OCR API 配置 |
+| 2025-11-17T21:40:10+08:00 | shell | `bun test` | 失败：WSL 无法执行 Windows bun.exe，记录于 `.codex/testing.md` |
+| 2025-11-17T21:40:15+08:00 | update_plan | 完成步骤3/4 | 标记 worker 与 API 阶段完成 |
+| 2025-11-17T21:40:20+08:00 | apply_patch | 更新 apps/web/src/api.ts | 搜索接口支持过滤并新增 fetchVectorLogs |
+| 2025-11-17T21:40:25+08:00 | apply_patch | 新增 VectorLogPanel 组件 | 构建流程时间线与日志表格 |
+| 2025-11-17T21:40:30+08:00 | apply_patch | 更新 styles.css | 增加时间线/语义面板样式 |
+| 2025-11-17T21:40:35+08:00 | apply_patch | 更新 IngestionDashboard | 接入 VectorLogPanel，补齐 STEP 04 |
+| 2025-11-17T21:40:40+08:00 | apply_patch | 重构 SearchPanel | 加入语义过滤、metadata 条件与语义摘要展示 |
+| 2025-11-17T21:45:10+08:00 | apply_patch | 更新 config/.env | 新增 OCR_MODE/OCR_LOCAL_COMMAND 与 chunk 长度配置 |
+| 2025-11-17T21:45:20+08:00 | apply_patch | 扩展 `packages/core/src/ocr.ts` | 加入 LocalOcrAdapter、命令模板与临时文件清理 |
+| 2025-11-17T21:45:30+08:00 | apply_patch | 新增 AdaptiveChunkFactory | 在 parsing 模块实现按字符/重叠切分 |
+| 2025-11-17T21:45:40+08:00 | apply_patch | 调整 worker 启动/管线 | 默认启用 AdaptiveChunkFactory、本地 OCR 选择，解析阶段先 OCR 再解析 |
+| 2025-11-17T21:50:30+08:00 | apply_patch | 更新 README.md | 增补 PaddleOCR 本地部署（Conda）教程，并在前置依赖中指向该章节 |
+| 2025-11-17T21:55:00+08:00 | apply_patch | 更新 README.md | PaddleOCR 部署步骤改为先固定 numpy，再安装 paddlepaddle/paddleocr/opencv |
+| 2025-11-17T21:57:10+08:00 | apply_patch | README.md | PaddleOCR 指南改为参考官网 whl 安装，并列出 Windows/Linux CPU 示例 |
+| 2025-11-17T22:05:20+08:00 | shell | `mkdir -p docker/paddleocr && cat ...` | 新增 docker/paddleocr/Dockerfile（基于 paddlepaddle/paddle 预装 OCR 依赖） |
+| 2025-11-17T22:05:30+08:00 | apply_patch | README.md | 将 PaddleOCR 部署改为 Docker 方案，给出镜像构建/运行/配置步骤 |
+| 2025-11-17T22:05:40+08:00 | apply_patch | `.env` | OCR_LOCAL_COMMAND 改为调用 kb/paddleocr 容器 |
+| 2025-11-17T22:12:30+08:00 | apply_patch | README.md / .env | PaddleOCR 部署改为直接使用官方 paddlepaddle/paddleocr 镜像，更新 env 命令 |
+| 2025-11-17T22:20:00+08:00 | apply_patch | README.md | 追加“已有 Docker OCR 服务（HTTP 模式）”配置说明 |
+| 2025-11-17T22:20:05+08:00 | apply_patch | `.env` | 默认切换为 OCR_MODE=http 并指向示例服务 URL |
+| 2025-11-17T22:35:20+08:00 | apply_patch | packages/shared-schemas | ModelRole 增加 structure 角色 |
+| 2025-11-17T22:35:30+08:00 | shell | 新增 packages/core/src/semantic-structure.ts | 实现 LLM 结构化分割生成 | 
+| 2025-11-17T22:35:40+08:00 | apply_patch | apps/worker/src/types.ts | 新增 semanticSegmenter 类型与依赖 |
+| 2025-11-17T22:35:50+08:00 | apply_patch | apps/worker/src/pipeline.ts | chunkDocument 支持结构化 sections，增加 helper |
+| 2025-11-17T22:36:00+08:00 | apply_patch | apps/worker/src/worker.ts | 注入 createSemanticSegmenter，调用 structure 模型 |
+| 2025-11-17T22:36:10+08:00 | apply_patch | README.md | 文档补充 PaddleOCR Docker 服务说明（示例命令） |
+| 2025-11-18T14:48:10+08:00 | sequential-thinking | 初始分析 | 解析用户需求，确认需评估文档处理/元数据/模型配置等要求 |
+| 2025-11-18T14:48:15+08:00 | sequential-thinking | 任务拆解 | 规划上下文收集与遵循阶段流程 |
+| 2025-11-18T14:48:20+08:00 | shell | `ls` | 查看仓库根目录结构 |
+| 2025-11-18T14:48:23+08:00 | shell | `ls .codex` | 查看已有上下文与记录文件 |
+| 2025-11-18T14:48:27+08:00 | shell | `tail -n 40 .codex/operations-log.md` | 了解既有日志格式与近期改动 |
+| 2025-11-18T14:48:36+08:00 | shell | `date -Iseconds` | 获取当前时间戳用于留痕 |
+| 2025-11-18T14:48:45+08:00 | shell | `cat <<'EOF' >> .codex/operations-log.md ...` | 记录本次工具使用日志 |
+| 2025-11-18T14:49:10+08:00 | shell | `cat .codex/context-scan.json` | 查看历史 context-scan 供参考 |
+| 2025-11-18T14:49:40+08:00 | shell | `sed -n '1,200p' apps/worker/src/pipeline.ts` | 快速浏览 ingestion pipeline 头部逻辑 |
+| 2025-11-18T14:49:55+08:00 | shell | `sed -n '200,400p' apps/worker/src/pipeline.ts` | 查看 chunk/metadata/vector 流程 |
+| 2025-11-18T14:50:05+08:00 | shell | `sed -n '400,800p' apps/worker/src/pipeline.ts` | 检查 vector log／semantic segmentation 等实现 |
+| 2025-11-18T14:50:15+08:00 | shell | `sed -n '1,200p' packages/core/src/ocr.ts` | 了解 OCR 适配器与触发条件 |
+| 2025-11-18T14:50:35+08:00 | shell | `sed -n '1,200p' apps/api/src/routes.ts` | 查看 API 端点与模型配置接口 |
+| 2025-11-18T14:50:45+08:00 | shell | `sed -n '200,400p' apps/api/src/routes.ts` | 关注搜索过滤与 vector log 列表 |
+| 2025-11-18T14:50:55+08:00 | shell | `sed -n '400,800p' apps/api/src/routes.ts` | 检查模型列表、MCP、辅助函数 |
+| 2025-11-18T14:51:10+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/IngestionDashboard.tsx` | 了解前端流程步骤与 VectorLog 面板 |
+| 2025-11-18T14:51:25+08:00 | shell | `sed -n '1,200p' apps/web/src/components/VectorLogPanel.tsx` | 确认前端是否展示向量日志/流程时间线 |
+| 2025-11-18T14:51:40+08:00 | shell | `sed -n '1,200p' apps/web/src/components/SearchPanel.tsx` | 查看检索面板流程与筛选条件 |
+| 2025-11-18T14:51:50+08:00 | shell | `sed -n '200,400p' apps/web/src/components/SearchPanel.tsx` | 了解语义元数据展示与预览交互 |
+| 2025-11-18T14:52:05+08:00 | shell | `rg -n "model" apps/api/src | head` | 搜索 API 是否提供模型列表接口 |
+| 2025-11-18T14:52:15+08:00 | shell | `rg -n "ModelSettings" apps/web/src` | 查找前端模型配置实现 |
+| 2025-11-18T14:52:25+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/ModelSettingsPage.tsx` | 查看模型配置页面与角色切换逻辑 |
+| 2025-11-18T14:52:40+08:00 | shell | `sed -n '1,200p' apps/web/src/api.ts` | 查看前端 API 层实现与上传/检索接口 |
+| 2025-11-18T14:52:50+08:00 | shell | `sed -n '200,400p' apps/web/src/api.ts` | 检查 vector log / model settings 请求 |
+| 2025-11-18T14:53:05+08:00 | shell | `sed -n '1,200p' packages/core/src/semantic-metadata.ts` | 理解语义元数据调用 LLM 的逻辑 |
+| 2025-11-18T14:53:20+08:00 | shell | `sed -n '1,200p' packages/core/src/vector.ts` | 了解 VectorClient 是否支持本地模型 |
+| 2025-11-18T14:53:35+08:00 | shell | `sed -n '200,400p' packages/core/src/vector.ts` | 确认本地向量模型加载逻辑与 @xenova/transformers 依赖 |
+| 2025-11-18T14:53:50+08:00 | shell | `rg -n "LOCAL_EMBEDDING" .env*` | 查看默认是否启用本地向量模型 |
+| 2025-11-18T14:54:05+08:00 | shell | `sed -n '1,160p' .env.example` | 查看默认模型/OCR/向量配置 |
+| 2025-11-18T14:54:25+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json ...` | 更新 context-scan，记录最新模块定位与现状 |
+| 2025-11-18T14:54:35+08:00 | sequential-thinking | 识别疑问 | 梳理 doc/pdf 流程、OCR 范围、元数据渗透、模型切换等未知点 |
+| 2025-11-18T14:54:55+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json ...` | 更新疑问列表，标记高优先级阻塞项 |
+| 2025-11-18T14:55:10+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '80,220p'` | 获取 parseDocument 阶段 OCR 分支的行号 |
+| 2025-11-18T14:55:20+08:00 | shell | `nl -ba packages/core/src/ocr.ts | sed -n '1,200p'` | 获取 OCR Adapter 与 shouldUseOcr 证据 |
+| 2025-11-18T14:55:30+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '220,360p'` | 捕捉 chunkDocument/语义元数据逻辑行号 |
+| 2025-11-18T14:55:45+08:00 | shell | `sed -n '1,200p' apps/worker/src/worker.ts` | 查看 worker 如何注入 OCR/语义元数据/本地向量配置 |
+| 2025-11-18T14:55:55+08:00 | shell | `sed -n '1,200p' packages/core/src/parsing.ts` | 查看 BasicTextParser 对 docx/二进制的处理能力 |
+| 2025-11-18T14:56:05+08:00 | shell | `cat <<'EOF' > .codex/context-question-22.json ...` | 深挖 Q1（doc/pdf 流程），整理 OCR 与解析证据 |
+| 2025-11-18T14:56:15+08:00 | shell | `rg -n "semantic" db/migrations -g'*.sql'` | 查找数据库是否存储 semantic metadata 字段 |
+| 2025-11-18T14:56:25+08:00 | shell | `cat db/migrations/0004_semantic_pipeline.sql` | 查看 chunks/模型/vector_logs 的 schema 扩展 |
+| 2025-11-18T14:56:35+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '150,320p'` | 记录 /search 语义标签/环境标签/metadata 筛选逻辑 |
+| 2025-11-18T14:56:45+08:00 | shell | `cat <<'EOF' > .codex/context-question-23.json ...` | 深挖 Q2（语义元数据链路）并记录证据 |
+| 2025-11-18T14:56:55+08:00 | shell | `rg -n "LOCAL_EMBEDDING" README.md || true` | 检查 README 是否说明启用本地向量模型（无匹配） |
+| 2025-11-18T14:57:05+08:00 | shell | `nl -ba packages/core/src/vector.ts | sed -n '40,200p'` | 采集 VectorClient 远程/本地/回退逻辑的行号 |
+| 2025-11-18T14:57:15+08:00 | shell | `nl -ba .env.example | sed -n '20,80p'` | 捕捉 LOCAL_EMBEDDING_ENABLED 默认值等配置 |
+| 2025-11-18T14:57:25+08:00 | shell | `nl -ba apps/worker/src/worker.ts | sed -n '20,160p'` | 记录 VectorClient 注入时启用本地模型的条件 |
+| 2025-11-18T14:57:35+08:00 | shell | `cat <<'EOF' > .codex/context-question-24.json ...` | 深挖 Q3（本地向量要求），并提示第3次深挖成本 |
+| 2025-11-18T14:57:45+08:00 | shell | `sed -n '1,200p' packages/data/src/repositories/modelSettings.ts` | 查看模型配置仓储支持的操作（仅 get/list/upsert/delete） |
+| 2025-11-18T14:57:55+08:00 | shell | `rg -n "modelSettings\\.list" -g"*.ts" || true` | 搜索 API 是否调用 list（无结果） |
+| 2025-11-18T14:58:05+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '420,520p'` | 记录 /model-settings GET/PUT 仅单条返回的实现 |
+| 2025-11-18T14:58:15+08:00 | shell | `nl -ba apps/web/src/pages/ModelSettingsPage.tsx | sed -n '1,200p'` | 佐证前端仅提供单表单，依赖 fetchModelSettings(GET 单条) |
+| 2025-11-18T14:58:25+08:00 | shell | `cat <<'EOF' > .codex/context-question-25.json ...` | 深挖 Q4（模型列表），达到第4次深挖提示停止 |
+| 2025-11-18T14:58:45+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json ...` | 完成充分性检查，确认信息足够进入规划 |
+| 2025-11-18T14:58:55+08:00 | update_plan | 初始化计划 | 拆分 4 个评估步骤（pipeline/metadata/vector/UI）并标记第一项进行中 |
+| 2025-11-18T14:59:05+08:00 | update_plan | 完成 Step1 | 标记 pipeline 评估完成，转入语义元数据检查 |
+| 2025-11-18T14:59:15+08:00 | update_plan | 完成 Step2 | 语义元数据链路评估完成，开始检查向量模型与日志 |
+| 2025-11-18T14:59:25+08:00 | update_plan | 完成 Step3 | 记录向量化本地模型/日志评估结果，现在检查模型列表与 UI |
+| 2025-11-18T14:59:35+08:00 | update_plan | 完成 Step4 | 模型列表/API/UI 评估 заверш，现在准备输出结果 |
+| 2025-11-18T15:00:05+08:00 | shell | `rg -n "stats" packages/data -g"*.ts"` | 查找 documents.stats 定义用于 UI 概览 |
+| 2025-11-18T15:00:15+08:00 | shell | `sed -n '120,220p' packages/data/src/repositories/documents.ts` | 查看 stats 返回值结构，准备 UI 概览 |
+| 2025-11-18T15:00:30+08:00 | apply_patch | package.json | 新增 adm-zip 依赖以支持 OfficeParser |
+| 2025-11-18T15:00:40+08:00 | shell | `bun install` | 失败：WSL 无法执行 bun.exe（Permission denied），锁文件暂未更新 |
+| 2025-11-18T15:00:50+08:00 | shell | `mkdir -p tests/unit/core && cat > tests/unit/core/office_parser.test.ts` | 添加 OfficeParser 单元测试，覆盖 docx/pptx 解析 |
+| 2025-11-18T15:01:10+08:00 | apply_patch | .env* | 将 LOCAL_EMBEDDING_ENABLED 设为 true（example/docker）以强制本地向量化 |
+| 2025-11-18T15:01:25+08:00 | apply_patch | apps/worker/src/worker.ts, apps/worker/src/pipeline.ts, packages/core/src/parsing.ts, packages/core/src/ocr.ts | 集成 OfficeParser、扩展 OCR 判定、强制本地向量化和语义元数据限制调整 |
+| 2025-11-18T15:01:40+08:00 | shell | `cat > apps/api/src/modelCatalog.ts` | 新增模型目录模块，提供默认 provider+model 列表并支持自定义 JSON |
+| 2025-11-18T15:02:05+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx, apps/web/src/styles.css | Web 模型配置页面接入列表/目录与样式 |
+| 2025-11-18T15:02:20+08:00 | shell | `cat > apps/web/src/components/ProcessOverview.tsx` | 新增流程概览组件，仿 maxkb 展示 stats |
+| 2025-11-18T15:02:30+08:00 | apply_patch | apps/web/src/pages/IngestionDashboard.tsx, apps/web/src/styles.css | 引入 ProcessOverview 组件并补充样式 |
+| 2025-11-18T15:02:45+08:00 | apply_patch | README.md | 更新 Highlights、Quick Start 与 Web Console 部分以说明 OfficeParser、本地向量与模型目录 API |
+| 2025-11-18T15:02:55+08:00 | shell | `bun test` | 失败：WSL 无法执行 Windows bun.exe（Permission denied），与之前相同 |
+| 2025-11-18T15:25:10+08:00 | apply_patch | packages/shared-schemas / packages/data / db/migrations | 扩展 Chunk/Metadata Schema，新增 document_sections 表及迁移 |
+| 2025-11-18T15:25:20+08:00 | apply_patch | packages/data/src/repositories/knowledge.ts | 持久化语义章节、映射新增列 |
+| 2025-11-18T15:25:30+08:00 | apply_patch | apps/worker/src/pipeline.ts | 引入预处理、强制语义切分、section 绑定与 metadata 扩展 |
+| 2025-11-18T15:25:40+08:00 | apply_patch | packages/core/src/semantic-metadata.ts | 新增 title/keywords/topics/NER 输出及 fallback |
+| 2025-11-18T15:25:50+08:00 | shell | 新增 apps/api/src/modelCatalog.ts / routes.ts / apps/web 组件 | 为 `/documents/:id/structure` 与结构树 UI 添加支持 |
+| 2025-11-18T15:29:40+08:00 | apply_patch | docs/ingestion.md, docs/retrieval.md, README.md, 项目需求.md | 文档更新：补充语义流水线、结构树 API 及检索用法 |
+| 2025-11-18T19:15:05+08:00 | sequential-thinking | 任务初始分析（PaddleOCR README 调整） | 使用 sequential-thinking 工具梳理需求与预期输出 |
+| 2025-11-18T19:15:15+08:00 | shell | `ls` | 快速查看仓库根目录文件结构 |
+| 2025-11-18T19:15:20+08:00 | shell | `ls .codex` | 检查现有上下文和日志文件 |
+| 2025-11-18T19:15:25+08:00 | shell | `cat .codex/context-scan.json` | 查看上一任务的上下文扫描内容以便对比 |
+| 2025-11-18T19:15:30+08:00 | list_mcp_resources | N/A | 尝试列出 MCP 资源，确认 code-index 工具暂无可用项 |
+| 2025-11-18T19:15:45+08:00 | shell | `date -Iseconds` | 记录当前时间戳以便日志使用 |
+| 2025-11-18T19:16:00+08:00 | shell | `rg -n "Paddle" README.md` | 定位 README 中 PaddleOCR 相关段落 |
+| 2025-11-18T19:16:05+08:00 | shell | `sed -n '120,440p' README.md` | 查看 README Quick Start 对 PaddleOCR 的描述 |
+| 2025-11-18T19:16:10+08:00 | shell | `rg -n -C3 "PaddleOCR" README.md` | 获取 PaddleOCR 章节上下文 |
+| 2025-11-18T19:16:15+08:00 | shell | `ls paddle` | 检查项目内 Paddle 服务目录结构 |
+| 2025-11-18T19:16:20+08:00 | shell | `cat paddle/docker-compose.yml` | 阅读 PaddleOCR docker compose 配置 |
+| 2025-11-18T19:16:25+08:00 | shell | `cat paddle/Dockerfile` | 查看 PaddleOCR 服务镜像定义 |
+| 2025-11-18T19:16:30+08:00 | shell | `sed -n '1,200p' paddle/server.py` | 获取 PaddleOCR FastAPI 服务实现 |
+| 2025-11-18T19:16:35+08:00 | shell | `rg -n "OCR_MODE" -g"*.ts"` | 搜索代码中 OCR 模式配置位置 |
+| 2025-11-18T19:16:40+08:00 | shell | `nl -ba apps/worker/src/worker.ts | sed -n '80,200p'` | 阅读 Worker 中 createOcrAdapter 实现 |
+| 2025-11-18T19:16:45+08:00 | shell | `rg -n "OCR" .env.example` | 查看 .env.example OCR 相关字段 |
+| 2025-11-18T19:16:50+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json ...` | 初次写入本任务上下文扫描（JSON） |
+| 2025-11-18T19:16:55+08:00 | shell | `cat .codex/context-scan.json` | 检查 context-scan 内容 |
+| 2025-11-18T19:17:00+08:00 | shell | `sed -n '1,200p' .codex/context-scan.json` | 查看 context-scan 逐行输出 |
+| 2025-11-18T19:17:05+08:00 | shell | `sed -n '200,400p' .codex/context-scan.json` | 确认文件是否完整（发现截断） |
+| 2025-11-18T19:17:10+08:00 | shell | `nl -ba .codex/context-scan.json` | 查看 context-scan 行号便于排查 |
+| 2025-11-18T19:17:15+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json ...` | 第二次重写 context-scan（修正数据结构） |
+| 2025-11-18T19:17:20+08:00 | shell | `cat .codex/context-scan.json` | 再次检查 context-scan 输出 |
+| 2025-11-18T19:17:25+08:00 | shell | `python - <<'PY' ...` | 尝试使用 python 验证 JSON（命令不可用） |
+| 2025-11-18T19:17:27+08:00 | shell | `python3 - <<'PY' ...` | 使用 python3 验证 JSON，发现 control character 问题 |
+| 2025-11-18T19:18:30+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json ...` | 第三次重写 context-scan，移除非法字符 |
+| 2025-11-18T19:18:35+08:00 | shell | `python3 - <<'PY' ...` | 校验最终 context-scan JSON 通过 |
+| 2025-11-18T19:18:40+08:00 | sequential-thinking | 识别关键疑问 | 基于扫描结果梳理 README 更新与 OCR 服务支持的疑问列表 |
+| 2025-11-18T19:18:50+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json ...` | 更新上下文问题列表，明确 README/OCR 待解决疑问 |
+| 2025-11-18T19:19:00+08:00 | shell | `nl -ba README.md | sed -n '120,220p'` | 获取 README Quick Start 中本地 OCR 提示的行号 |
+| 2025-11-18T19:19:05+08:00 | shell | `nl -ba README.md | sed -n '320,420p'` | 查看 README 中 PaddleOCR Docker 指南的行号与内容 |
+| 2025-11-18T19:19:10+08:00 | shell | `nl -ba README.md | sed -n '420,540p'` | 查看 README 中 HTTP 模式与参考部署示例内容 |
+| 2025-11-18T19:19:15+08:00 | shell | `nl -ba apps/worker/src/worker.ts | sed -n '90,150p'` | 记录 createOcrAdapter 的实现行号以验证 HTTP 模式支持 |
+| 2025-11-18T19:19:20+08:00 | shell | `nl -ba packages/core/src/ocr.ts | sed -n '1,200p'` | 获取 HttpOcrAdapter/normalizeOcrPayload 代码以证明兼容性 |
+| 2025-11-18T19:19:25+08:00 | shell | `nl -ba .env.example | sed -n '20,40p'` | 记录 OCR_ENABLED/OCR_MODE/OCR_API_URL 等默认值 |
+| 2025-11-18T19:19:30+08:00 | shell | `nl -ba paddle/server.py | sed -n '1,160p'` | 采集 PaddleOCR FastAPI /ocr 接口实现以对照 HttpOcrAdapter |
+| 2025-11-18T19:19:35+08:00 | shell | `nl -ba paddle/docker-compose.yml` | 记录 /paddle docker compose 配置（端口/挂载/重启策略） |
+| 2025-11-18T19:19:40+08:00 | shell | `nl -ba paddle/Dockerfile` | 查看 PaddleOCR 镜像依赖与运行命令，准备写入 README |
+| 2025-11-18T19:19:45+08:00 | shell | `cat <<'EOF' > .codex/context-question-26.json ...` | 形成 Q1 深挖记录，列出现有 README 中的旧路径与命令 |
+| 2025-11-18T19:19:50+08:00 | shell | `cat <<'EOF' > .codex/context-question-27.json ...` | 形成 Q2 深挖记录，整理 `.env` 与 compose 的证据 |
+| 2025-11-18T19:19:55+08:00 | shell | `cat <<'EOF' > .codex/context-question-28.json ...` | 形成 Q3 深挖记录，说明 Worker 与 Paddle 服务互通的证据 |
+| 2025-11-18T19:20:05+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json ...` | 完成充分性检查，确认接口/技术/风险/验证方案俱全 |
+| 2025-11-18T19:20:10+08:00 | sequential-thinking | 任务规划前的思考 | 评估 README 需要修改的段落与执行顺序 |
+| 2025-11-18T19:20:15+08:00 | update_plan | 初始化任务计划 | 三步：梳理段落 -> 修改 README -> 验证/记录 |
+| 2025-11-18T19:20:20+08:00 | update_plan | 完成计划步骤1 | 已确认 README 需修改的段落，开始编辑 README |
+| 2025-11-18T19:20:25+08:00 | apply_patch | README.md | 更新 Quick Start 中的 PaddleOCR 提示，指向 `/paddle` docker compose 与 `.env` 配置 |
+| 2025-11-18T19:20:45+08:00 | apply_patch | README.md | 重写 PaddleOCR 章节，新增 `/paddle` compose、验证、`.env` 设置及 HttpOcrAdapter 说明 |
+| 2025-11-18T19:20:55+08:00 | apply_patch | README.md | 更新末尾参考示例，改为基于 `/paddle` 构建镜像并给出 `.env` 片段 |
+| 2025-11-18T19:21:00+08:00 | update_plan | 完成计划步骤2 | README 已更新，准备记录代码支持与自查 |
+| 2025-11-18T19:21:05+08:00 | shell | `git status -sb` | 检查工作区状态，确认 README 与 .codex 变更待提交 |
+| 2025-11-18T19:21:10+08:00 | update_plan | 完成任务计划 | 三个步骤已全部完成，准备整理交付说明 |
+| 2025-11-18T19:21:15+08:00 | shell | `cat <<'EOF' >> .codex/testing.md ...` | 在 testing.md 记录本次仅更新文档、未运行自动化测试的原因 |
+| 2025-11-18T19:21:20+08:00 | apply_patch | verification.md | 新增验证记录：说明 README 更新的审查方法与剩余风险 |
+| 2025-11-18T19:21:25+08:00 | sequential-thinking | 交付前复盘 | 检查 README 变更覆盖面、代码契约说明与验证记录 |
+| 2025-11-18T19:28:10+08:00 | sequential-thinking | 需求核对初步分析 | 明确需验证语义切分、元数据、结构树、OCR、API/MCP 检索 |
+| 2025-11-18T19:28:15+08:00 | shell | `rg -n "semantic" apps/worker/src/pipeline.ts` | 定位 Worker 中语义切分/元数据相关行 |
+| 2025-11-18T19:28:18+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '200,420p'` | 查看 OCR 触发与 metadata 生成实现 |
+| 2025-11-18T19:28:22+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '420,640p'` | 审查 buildSemanticFragments/normalize sections 逻辑 |
+| 2025-11-18T19:28:26+08:00 | shell | `nl -ba apps/worker/src/pipeline.ts | sed -n '20,80p'` | 记录 preprocess → chunk → metadata pipeline 起点 |
+| 2025-11-18T19:28:30+08:00 | shell | `nl -ba apps/worker/src/worker.ts | sed -n '140,220p'` | 验证 semanticSegmenter 注入 generateStructureViaModel |
+| 2025-11-18T19:28:34+08:00 | shell | `nl -ba packages/core/src/semantic-metadata.ts | sed -n '1,220p'` | 获取 LLM 生成标题/摘要/标签/NER 的逻辑 |
+| 2025-11-18T19:28:39+08:00 | shell | `nl -ba packages/core/src/semantic-structure.ts | sed -n '1,200p'` | 记录结构树 LLM 生成逻辑 |
+| 2025-11-18T19:28:43+08:00 | shell | `nl -ba packages/core/src/preprocess.ts | sed -n '1,200p'` | 说明文本清洗步骤 |
+| 2025-11-18T19:28:47+08:00 | shell | `rg -n "document_sections" packages/data/src -g"*.ts"` | 查找结构树存储位置 |
+| 2025-11-18T19:28:50+08:00 | shell | `nl -ba packages/data/src/repositories/knowledge.ts | sed -n '80,200p'` | 记录 sections/chunks/embeddings 入库逻辑 |
+| 2025-11-18T19:28:54+08:00 | shell | `nl -ba packages/shared-schemas/src/index.ts | sed -n '80,220p'` | 引证 ChunkSchema/SemanticMetadata 字段 |
+| 2025-11-18T19:28:58+08:00 | shell | `rg -n "structure" apps/api/src/routes.ts` | 确认 /documents/:id/structure API |
+| 2025-11-18T19:29:01+08:00 | shell | `nl -ba apps/api/src/routes.ts | sed -n '100,200p'` | 记录 /search 与 structure endpoint 用法 |
+| 2025-11-18T19:29:05+08:00 | shell | `nl -ba apps/mcp/src/tools/search.ts | sed -n '1,200p'` | 佐证 MCP 检索与 REST 共用 HybridRetriever |
+| 2025-11-18T21:05:20+08:00 | sequential-thinking | Task framing | 按 AGENTS.md 要求在执行前梳理需求，确定需生成功能拆解文档 |
+| 2025-11-18T21:05:24+08:00 | shell | `ls` / `ls .codex` | 查看仓库与既有 .codex 资料，确认上下文文件列表 |
+| 2025-11-18T21:05:40+08:00 | shell | `sed -n '1,200p' README.md` 等 | 快速阅读 README 与模块简介，为功能划分收集依据 |
+| 2025-11-18T21:05:48+08:00 | shell | `ls apps/*` + `sed` 多个 TS | 逐个查看 apps/api、apps/worker、apps/mcp、packages 核心入口，理解 TS 文件结构 |
+| 2025-11-18T21:06:10+08:00 | shell | `sed -n '1,200p' 项目需求.md` | 读取需求文档，补充架构与数据流约束 |
+| 2025-11-18T21:06:20+08:00 | sequential-thinking | 关键疑问识别 | 根据初步信息列出 Q1-Q4（功能范围、文件定位、数据流、Web 覆盖） |
+| 2025-11-18T21:06:35+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json` | 依据当前任务重写 context-scan，记录模块位置与观察 |
+| 2025-11-18T21:06:45+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json` | 更新关键疑问列表，标注优先级与阻塞性 |
+| 2025-11-18T21:07:05+08:00 | shell | `sed -n '20,120p' README.md | nl` | 抽取 Repo Layout/Architecture 行号，作为 Q1 证据 |
+| 2025-11-18T21:07:20+08:00 | shell | `nl -ba apps/api/src/routes.ts ...` 等 | 采集 API 路由、Worker pipeline、MCP tools、Data layer 的行号片段 |
+| 2025-11-18T21:07:35+08:00 | shell | `cat <<'EOF' > .codex/context-question-29.json` | 记录 Q1 深挖结果 |
+| 2025-11-18T21:07:40+08:00 | shell | `cat <<'EOF' > .codex/context-question-30.json` | 记录 Q2 深挖结果 |
+| 2025-11-18T21:07:45+08:00 | shell | `cat <<'EOF' > .codex/context-question-31.json` | 记录 Q3 深挖结果，并提示“评估成本”避免过度收集 |
+| 2025-11-18T21:08:20+08:00 | shell | `shrimp-task-manager --help` | 工具未安装，已记录无法直接调用，后续改用 update_plan 手工规划 |

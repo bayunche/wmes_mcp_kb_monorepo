@@ -17,6 +17,9 @@ describe("@kb/shared-schemas", () => {
     });
 
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.libraryId).toBe("default");
+    }
   });
 
   test("chunk schema requires hierarchy path", () => {
@@ -45,6 +48,7 @@ describe("@kb/shared-schemas", () => {
     });
     expect(parsed.priority).toBe(5);
     expect(parsed.retryCount).toBe(0);
+    expect(parsed.libraryId).toBe("default");
   });
 
   test("knowledge bundle nests document and chunks", () => {

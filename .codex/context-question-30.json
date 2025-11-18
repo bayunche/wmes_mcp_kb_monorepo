@@ -1,0 +1,50 @@
+{
+  "question_id": "Q2",
+  "focus": "定位各功能块所依赖的核心 TypeScript 文件",
+  "reason_for_investigation": "功能拆解文档需逐条指向 TS 文件，必须明确 API/Worker/MCP/Data Layer 的入口与关键实现。",
+  "evidence": [
+    {
+      "file": "apps/api/src/main.ts",
+      "lines": "1-40",
+      "quote": "bootstrap() 通过 loadConfig → createDataLayer → VectorClient → HybridRetriever 构建依赖，再调用 startApiServer 并启动 Metrics server。",
+      "implication": "API 功能点需引用 main.ts（引导）与 server.ts/routes.ts（HTTP 行为）。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "56-297",
+      "quote": "handleRequest 统一路由：/documents 列表+增删改、/upload 上传、/model-settings、/libraries/*、/search、/mcp/*、/vector-logs、/chunks 等。",
+      "implication": "API 的上传、治理、搜索、MCP 代理都集中在该文件，需要逐功能引用。"
+    },
+    {
+      "file": "apps/worker/src/worker.ts",
+      "lines": "18-120",
+      "quote": "startWorker() 加载配置、createDataLayer、构建 Parser/OCR/ChunkFactory/VectorClient/semanticMetadata/semanticSegmenter，并订阅 queue，调用 pipeline.handleQueueMessage。",
+      "implication": "Worker 模块的入口 +依赖拼装位于 worker.ts，需在文档中标注。"
+    },
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "1-220, 760-840",
+      "quote": "processIngestionTask 定义 fetchSource→parseDocument→chunkDocument→extractMetadata→embed→persist；handleQueueMessage 对任务失败更新状态并计数。",
+      "implication": "所有 ingestion 阶段与数据写入逻辑都在 pipeline.ts，需要拆解时引用。"
+    },
+    {
+      "file": "apps/mcp/src/index.ts",
+      "lines": "1-60",
+      "quote": "createMcpServer() 创建 HybridRetriever、DbMcpRepository，并注册 kb.search/kb.related/kb.preview 工具；handleMcpRequest() 统一调用。",
+      "implication": "MCP 功能点对应 main.ts/index.ts + tools/*.ts。"
+    },
+    {
+      "file": "packages/data/src/index.ts",
+      "lines": "1-60",
+      "quote": "createDataLayer() 返回 documents/chunks/knowledgeWriter/queue/vectorIndex/storage/attachments/modelSettings/vectorLogs，封装 RabbitQueueAdapter、MinioStorageClient、QdrantVectorIndex。",
+      "implication": "数据层及共享依赖的路径来自 packages/data。"
+    }
+  ],
+  "findings": [
+    "API: main.ts（依赖组装）、server.ts（CORS/Auth/Metrics）、routes.ts（业务路由）、auth.ts（Bearer 鉴权）、modelCatalog.ts（模型列表）。",
+    "Worker: worker.ts（入口/依赖）、pipeline.ts（stage orchestration）、types.ts（阶段接口）、main.ts（启动 SEED 任务）。",
+    "MCP: apps/mcp/src/{main.ts,index.ts,server.ts,tools/*.ts,repository/db.ts} 共同定义 tools 与 HTTP 服务。",
+    "Shared: packages/core/src/{config,retrieval,vector,parsing,ocr,semantic-*} 与 packages/data/src/**/* 提供配置/检索/数据/队列/存储。"
+  ],
+  "conclusion": "文档编写时可按模块引用上述明确的 TS 路径，确保每个功能点都指向唯一实现文件。"
+}

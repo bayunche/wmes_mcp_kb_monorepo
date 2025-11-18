@@ -1,0 +1,30 @@
+{
+  "question_id": "Q3",
+  "focus": "项目代码是否已兼容 /paddle/server.py 双方的 API 契约",
+  "reason_for_investigation": "需要确认无需新增代码即可通过 OCR_MODE=http 访问新的 Paddle 服务。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/worker.ts",
+      "lines": "105-134",
+      "quote": "createOcrAdapter 在 OCR_MODE=http 且配置 OCR_API_URL 时返回 HttpOcrAdapter，auto 模式也会优先使用 HTTP。",
+      "implication": "只要 `.env` 设置 HTTP 模式，Worker 就会用 HTTP 客户端。"
+    },
+    {
+      "file": "packages/core/src/ocr.ts",
+      "lines": "30-90",
+      "quote": "HttpOcrAdapter 构造 multipart/form-data，字段包含 file、response_format=json、language，支持 Authorization 头，解析 JSON payload；LocalOcrAdapter 则执行命令。",
+      "implication": "HTTP 端只需接受 file+language 并返回 JSON 即可与 Worker 对接。"
+    },
+    {
+      "file": "paddle/server.py",
+      "lines": "1-46",
+      "quote": "FastAPI `/ocr` 接口接收 UploadFile，写临时文件后调用 PaddleOCR 并返回 `{\"result\": lines}` JSON。",
+      "implication": "服务端返回 JSON 对象（包含 result 数组），normalizeOcrPayload 能处理对象或数组，因此与 HttpOcrAdapter 兼容。"
+    }
+  ],
+  "findings": [
+    "Worker 已具备根据配置启用 HttpOcrAdapter 的能力。",
+    "HttpOcrAdapter 的字段与 server.py 的请求/响应完全匹配，且 normalizeOcrPayload 支持数组/对象结构。"
+  ],
+  "conclusion": "无需额外代码修改；只需 README 指导用户填好 `.env` 并通过 compose 启动 Paddle 服务，即可完成 OCR 调用。"
+}

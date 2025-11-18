@@ -1,0 +1,24 @@
+{
+  "question_id": "Q1",
+  "focus": "确定功能拆解文档需要覆盖的一级业务模块",
+  "reason_for_investigation": "需要明确定义文档结构（API、Worker、MCP、Web/脚本等），才能在后续步骤列出对应 TS 文件与数据流。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "20-43",
+      "quote": "Repo Layout 表格列出 apps/api、apps/worker、apps/mcp、apps/web、packages/*、scripts/ops/scripts、docs/；Architecture Overview 列出 API/Worker/MCP Server/Web 控制台/数据&运维的职责。",
+      "implication": "官方 README 已经给出分层，可将功能拆解按这些模块展开。"
+    },
+    {
+      "file": "项目需求.md",
+      "lines": "17-120",
+      "quote": "0-1 章明确目标（MCP 暴露、HTTP API、结构化语义召回、多模态）以及总体架构 5 层：API 网关、MCP 服务、处理与索引层、检索与重排层、数据与存储层。",
+      "implication": "需求文档补充了处理层与数据层，可在功能拆解时将 Worker/数据层/检索层等作为独立功能点。"
+    }
+  ],
+  "findings": [
+    "功能拆解主题可以沿用 README 的 Repo Layout + Architecture：API（上传/治理/检索/MCP 代理）、Worker（解析切块/元数据/向量化/写库）、MCP Server（工具暴露）、Web 控制台/脚本（可选）、Shared Packages 与数据层（Kysely/MinIO/RabbitMQ/Qdrant）。",
+    "需求文档补充了处理层、检索层、数据层的流程描述，为每个模块写数据流提供了背景。"
+  ],
+  "conclusion": "文档将至少分为：API 网关、Ingestion Worker、Hybrid Retrieval 与数据存储、MCP Server、Web/脚本及支撑组件，并在每节附功能点与 TS 文件引用。"
+}

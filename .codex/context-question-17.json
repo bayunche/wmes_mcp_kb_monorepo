@@ -1,0 +1,24 @@
+{
+  "id": "Q2",
+  "question": "sizeBytes 字段应如何处理，才能避免 Zod Invalid type (string→number) 错误？",
+  "timestamp": "2025-11-17T12:29:49.209630+08:00",
+  "findings": [
+    {
+      "evidence": "packages/shared-schemas/src/index.ts:17-27 将 DocumentSchema.sizeBytes 定义为 `z.number().int().nonnegative().optional()`，不接受字符串。",
+      "insight": "任何传入 string 类型都会被 Zod 拒绝。"
+    },
+    {
+      "evidence": "apps/api/src/routes.ts:48-57、176-205 在 POST /documents 与 POST /upload 中直接 `DocumentSchema.parse(...)`，若 payload 内 sizeBytes 为字符串，解析立即抛错。",
+      "insight": "API 没有做额外的类型转换，完全依赖 Schema。"
+    },
+    {
+      "evidence": "packages/data/src/repositories/documents.ts:8-40 mapRow 时虽使用 `Number(row.size_bytes)`，但数据库列 `size_bytes BIGINT` 由 pg 驱动默认返回 string，若已有历史数据未清洗或 DocumentRepository.upsert 写入 string，读取时同样会因 DocumentSchema.parse 而失败。",
+      "insight": "数据层也依赖 Zod 校验，任何字符串会导致 GET /documents 报错（日志中 stack 显示发生在 routes.ts:44）。"
+    },
+    {
+      "evidence": "apps/web/src/api.ts uploadDocument 通过 FormData 仅上传 file/title/tenant/tags，没有 sizeBytes 字段，需依赖 API 自动推导；但 Bun FormData -> File.size 在 Windows/PowerShell 中会序列化为字符串（日志显示 `received string`）。",
+      "insight": "当前转换逻辑不足，sizeBytes 仍以字符串身份进入 Schema。"
+    }
+  ],
+  "conclusion": "sizeBytes 必须在 API 层统一强制转 number（包括 /upload、/documents JSON 入口以及 PgDocumentRepository.mapRow）。建议：1) 在 shared-schemas 中将 sizeBytes 切换为 `z.coerce.number().int().nonnegative().optional()` 以容忍字符串；2) 在 handleUpload/handleDocument 中对 file.size 与 body.sizeBytes 使用 `Number(...)`；3) 迁移层读取数据库时继续 `Number(row.size_bytes)`。这样无论前端、脚本还是历史数据以字符串形式出现，都能被自动转换，避免 ZodError 阻塞请求。"
+}

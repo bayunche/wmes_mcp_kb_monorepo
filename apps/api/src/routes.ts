@@ -1,23 +1,43 @@
+import { Buffer } from "node:buffer";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import { createWriteStream } from "node:fs";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { HybridRetriever } from "../../../packages/core/src/retrieval";
 import type {
   AttachmentRepository,
   DocumentRepository,
+  ModelSettingsRepository,
   ObjectStorage,
   QueueAdapter,
-  VectorIndex
+  VectorIndex,
+  VectorLogRepository
 } from "@kb/data";
 import type { ChunkRepository } from "@kb/core/src/retrieval";
 import {
   Attachment,
+  Chunk,
   DocumentSchema,
+  ModelSettingInputSchema,
+  ModelSettingSecret,
+  ModelRoleSchema,
   SearchRequestSchema,
   SearchResponseSchema
 } from "@kb/shared-schemas";
-import { DbMcpRepository } from "@kb/mcp-server/src/repository/db";
-import { createSearchTool } from "@kb/mcp-server/src/tools/search";
-import { createRelatedTool } from "@kb/mcp-server/src/tools/related";
-import { createPreviewTool } from "@kb/mcp-server/src/tools/preview";
-import type { McpToolContext } from "@kb/mcp-server/src/types";
+import { DbMcpRepository } from "../../mcp/src/repository/db";
+import { createSearchTool } from "../../mcp/src/tools/search";
+import { createRelatedTool } from "../../mcp/src/tools/related";
+import { createPreviewTool } from "../../mcp/src/tools/preview";
+import type { McpToolContext } from "../../mcp/src/types";
+import { loadModelCatalog } from "./modelCatalog";
+
+const STREAM_THRESHOLD_BYTES = (() => {
+  const mb = Number(process.env.API_UPLOAD_STREAM_THRESHOLD_MB ?? "256");
+  return mb * 1024 * 1024;
+})();
 
 export interface ApiRoutesDeps {
   documents: DocumentRepository;
@@ -28,6 +48,9 @@ export interface ApiRoutesDeps {
   storage?: ObjectStorage;
   vectorIndex?: VectorIndex;
   defaultTenantId: string;
+  defaultLibraryId: string;
+  modelSettings?: ModelSettingsRepository;
+  vectorLogs?: VectorLogRepository;
 }
 
 export async function handleRequest(request: Request, deps: ApiRoutesDeps): Promise<Response> {
@@ -39,8 +62,10 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
 
   if (request.method === "GET" && url.pathname === "/documents") {
     const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const libraryParam = url.searchParams.get("libraryId") ?? undefined;
     const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam ?? undefined);
-    const items = await deps.documents.list(tenantId);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam ?? undefined);
+    const items = await deps.documents.list(tenantId, libraryId);
     return Response.json({ items });
   }
 
@@ -48,13 +73,41 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     const payload = await request.json();
     const doc = DocumentSchema.parse(payload);
     const tenantId = resolveTenant(request, deps.defaultTenantId, doc.tenantId);
-    const saved = await deps.documents.upsert({ ...doc, tenantId });
-    await enqueueIngestion(deps.queue, saved.docId, tenantId);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, doc.libraryId);
+    const saved = await deps.documents.upsert({ ...doc, tenantId, libraryId });
+    await enqueueIngestion(deps.queue, saved.docId, tenantId, libraryId);
     return json(saved, 201);
   }
 
   if (request.method === "POST" && url.pathname === "/upload") {
     return handleUpload(request, deps);
+  }
+
+  if (request.method === "GET" && url.pathname === "/model-settings/list") {
+    if (!deps.modelSettings) {
+      return new Response("Model settings repository not configured", { status: 501 });
+    }
+    const url = new URL(request.url);
+    const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const libraryParam = url.searchParams.get("libraryId") ?? undefined;
+    const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam);
+    const items = await deps.modelSettings.list(tenantId, libraryId);
+    return json({ items: items.map((item) => sanitizeModelSetting(item)) });
+  }
+
+  if (request.method === "GET" && url.pathname === "/model-settings/catalog") {
+    const catalog = await loadModelCatalog();
+    return json({ items: catalog });
+  }
+
+  if (url.pathname === "/model-settings") {
+    if (request.method === "GET") {
+      return handleGetModelSettings(request, deps);
+    }
+    if (request.method === "PUT") {
+      return handleSaveModelSettings(request, deps);
+    }
   }
 
   const reindexMatch = url.pathname.match(/^\/documents\/([^/]+)\/reindex$/);
@@ -73,18 +126,71 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     }
   }
 
+  const documentChunksMatch = url.pathname.match(/^\/documents\/([^/]+)\/chunks$/);
+  if (documentChunksMatch) {
+    const docId = documentChunksMatch[1];
+    if (!deps.chunks.listByDocument) {
+      return new Response("Chunk repository does not support document listing", { status: 501 });
+    }
+    if (request.method === "GET") {
+      return handleListDocumentChunks(request, deps, docId);
+    }
+  }
+
+  const documentStructureMatch = url.pathname.match(/^\/documents\/([^/]+)\/structure$/);
+  if (documentStructureMatch && request.method === "GET") {
+    return handleGetDocumentStructure(request, deps, documentStructureMatch[1]);
+  }
+
   if (request.method === "GET" && url.pathname === "/stats") {
     const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const libraryParam = url.searchParams.get("libraryId") ?? undefined;
     const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam ?? undefined);
-    const stats = await deps.documents.stats(tenantId);
-    return json(stats);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam ?? undefined);
+    const stats = await deps.documents.stats(tenantId, libraryId);
+    return json({ ...stats, tenantId, libraryId });
+  }
+
+  const libraryChunksMatch = url.pathname.match(/^\/libraries\/([^/]+)\/chunks$/);
+  if (request.method === "GET" && libraryChunksMatch) {
+    if (!deps.chunks.listByLibrary) {
+      return new Response("Chunk repository does not support library listing", { status: 501 });
+    }
+    const libraryId = decodeURIComponent(libraryChunksMatch[1]);
+    const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam ?? undefined);
+    const docFilter = url.searchParams.get("docId") ?? undefined;
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? "50") || 50, 200);
+    const records = await deps.chunks.listByLibrary(libraryId, {
+      docId: docFilter ?? undefined,
+      limit
+    });
+    const filtered = tenantId
+      ? records.filter((record) => record.document.tenantId === tenantId)
+      : records;
+    const chunkIds = filtered.map((record) => record.chunk.chunkId);
+    const attachments = chunkIds.length
+      ? await deps.attachments.listByChunkIds(chunkIds)
+      : [];
+    const attachmentMap = groupAttachments(attachments);
+    return json({
+      libraryId,
+      tenantId,
+      total: filtered.length,
+      items: filtered.map((record) => ({
+        chunk: record.chunk,
+        document: record.document,
+        attachments: attachmentMap.get(record.chunk.chunkId) ?? []
+      }))
+    });
   }
 
   if (request.method === "POST" && url.pathname === "/search") {
     const body = await request.json();
     const parsed = SearchRequestSchema.parse(body);
     const tenantId = resolveTenant(request, deps.defaultTenantId, parsed.filters?.tenantId);
-    const searchFilters = { ...parsed.filters, tenantId };
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, parsed.filters?.libraryId);
+    const searchFilters = { ...parsed.filters, tenantId, libraryId };
     const result = await deps.retriever.search({ ...parsed, filters: searchFilters });
     const chunkIds = result.results.map((item) => item.chunk.chunkId);
     const attachments = chunkIds.length ? await deps.attachments.listByChunkIds(chunkIds) : [];
@@ -106,6 +212,29 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
           !chunkAttachments.some((att) => searchFilters.attachmentTypes?.includes(att.assetType))
         ) {
           return null;
+        }
+        if (searchFilters.semanticTags?.length) {
+          const chunkTags = gatherSemanticTags(item.chunk);
+          const matchesSemantic = searchFilters.semanticTags.some((tag) =>
+            chunkTags.has(tag.toLowerCase())
+          );
+          if (!matchesSemantic) {
+            return null;
+          }
+        }
+        if (searchFilters.envLabels?.length) {
+          const envLabels = gatherEnvLabels(item.chunk);
+          const matchesEnv = searchFilters.envLabels.some((label) =>
+            envLabels.has(label.toLowerCase())
+          );
+          if (!matchesEnv) {
+            return null;
+          }
+        }
+        if (searchFilters.metadataQuery) {
+          if (!matchesMetadataQuery(item.chunk, searchFilters.metadataQuery)) {
+            return null;
+          }
         }
         return {
           ...item,
@@ -135,6 +264,21 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     return handleMcpPreview(request, deps);
   }
 
+  if (request.method === "GET" && url.pathname === "/vector-logs") {
+    if (!deps.vectorLogs) {
+      return new Response("Vector log repository not configured", { status: 501 });
+    }
+    const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const libraryParam = url.searchParams.get("libraryId") ?? undefined;
+    const docId = url.searchParams.get("docId") ?? undefined;
+    const chunkId = url.searchParams.get("chunkId") ?? undefined;
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? "100") || 100, 200);
+    const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam);
+    const items = await deps.vectorLogs.list({ docId, chunkId, tenantId, libraryId, limit });
+    return json({ items, total: items.length, tenantId, libraryId });
+  }
+
   const chunkMatch = url.pathname.match(/^\/chunks\/(.+)/);
   if (request.method === "GET" && chunkMatch) {
     const chunkId = chunkMatch[1];
@@ -145,6 +289,10 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     return Response.json(record);
   }
 
+  if (request.method === "PATCH" && chunkMatch) {
+    return handleUpdateChunk(request, deps, chunkMatch[1]);
+  }
+
   return new Response("Not Found", { status: 404 });
 }
 
@@ -153,44 +301,73 @@ async function handleUpload(request: Request, deps: ApiRoutesDeps): Promise<Resp
     return new Response("Storage not configured", { status: 500 });
   }
   const form = await request.formData();
-  const file = form.get("file");
-  if (!(file instanceof File)) {
+  const files = collectFiles(form);
+  if (!files.length) {
     return new Response("file is required", { status: 400 });
   }
   const explicitTenant = form.get("tenantId");
+  const explicitLibrary = form.get("libraryId");
+  const explicitTitle = typeof form.get("title") === "string" ? (form.get("title") as string) : undefined;
+  const titleOverrides = collectTitleOverrides(form);
   const tenantId = resolveTenant(
     request,
     deps.defaultTenantId,
     typeof explicitTenant === "string" ? explicitTenant : undefined
   );
-  const docId = crypto.randomUUID();
-  const extension = guessExtension(file);
-  const objectKey = buildRawObjectKey(tenantId, docId, extension);
-  const buffer = new Uint8Array(await file.arrayBuffer());
-  await deps.storage.putRawObject(objectKey, buffer, file.type || undefined);
+  const libraryId = resolveLibrary(
+    request,
+    deps.defaultLibraryId,
+    typeof explicitLibrary === "string" ? explicitLibrary : undefined
+  );
+  const tags = parseTagsField(form);
 
-  const tagsField = [...form.getAll("tags"), ...form.getAll("tags[]")];
-  const tags =
-    tagsField.length === 0
-      ? undefined
-      : tagsField.flatMap((value) =>
-          typeof value === "string" && value.length ? value.split(",").map((tag) => tag.trim()) : []
-        ).filter(Boolean);
+  const results = [];
+  for (const [index, file] of files.entries()) {
+    const docId = crypto.randomUUID();
+    const title =
+      titleOverrides[index] ??
+      (files.length === 1 ? explicitTitle : undefined) ??
+      file.name ??
+      `Doc ${docId}`;
+    try {
+      const extension = guessExtension(file);
+      const objectKey = buildRawObjectKey(tenantId, docId, extension);
+      await persistUploadedFile(file, objectKey, deps.storage);
+      const docPayload = DocumentSchema.parse({
+        docId,
+        title,
+        sourceUri: objectKey,
+        mimeType: file.type || undefined,
+        sizeBytes: typeof file.size === "number" ? file.size : Number(file.size) || 0,
+        ingestStatus: "uploaded",
+        tenantId,
+        libraryId,
+        tags,
+        createdAt: new Date().toISOString()
+      });
+      await deps.documents.upsert(docPayload);
+      await enqueueIngestion(deps.queue, docId, tenantId, libraryId);
+      results.push({
+        docId,
+        filename: file.name,
+        title,
+        status: "queued"
+      });
+    } catch (error) {
+      results.push({
+        docId,
+        filename: file.name,
+        title,
+        status: "error",
+        message: (error as Error).message
+      });
+    }
+  }
 
-  const docPayload = DocumentSchema.parse({
-    docId,
-    title: (form.get("title") as string) ?? file.name ?? docId,
-    sourceUri: objectKey,
-    mimeType: file.type || undefined,
-    sizeBytes: file.size,
-    ingestStatus: "uploaded",
-    tenantId,
-    tags,
-    createdAt: new Date().toISOString()
-  });
-  const saved = await deps.documents.upsert(docPayload);
-  await enqueueIngestion(deps.queue, docId, tenantId);
-  return json(saved, 201);
+  const successCount = results.filter((item) => item.status === "queued").length;
+  const responseStatus =
+    successCount === results.length ? 200 : successCount === 0 ? 500 : 207;
+  return json({ items: results }, responseStatus);
 }
 
 async function handleTagUpdate(request: Request, deps: ApiRoutesDeps, docId: string) {
@@ -257,15 +434,213 @@ async function handleReindexDocument(request: Request, deps: ApiRoutesDeps, docI
   if (doc.tenantId && doc.tenantId !== tenantId) {
     return new Response("Forbidden", { status: 403 });
   }
-  await enqueueIngestion(deps.queue, doc.docId, tenantId);
-  return json({ status: "queued", docId });
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, doc.libraryId);
+  await deps.documents.updateStatus(doc.docId, "uploaded");
+  await enqueueIngestion(deps.queue, doc.docId, tenantId, libraryId);
+  return json({ status: "queued", docId, libraryId });
 }
 
-async function enqueueIngestion(queue: QueueAdapter, docId: string, tenantId: string) {
+async function handleListDocumentChunks(request: Request, deps: ApiRoutesDeps, docId: string) {
+  const doc = await deps.documents.get(docId);
+  if (!doc) {
+    return new Response("Not Found", { status: 404 });
+  }
+  const tenantId = resolveTenant(request, doc.tenantId ?? deps.defaultTenantId);
+  if (doc.tenantId && doc.tenantId !== tenantId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  const records = await deps.chunks.listByDocument!(docId);
+  const chunkIds = records.map((record) => record.chunk.chunkId);
+  const attachments = chunkIds.length ? await deps.attachments.listByChunkIds(chunkIds) : [];
+  const attachmentMap = groupAttachments(attachments);
+  return json({
+    docId,
+    libraryId: doc.libraryId,
+    tenantId,
+    items: records.map((record) => ({
+      chunk: record.chunk,
+      document: record.document,
+      attachments: attachmentMap.get(record.chunk.chunkId) ?? []
+    }))
+  });
+}
+
+async function handleGetDocumentStructure(request: Request, deps: ApiRoutesDeps, docId: string) {
+  const doc = await deps.documents.get(docId);
+  if (!doc) {
+    return new Response("Not Found", { status: 404 });
+  }
+  const tenantId = resolveTenant(request, doc.tenantId ?? deps.defaultTenantId);
+  if (doc.tenantId && doc.tenantId !== tenantId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  const sections = await deps.documents.listSections(docId);
+  return json({ docId, sections });
+}
+
+async function handleUpdateChunk(request: Request, deps: ApiRoutesDeps, chunkId: string) {
+  if (!deps.chunks.updateTopicLabels) {
+    return new Response("Chunk repository does not support updates", { status: 501 });
+  }
+  const record = await deps.chunks.get(chunkId);
+  if (!record) {
+    return new Response("Not Found", { status: 404 });
+  }
+  const tenantId = resolveTenant(request, deps.defaultTenantId, record.document.tenantId);
+  if (record.document.tenantId && record.document.tenantId !== tenantId) {
+    return new Response("Forbidden", { status: 403 });
+  }
+  const body = await request.json().catch(() => ({}));
+  const tags = Array.isArray(body.topicLabels)
+    ? body.topicLabels.map((tag) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  if (!tags || !tags.length) {
+    return new Response("topicLabels must be an array of strings", { status: 400 });
+  }
+  await deps.chunks.updateTopicLabels(chunkId, tags);
+  const updated = await deps.chunks.get(chunkId);
+  return json(updated ?? { chunkId, topicLabels: tags });
+}
+
+async function handleGetModelSettings(request: Request, deps: ApiRoutesDeps): Promise<Response> {
+  if (!deps.modelSettings) {
+    return new Response("Model settings repository not configured", { status: 501 });
+  }
+  const url = new URL(request.url);
+  const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+  const libraryParam = url.searchParams.get("libraryId") ?? undefined;
+  const roleParam = url.searchParams.get("modelRole") ?? undefined;
+  const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam);
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam);
+  const modelRole = roleParam ? ModelRoleSchema.parse(roleParam) : undefined;
+  const setting = roleParam
+    ? await deps.modelSettings.get(tenantId, libraryId, modelRole)
+    : await deps.modelSettings.get(tenantId, libraryId, "tagging");
+  return json({ setting: setting ? sanitizeModelSetting(setting) : null });
+}
+
+async function handleSaveModelSettings(request: Request, deps: ApiRoutesDeps): Promise<Response> {
+  if (!deps.modelSettings) {
+    return new Response("Model settings repository not configured", { status: 501 });
+  }
+  const payload = await request.json();
+  const parsed = ModelSettingInputSchema.parse(payload);
+  const tenantId = resolveTenant(request, deps.defaultTenantId, parsed.tenantId);
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, parsed.libraryId);
+  const normalizedApiKey = parsed.apiKey?.trim() ? parsed.apiKey.trim() : undefined;
+  const modelRole = parsed.modelRole ?? "tagging";
+  const displayName = parsed.displayName?.trim() ? parsed.displayName.trim() : undefined;
+  const saved = await deps.modelSettings.upsert({
+    tenantId,
+    libraryId,
+    provider: parsed.provider,
+    baseUrl: parsed.baseUrl,
+    modelName: parsed.modelName,
+    options: parsed.options,
+    apiKey: normalizedApiKey,
+    modelRole,
+    displayName
+  });
+  return json({ setting: sanitizeModelSetting(saved) });
+}
+
+function sanitizeModelSetting(setting: ModelSettingSecret) {
+  return {
+    tenantId: setting.tenantId,
+    libraryId: setting.libraryId,
+    provider: setting.provider,
+    baseUrl: setting.baseUrl,
+    modelName: setting.modelName,
+    modelRole: setting.modelRole ?? "tagging",
+    displayName: setting.displayName ?? undefined,
+    options: setting.options ?? undefined,
+    updatedAt: setting.updatedAt,
+    hasApiKey: Boolean(setting.apiKey),
+    apiKeyPreview: maskKey(setting.apiKey)
+  };
+}
+
+function maskKey(apiKey?: string) {
+  if (!apiKey) {
+    return undefined;
+  }
+  if (apiKey.length <= 4) {
+    return `***${apiKey}`;
+  }
+  const suffix = apiKey.slice(-4);
+  return `${"*".repeat(Math.max(apiKey.length - 4, 0))}${suffix}`;
+}
+
+function collectFiles(form: FormData): File[] {
+  const multi = form.getAll("files").filter((value): value is File => value instanceof File);
+  if (multi.length) {
+    return multi;
+  }
+  const single = form.get("file");
+  return single instanceof File ? [single] : [];
+}
+
+function collectTitleOverrides(form: FormData): Array<string | undefined> {
+  return form.getAll("titles[]").map((value) =>
+    typeof value === "string" && value.trim().length ? value.trim() : undefined
+  );
+}
+
+function parseTagsField(form: FormData): string[] | undefined {
+  const rawValues = [...form.getAll("tags"), ...form.getAll("tags[]")].filter(
+    (value): value is string => typeof value === "string"
+  );
+  const tags = rawValues
+    .flatMap((value) => value.split(","))
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  if (!tags.length) {
+    return undefined;
+  }
+  const deduped = Array.from(new Set(tags.map((tag) => tag.toLowerCase()))).map((lowerTag) => {
+    return tags.find((tag) => tag.toLowerCase() === lowerTag)!;
+  });
+  return deduped;
+}
+
+async function persistUploadedFile(file: File, objectKey: string, storage?: ObjectStorage) {
+  if (!storage) {
+    throw new Error("Storage not configured");
+  }
+  if (!STREAM_THRESHOLD_BYTES || file.size <= STREAM_THRESHOLD_BYTES) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await storage.putRawObject(objectKey, buffer, file.type || undefined);
+    return;
+  }
+  const tempDir = await fs.mkdtemp(join(tmpdir(), "kb-upload-"));
+  const tempFile = join(tempDir, `${randomUUID()}-${sanitizeFileName(file.name)}`);
+  try {
+    const readable = Readable.fromWeb(file.stream());
+    await pipeline(readable, createWriteStream(tempFile));
+    await storage.putRawObject(objectKey, tempFile, file.type || undefined);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+function sanitizeFileName(input?: string) {
+  if (!input || !input.length) {
+    return "upload.bin";
+  }
+  return input.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80) || "upload.bin";
+}
+
+async function enqueueIngestion(
+  queue: QueueAdapter,
+  docId: string,
+  tenantId: string,
+  libraryId: string
+) {
   await queue.enqueue({
     jobId: crypto.randomUUID(),
     docId,
-    tenantId
+    tenantId,
+    libraryId
   });
 }
 
@@ -304,6 +679,20 @@ function resolveTenant(request: Request, fallback: string, explicit?: string | n
   return fallback;
 }
 
+function resolveLibrary(request: Request, fallback: string, explicit?: string | null) {
+  if (typeof explicit === "string") {
+    const trimmed = explicit.trim();
+    if (trimmed.length) {
+      return trimmed;
+    }
+  }
+  const header = request.headers.get("x-library-id")?.trim();
+  if (header && header.length) {
+    return header;
+  }
+  return fallback;
+}
+
 function groupAttachments(attachments: Attachment[]) {
   const map = new Map<string, Attachment[]>();
   for (const attachment of attachments) {
@@ -313,6 +702,40 @@ function groupAttachments(attachments: Attachment[]) {
     map.set(attachment.chunkId, current);
   }
   return map;
+}
+
+function gatherSemanticTags(chunk: Chunk) {
+  const tags = new Set<string>();
+  (chunk.semanticTags ?? []).forEach((tag) => tags.add(tag.toLowerCase()));
+  chunk.semanticMetadata?.semanticTags?.forEach((tag) => tags.add(tag.toLowerCase()));
+  (chunk.topicLabels ?? []).forEach((tag) => tags.add(tag.toLowerCase()));
+  return tags;
+}
+
+function gatherEnvLabels(chunk: Chunk) {
+  const labels = new Set<string>();
+  (chunk.envLabels ?? []).forEach((label) => labels.add(label.toLowerCase()));
+  chunk.semanticMetadata?.envLabels?.forEach((label) => labels.add(label.toLowerCase()));
+  return labels;
+}
+
+function matchesMetadataQuery(chunk: Chunk, query: Record<string, unknown>) {
+  if (!query || !Object.keys(query).length) {
+    return true;
+  }
+  if (!chunk.semanticMetadata) {
+    return false;
+  }
+  const metadata = {
+    ...chunk.semanticMetadata.extra,
+    contextSummary: chunk.semanticMetadata.contextSummary
+  };
+  return Object.entries(query).every(([key, value]) => {
+    if (!(key in metadata)) {
+      return false;
+    }
+    return metadata[key] === value;
+  });
 }
 
 function json(payload: unknown, status = 200) {
@@ -326,10 +749,11 @@ async function handleMcpSearch(request: Request, deps: ApiRoutesDeps) {
   const body = await request.json();
   const parsed = SearchRequestSchema.parse(body);
   const tenantId = resolveTenant(request, deps.defaultTenantId, parsed.filters?.tenantId);
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, parsed.filters?.libraryId);
   const repo = new DbMcpRepository(deps.chunks, deps.attachments);
-  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId, libraryId };
   const tool = createSearchTool(deps.retriever, repo);
-  const result = await tool.handle(parsed, ctx);
+  const result = await tool.handle({ ...parsed, filters: { ...parsed.filters, libraryId } }, ctx);
   return json(result);
 }
 
@@ -339,8 +763,9 @@ async function handleMcpRelated(request: Request, deps: ApiRoutesDeps) {
     return new Response("chunkId is required", { status: 400 });
   }
   const tenantId = resolveTenant(request, deps.defaultTenantId, payload.tenantId);
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, payload.libraryId);
   const repo = new DbMcpRepository(deps.chunks, deps.attachments);
-  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId, libraryId };
   const tool = createRelatedTool(repo);
   const result = await tool.handle(payload, ctx);
   return json(result);
@@ -352,8 +777,9 @@ async function handleMcpPreview(request: Request, deps: ApiRoutesDeps) {
     return new Response("chunkId is required", { status: 400 });
   }
   const tenantId = resolveTenant(request, deps.defaultTenantId, payload.tenantId);
+  const libraryId = resolveLibrary(request, deps.defaultLibraryId, payload.libraryId);
   const repo = new DbMcpRepository(deps.chunks, deps.attachments);
-  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId };
+  const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId, libraryId };
   const tool = createPreviewTool(repo);
   const result = await tool.handle(payload, ctx);
   return json(result);

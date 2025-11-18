@@ -1,36 +1,66 @@
 {
-  "timestamp": "2025-11-16T23:05:40+08:00",
+  "timestamp": "2025-11-18T21:05:28+08:00",
   "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
-  "focus": "README 中 Windows 纯原生（无 Docker / 无 WSL）启动流程",
-  "location": {
-    "file": "README.md",
-    "sections": [
-      "🚀 Quick Start → Windows（纯原生，不依赖 WSL）",
-      "🛠 Local Development → Windows（纯原生）",
-      "🐳 Docker Deployment → Windows 注意事项"
+  "focus": "梳理整套知识库系统的业务功能并输出功能点拆解文档，需标注关键 TypeScript 文件及端到端数据流",
+  "locations": {
+    "api_gateway": [
+      "apps/api/src/main.ts（引导 Bun API 服务器与 HybridRetriever）",
+      "apps/api/src/server.ts（HTTP/CORS/Auth + metrics 暴露）",
+      "apps/api/src/routes.ts（上传/检索/治理/MCP 代理各路由）"
+    ],
+    "ingestion_worker": [
+      "apps/worker/src/worker.ts（Worker 启动、依赖装配、OCR/模型注入）",
+      "apps/worker/src/pipeline.ts（fetch → parse → chunk → metadata → embed → persist 全流程）",
+      "apps/worker/src/types.ts（数据结构与阶段依赖定义）"
+    ],
+    "mcp_server": [
+      "apps/mcp/src/server.ts（createMcpServer 与工具暴露）",
+      "apps/mcp/src/tools/{search,related,preview}.ts（kb.* 工具实现）",
+      "apps/mcp/src/repository/db.ts（数据库访问封装）"
+    ],
+    "shared_packages": [
+      "packages/core/src/{config,retrieval,vector,parsing,ocr,semantic-*}.ts",
+      "packages/data/src/index.ts（Kysely repository + queue/storage/vectorIndex）",
+      "packages/shared-schemas（Zod schema 与类型约束）"
+    ],
+    "docs_and_specs": [
+      "README.md（架构、高亮功能与部署路径）",
+      "docs/ingestion.md、docs/retrieval.md、docs/mcp.md（子流程细节）",
+      "项目需求.md（中文需求背景）"
     ]
   },
-  "current_state": "Quick Start 目前将 Windows 部分拆成“使用 Docker Desktop”和“本地原生（Bun + 手动依赖）”，但步骤散落：非 Docker 场景只有初始化/迁移，然后让读者跳到 Local Development；缺少完整的依赖准备、服务启动与验证路径。多处使用 PowerShell 片段但未同步提示如何检查依赖服务，文案显得凌乱。",
+  "current_state": {
+    "architecture": "README 已交代 API → Queue → Worker → Vector/DB → MCP/REST 的主干，apps/api 负责上传与检索，apps/worker 完成解析切块+元数据生成+嵌入并写回 data layer。",
+    "data_plane": "packages/data 统一了 Postgres/Kysely、MinIO、RabbitMQ、pgvector/Qdrant 索引适配，API/Worker/MCP 共用 createDataLayer()。",
+    "retrieval": "HybridRetriever (packages/core/src/retrieval) 组合向量召回与 rerank；API /search 与 MCP 工具均共用该实例，并在 routes.ts 中追加附件/标签过滤逻辑。",
+    "mcp_integration": "apps/mcp 暴露 kb.search/kb.related/kb.preview，API 通过 /mcp/* 将 REST/Token 模式对接 MCP 客户端，实现统一检索能力。",
+    "worker_pipeline": "pipeline.ts 的 processIngestionTask 协调 fetchSource→parseDocument→chunkDocument→extractMetadata→embedChunks→persistBundle，并在 metrics + vectorLogs 中记录过程。"
+  },
   "similar_assets": [
-    "scripts/run-migrations.ts / scripts/bootstrap-storage.ts（Quick Start 引用的 PowerShell 命令）",
-    "apps/worker/src/main.ts、apps/api/src/main.ts（Local Development 中的启动命令）",
-    "docs/ingestion.md（解释依赖服务及端口要求）"
+    "docs/ingestion.md - 描述上传/解析/嵌入/持久化流程",
+    "docs/retrieval.md - HybridRetriever 配置与搜索策略",
+    "docs/mcp.md - kb.* 工具接口参考",
+    "README.md - Highlights/Architecture/Quick Start",
+    "项目需求.md - 业务背景与目标"
   ],
   "tech_stack": [
-    "Bun 1.1.x Windows 版（PowerShell 安装命令）",
-    "Postgres/Qdrant/MinIO/Redis/RabbitMQ（可通过 MSI 或 Docker Desktop 单容器安装）",
-    "PowerShell 环境变量（$env:...）" 
+    "Bun 1.x + TypeScript（API/Worker/MCP）",
+    "React + Vite（apps/web，仅做背景参考）",
+    "Postgres + pgvector + Qdrant + MinIO + RabbitMQ",
+    "Zod + Kysely + @xenova/transformers",
+    "Vitest + bun test"
   ],
   "tests": {
-    "references": [
-      "✅ Smoke Test（curl /documents、/search、/mcp/preview）",
-      "🛠 Local Development（Windows）步骤"
+    "available": [
+      "bun test（根目录 Vitest 配置）",
+      "make test（pytest? — 但 Monorepo 主要使用 bun test / scripts/test-matrix）",
+      "scripts/api-smoke.ts、scripts/test-matrix.ts"
     ],
-    "notes": "需要让 Quick Start 在非 Docker 场景中明确如何完成 Smoke Test 或至少访问 /health。"
+    "notes": "功能拆解文档无需运行测试，但后续若验证 API 行为可用 bun test 或 scripts/api-smoke.ts。"
   },
   "observation_report": [
-    "Windows 非 Docker 步骤缺少“依赖是否就绪”的检查，用户需要知道如何验证 Postgres/Qdrant/MinIO/RabbitMQ/Redis 运行。",
-    "Local Development（Windows）重复 Quick Start 命令，可考虑在 Quick Start 内给出完整流程，并在 Local Development 中引用，减少跳转。",
-    "文档没有描述如何在无 Docker / WSL 环境安装依赖（提供 MSI 或 Docker Desktop 单容器思路），应加入最小建议链接或提示。"
+    "当前任务需要纵览 API/Worker/MCP/Packages 中的关键 TS 文件以描述功能点及数据流，需跨目录阅读，信息量较大。",
+    "仓库未配置 code-index MCP 工具，无法使用固化索引检索，只能通过 shell/rg 进行源代码搜索，已在此记录。",
+    "数据流描述可以复用 README + docs/ingestion.md/retrieval.md 的叙述，再结合 apps/* 源码进行补充，确保最终文档具备依据。"
   ]
 }

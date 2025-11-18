@@ -35,3 +35,24 @@
 | 2025-11-16T21:12:45+08:00 | 说明 | N/A | 本次仅调整 README Quick Start 结构，未涉及代码；已人工复核步骤与链接准确性。 |
 | 2025-11-16T22:41:05+08:00 | 说明 | N/A | 无法在 WSL 环境安装 Bun/Docker（build 受限），未能运行 `bun run` 或 `docker compose`；需在 Windows 宿主执行 `docker compose build --no-cache kb-api kb-worker mcp-server` 后再验证启动。 |
 | 2025-11-16T23:07:40+08:00 | 说明 | N/A | 仅更新 README Windows 纯原生流程，无代码改动，未执行自动化测试；已人工校对步骤与链接。 |
+| 2025-11-17T00:40:40+08:00 | 说明 | N/A | 因当前环境无法运行 Bun（WSL 缺乏 bun CLI），未能执行 `bun dev` 验证；变更仅调整 import 路径，风险较低。 |
+| 2025-11-17T00:52:45+08:00 | 说明 | N/A | 调整 API 启动守卫后仍无法在当前环境运行 Bun；需在本地执行 `bun dev` 验证 API 自动启动。 |
+| 2025-11-17T00:59:45+08:00 | 说明 | N/A | 新增 `bun run web` 脚本并更新 README，无代码运行，需要用户本地执行验证。 |
+| 2025-11-17T01:00:30+08:00 | 说明 | N/A | 新增 `scripts/dev-all.ts` 并将 `bun dev` 指向该脚本；受限于当前环境无法并发运行 Bun 子进程，未执行实际启动验证。 |
+| 2025-11-17T01:05:40+08:00 | 说明 | N/A | README 新增常用启动命令表；未运行 Bun 验证，需在本地手动执行对应命令。 |
+| 2025-11-17T01:10:20+08:00 | 说明 | N/A | 修复 `bun dev` 中 web 子进程的命令（改为 `bunx` + cwd）；仍无法在当前环境运行 Bun，需本地再次执行 `bun dev` 验证。 |
+| 2025-11-17T01:15:35+08:00 | 说明 | N/A | 新增 `apps/web/index.html` 以便 Vite dev server 渲染入口；当前环境无法运行 `bun run web`，请在本地重新访问 http://localhost:5173 验证。 |
+| 2025-11-17T10:30:10+08:00 | 说明 | N/A | API CORS 与前端 UI 调整完成，但当前环境缺少 Bun/Vite 运行条件，需在宿主执行 `bun dev`（前端+API）并通过浏览器实际验证跨域与新样式。 |
+| 2025-11-17T11:05:00+08:00 | 说明 | N/A | Vite dev server 新增代理（apps/web/vite.config.mts），默认转发到 `VITE_PROXY_TARGET`；当前环境无法运行 `bun run web`，需在本地验证代理是否生效。 |
+| 2025-11-17T11:15:10+08:00 | 说明 | N/A | `.env.example`/`.env.docker` 新增 `CORS_ALLOWED_ORIGINS`，未运行测试。 |
+| 2025-11-17T11:35:00+08:00 | bun test | `bun test` | 29 个用例全部通过（新增 API integration 覆盖 documents/search/stats 等接口）。 |
+| 2025-11-17T11:45:20+08:00 | 说明 | N/A | 前端改成多页面路由（react-router-dom）并新增列表/详情/编辑视图，当前环境无法运行 Vite，请在本地 `bun run web` 验证导航切换与 API 交互。 |
+| 2025-11-17T11:50:00+08:00 | bun test | `bun test` | 路由化改造后再次执行，全部 29 用例通过。 |
+| 2025-11-17T12:05:00+08:00 | 说明 | `bun run scripts/api-smoke.ts` | 新增 API 烟测脚本，当前环境无运行中的 API，未执行；请在本地启动服务后运行以巡检接口。 |
+| 2025-11-17T12:35:05+08:00 | bun test | `bun test` | 日志架构改造后回归（29/29 通过）。 |
+| 2025-11-17T21:38:20+08:00 | bun test | `bun test` | 失败：WSL 无法执行 `bun.exe`（Permission denied）；需在宿主或可执行 bun 的环境复跑。 |
+| 2025-11-17T21:40:10+08:00 | bun test | `bun test` | 再次失败：WSL 尝试执行 Windows bun.exe 时被拒绝，需在宿主机复跑以验证 OCR/语义/日志改造。 |
+- 2025-11-18: bun test (failed: Bun executable not runnable under WSL; same permission error as previous entries).
+- 2025-11-18: bun test (failed: Bun executable not runnable under WSL).
+| 2025-11-18T19:21:15+08:00 | 说明 | N/A | 本次仅更新 README 的 PaddleOCR 指南与 `.env` 说明，未涉及可执行代码；仍受限于 WSL 无法运行 Bun/Docker，需在可执行环境手动验证 `cd paddle && docker compose up -d` 与 Worker OCR 调用。|
+| 2025-11-18T21:08:40+08:00 | 说明 | N/A | 仅新增《功能拆解》文档，无代码执行路径；受限于当前环境依旧无法运行 Bun/脚本，因此未触发自动化测试。 |

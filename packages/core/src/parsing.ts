@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { TextDecoder } from "node:util";
 import { Buffer } from "node:buffer";
+import { extname } from "node:path";
+import AdmZip from "adm-zip";
 import { Chunk, ChunkSchema, Document } from "@kb/shared-schemas";
 
 const decoder = new TextDecoder();
@@ -132,6 +134,30 @@ export class CompositeParser implements DocumentParser {
   }
 }
 
+export class OfficeParser implements DocumentParser {
+  async parse(input: ParserInput): Promise<ParsedElement[]> {
+    if (!input.buffer?.length) {
+      return [];
+    }
+    const kind = resolveOfficeKind(input.mimeType, input.filename);
+    if (!kind) {
+      return [];
+    }
+    try {
+      const zip = new AdmZip(Buffer.from(input.buffer));
+      if (kind === "docx") {
+        return parseDocxEntries(zip, input);
+      }
+      if (kind === "pptx") {
+        return parsePptxEntries(zip, input);
+      }
+    } catch {
+      return [];
+    }
+    return [];
+  }
+}
+
 export interface ChunkFragment {
   chunk: Chunk;
   source: ParsedElement;
@@ -153,11 +179,207 @@ export class SimpleChunkFactory implements ChunkFactory {
         contentType: mapElementType(element.type),
         pageNo: element.page,
         bbox: element.bbox,
-        topicLabels: deriveTopics(element)
+        topicLabels: deriveTopics(element),
+        entities: element.metadata
       });
       return { chunk, source: element };
     });
   }
+}
+
+export interface AdaptiveChunkFactoryOptions {
+  maxChars?: number;
+  overlapChars?: number;
+}
+
+export class AdaptiveChunkFactory implements ChunkFactory {
+  constructor(private readonly options: AdaptiveChunkFactoryOptions = {}) {}
+
+  createChunks(doc: Document, elements: ParsedElement[]): ChunkFragment[] {
+    const maxChars = Math.max(this.options.maxChars ?? 900, 200);
+    const overlap = Math.min(this.options.overlapChars ?? 120, maxChars - 10);
+    const fragments: ChunkFragment[] = [];
+    elements.forEach((element, index) => {
+      const text = element.text ?? "";
+      if (!text.trim().length) {
+        return;
+      }
+      let start = 0;
+      let chunkIndex = 0;
+      while (start < text.length) {
+        const end = Math.min(text.length, start + maxChars);
+        const slice = text.slice(start, end).trim();
+        if (!slice.length) break;
+        const chunkId = crypto.randomUUID();
+        const chunk = ChunkSchema.parse({
+          chunkId,
+          docId: doc.docId,
+          hierPath: buildHierarchy(doc, element, index),
+          sectionTitle: deriveSectionTitle(element, index),
+          contentText: slice,
+          contentType: mapElementType(element.type),
+          pageNo: element.page,
+          bbox: element.bbox,
+          topicLabels: deriveTopics(element),
+          entities: element.metadata
+        });
+        fragments.push({
+          chunk,
+          source: {
+            ...element,
+            id: chunkId,
+            text: slice,
+            metadata: { ...(element.metadata ?? {}), chunkIndex }
+          }
+        });
+        chunkIndex += 1;
+        if (end === text.length) {
+          break;
+        }
+        start = Math.max(end - overlap, start + 1);
+      }
+    });
+    return fragments;
+  }
+}
+
+type OfficeDocumentKind = "docx" | "pptx";
+
+const OFFICE_MIME_MAP: Record<string, OfficeDocumentKind> = {
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx"
+};
+
+function resolveOfficeKind(mimeType?: string | null, filename?: string) {
+  const normalized = mimeType?.toLowerCase();
+  if (normalized && normalized in OFFICE_MIME_MAP) {
+    return OFFICE_MIME_MAP[normalized];
+  }
+  if (filename) {
+    const ext = extname(filename).toLowerCase();
+    if (ext === ".docx") {
+      return "docx";
+    }
+    if (ext === ".pptx") {
+      return "pptx";
+    }
+  }
+  return null;
+}
+
+function parseDocxEntries(zip: AdmZip, input: ParserInput): ParsedElement[] {
+  const entryNames = zip
+    .getEntries()
+    .map((entry) => entry.entryName)
+    .filter((name) => /^word\/(document|header\d+|footer\d+).xml$/i.test(name));
+  const content = entryNames
+    .map((name) => readZipEntry(zip, name))
+    .filter((value): value is string => Boolean(value))
+    .map((xml) => normalizeOfficeText(xml))
+    .filter((value) => value.length)
+    .join("\n\n");
+  if (!content.trim().length) {
+    return [];
+  }
+  const paragraphs = splitParagraphs(content);
+  return paragraphs.map((paragraph, index) => ({
+    id: randomUUID(),
+    type: "text",
+    text: paragraph,
+    metadata: {
+      ...(input.metadata ?? {}),
+      officeParser: "docx",
+      paragraphIndex: index,
+      sectionTitle:
+        (input.metadata?.sectionTitle as string | undefined) ??
+        (input.metadata?.title as string | undefined) ??
+        `段落 ${index + 1}`
+    }
+  }));
+}
+
+function parsePptxEntries(zip: AdmZip, input: ParserInput): ParsedElement[] {
+  const slides = zip
+    .getEntries()
+    .filter(
+      (entry) =>
+        entry.entryName.startsWith("ppt/slides/slide") && entry.entryName.endsWith(".xml")
+    )
+    .sort((a, b) => {
+      const aIndex = parseInt(a.entryName.match(/slide(\d+)/)?.[1] ?? "0", 10);
+      const bIndex = parseInt(b.entryName.match(/slide(\d+)/)?.[1] ?? "0", 10);
+      return aIndex - bIndex;
+    });
+  const elements: ParsedElement[] = [];
+  slides.forEach((entry, index) => {
+    const xml = entry.getData().toString("utf8");
+    const text = extractSlideText(xml);
+    if (!text.trim().length) {
+      return;
+    }
+    elements.push({
+      id: randomUUID(),
+      type: "text",
+      text,
+      metadata: {
+        ...(input.metadata ?? {}),
+        officeParser: "pptx",
+        slideIndex: index,
+        sectionTitle: `幻灯片 ${index + 1}`
+      }
+    });
+  });
+  return elements;
+}
+
+function readZipEntry(zip: AdmZip, name: string) {
+  const entry = zip.getEntry(name);
+  if (!entry) {
+    return null;
+  }
+  try {
+    return entry.getData().toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeOfficeText(xml: string) {
+  return decodeXmlEntities(
+    xml
+      .replace(/<w:tab[^>]*\/>/gi, "\t")
+      .replace(/<w:br[^>]*\/>/gi, "\n")
+      .replace(/<\/w:p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function extractSlideText(xml: string) {
+  const matches = xml.match(/<a:t[^>]*>([\s\S]*?)<\/a:t>/gi);
+  if (!matches) {
+    return "";
+  }
+  return matches
+    .map((match) => match.replace(/<\/?a:t[^>]*>/gi, ""))
+    .map((value) => decodeXmlEntities(value))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function decodeXmlEntities(value: string) {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'");
 }
 
 function splitParagraphs(text: string) {

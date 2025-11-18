@@ -1,0 +1,37 @@
+{
+  "question_id": "Q1",
+  "focus": "doc 可直接解析 vs pdf/image 需 OCR 的流程是否落地？",
+  "reason_for_investigation": "需求要求两条 ingestion 路径：可解析文档直接分割，不可解析（pdf、扫描、图片）需 OCR 后再语义处理，需要确认 pipeline 是否覆盖并识别边界。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "174-229",
+      "quote": "parseDocument 在 deps.ocr && config.OCR_ENABLED && shouldUseOcr(source.mimeType) 时才调用 OCR，shouldUseOcr 仅依赖 MIME；提取成功后把 source.ocrApplied 标记为 true 并将 OCR 结果写回 rawText。",
+      "implication": "只有 MIME 包含 pdf 或 image/* 时才进入 OCR，doc/docx/spreadsheet 等二进制不会被识别为需 OCR。"
+    },
+    {
+      "file": "packages/core/src/ocr.ts",
+      "lines": "160-172",
+      "quote": "shouldUseOcr 只在 normalized MIME 含 pdf 或以 image/ 打头时返回 true。",
+      "implication": "Word、PPT 等 Office 文档不会走 OCR；若缺乏 Unstructured 解析，这些文档无法满足“可直接解析”的要求。"
+    },
+    {
+      "file": "packages/core/src/parsing.ts",
+      "lines": "34-73",
+      "quote": "BasicTextParser 仅从 rawText 或 buffer 做 UTF-8 解码后按段落拆分，未实现 doc/docx/pdf 解析能力。",
+      "implication": "对于非纯文本的 doc/docx，若没有额外解析器，BasicTextParser 无法返回元素，导致 doc 流程并未真正落地。"
+    },
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "230-266",
+      "quote": "chunkDocument 会在 source.ocrApplied 时向 chunk.entities 注入 { ocr: true } 并保留上下文，随后 extractMetadata/VectorLogs 仍使用同一套流程。",
+      "implication": "一旦 OCR 成功，后续元数据/向量流程可复用；但 doc 与 pdf/image 仍共享同一入口，没有单独的“可直接解析”通道。"
+    }
+  ],
+  "findings": [
+    "当前实现将 doc/pdf 统一从 parseDocument 进入，仅依靠 MIME 判断是否走 OCR，没有对“可直接解析”文档提供额外解析器（除非配置 Unstructured API）。",
+    "BasicTextParser 只能解码文本缓冲，不能处理 doc/docx/ppt；shouldUseOcr 又不会触发这类文件，意味着 doc 流程在默认配置下会失败或返回空元素。",
+    "OCR 成功后确实写入 ocrApplied/metadata，并在 chunk.entities 上留痕，满足“带上下文理解与标签”的一部分，但缺乏对非 OCR 文档的专门路径。"
+  ],
+  "conclusion": "仓库部分满足 pdf/image → OCR → 语义分割 → 元数据的要求，但对 doc/docx 等“可直接解析”文档缺乏真正的解析能力，默认配置既不自动 OCR 也无法解析文本，导致流程无法覆盖全部文档类型。"
+}

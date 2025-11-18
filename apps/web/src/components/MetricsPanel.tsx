@@ -22,11 +22,18 @@ export function MetricsPanel() {
 
   return (
     <section className="card">
-      <h2>Prometheus Metrics</h2>
-      <button type="button" onClick={load}>
-        刷新
-      </button>
-      {status && <p>{status}</p>}
+      <header className="card-header">
+        <div>
+          <p className="eyebrow">可观测性</p>
+          <h2>Prometheus Metrics</h2>
+        </div>
+        {status && <span className="status-pill">{status}</span>}
+      </header>
+      <div className="button-row">
+        <button type="button" className="ghost" onClick={load}>
+          刷新
+        </button>
+      </div>
       <pre className="metrics-output">{metrics || "暂无数据"}</pre>
     </section>
   );

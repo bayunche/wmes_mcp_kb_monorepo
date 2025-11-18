@@ -1,0 +1,37 @@
+{
+  "question_id": "Q2",
+  "focus": "语义元数据与上下文标签是否全流程贯穿？",
+  "reason_for_investigation": "需求强调“创建每个文本块的元数据（语义化 + 上下文标签）并在召回时使用”。需要验证数据层、API、UI 是否真实写入/读取/筛选。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "268-311",
+      "quote": "extractMetadata 先补齐 topicLabels，再在 limit 内调用 deps.semanticMetadata(...applySemanticMetadata)，生成 contextSummary/semanticTags/envLabels/bizEntities，并保存到 chunk.semanticMetadata。",
+      "implication": "每个 chunk 只有在配置了 metadata 模型且处于 limit 范围内时才会拥有语义元数据，存在跳过的情况。"
+    },
+    {
+      "file": "db/migrations/0004_semantic_pipeline.sql",
+      "lines": "1-20",
+      "quote": "chunks 表新增 semantic_metadata JSONB、semantic_tags TEXT[]、env_labels TEXT[]、context_summary、biz_entities 字段。",
+      "implication": "数据库 schema 支持存储语义数据及环境标签。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "164-214",
+      "quote": "/search 在返回结果前根据 searchFilters.semanticTags/envLabels/metadataQuery 逐个 chunk 过滤，调用 gatherSemanticTags/gatherEnvLabels/matchesMetadataQuery 对比 semanticMetadata。",
+      "implication": "API 允许基于语义标签/env 标签/metadata 查询，说明这些字段会在检索面被消费。"
+    },
+    {
+      "file": "apps/web/src/components/SearchPanel.tsx",
+      "lines": "1-120",
+      "quote": "SearchPanel 的 form 暴露语义标签、环境标签、metadata key/value 输入，检索后在结果卡片展示 semanticMetadata.contextSummary、semanticTags、envLabels。",
+      "implication": "前端 UI 已接入语义字段，并在 maxkb 风格卡片中可视化。"
+    }
+  ],
+  "findings": [
+    "语义元数据链路齐备：Worker 生成→数据库存储→API 过滤→UI 展示，与需求一致。",
+    "然而生成过程受限于 SEMANTIC_METADATA_LIMIT（默认 12）且依赖 metadata 模型配置，超出 limit 的 chunk 不会拥有语义标签，不符合“每个文本块”要求。",
+    "若未配置 metadata 角色模型，extractMetadata 直接返回 topic label fallback，语义字段为空，导致 1) 无上下文总结 2) /search 语义筛选仅依赖 topicLabels。"
+  ],
+  "conclusion": "项目提供语义元数据全链路，但只对部分 chunk 生效且强依赖 metadata 模型配置，与“为每个文本块生成语义元数据并在召回中使用”仍有差距。"
+}

@@ -1,0 +1,31 @@
+{
+  "question_id": "Q2",
+  "focus": "语义化元数据与上下文理解标签的生成/存储策略是什么？",
+  "reason_for_investigation": "需求要求“语义化创建元数据（带上下文理解和环境语义标签）并调用大模型”，而当前 pipeline 只有简单的 topicLabels=文档标题，缺乏 schema 与调用策略。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "230-235",
+      "quote": "extractMetadata(doc, chunks) 直接返回 chunks.map(... topicLabels: chunk.topicLabels ?? [doc.title])，没有任何语义理解或上下文分析。",
+      "implication": "元数据完全依赖标题，无法区分章节含义、业务背景。"
+    },
+    {
+      "file": "apps/worker/src/pipeline.ts",
+      "lines": "501-548",
+      "quote": "generateRemoteTags 只截取前 6 个 chunk.contentText，通过 modelSettings 调用 generateTagsViaModel，返回至多 8 个标签，并直接 merge 到 Document.tags。",
+      "implication": "LLM 仅用于文档级标签，既没有 chunk 级别的上下文描述，也没有结构化字段（如 semanticSummary、contextScope）。"
+    },
+    {
+      "file": "packages/shared-schemas/src/index.ts",
+      "lines": "33-120",
+      "quote": "ChunkSchema 仅包含 hierPath/sectionTitle/contentText/topicLabels/qualityScore 等字段，没有“semanticMetadata”“envTags”等扩展字段。",
+      "implication": "即便生成语义元数据，也没有位置存储，需要扩展 schema/数据层。"
+    }
+  ],
+  "findings": [
+    "需要一个新的 MetadataAdapter：输入 chunk + 上下文，调用可配置 LLM（OpenAI/Ollama/自定义 API）返回结构，如 {contextSummary, semanticTags, bizEntities, envLabels}。",
+    "数据层必须扩展 chunk/document schema（Postgres + shared schema + knowledgeWriter）以保存语义化字段；检索也需利用这些字段。",
+    "需要统一模型配置：文档级标签/块级元数据/上下文理解可能使用不同模型或同一模型的不同提示，需要在 model-settings API 中区分。"
+  ],
+  "conclusion": "现状没有任何语义元数据支持，必须设计新的 schema（Chunk.semanticMetadata、Document.contextProfile 等）与调用链（worker 在 extractMetadata 阶段调用 LLM），并定义如何在检索/前端展示这些上下文标签。"
+}

@@ -1,0 +1,31 @@
+{
+  "question_id": "Q1",
+  "focus": "如何区分可直接解析的文档与必须经 OCR 的文档，并把 OCR 结果接入 ingestion pipeline？",
+  "reason_for_investigation": "当前 worker 只根据 BasicTextParser/Unstructured 解析文本，没有任何 OCR 路径。要满足 PDF/图片→OCR→语义分割的需求，必须了解现状差距。",
+  "evidence": [
+    {
+      "file": "apps/worker/src/worker.ts",
+      "lines": "21-76",
+      "quote": "createParserFromConfig 只在配置存在 UNSTRUCTURED_API_URL 时使用 UnstructuredParser，否则 fallback 为 BasicTextParser；完全没有 OCR parser，OCR_ENABLED 配置没有被读取。",
+      "implication": "无法针对 PDF/image 启动 OCR pipeline，所有解析都假设原始文本可直接读取。"
+    },
+    {
+      "file": "packages/core/src/parsing.ts",
+      "lines": "34-190",
+      "quote": "BasicTextParser 仅拆分换行段落；SimpleChunkFactory 直接把 ParsedElement 映射为 chunk，没有任何 OCR 或图像→文本逻辑。",
+      "implication": "就算上传 PDF/图片，parser 也只尝试原始文本 decode，失败则返回空集合。"
+    },
+    {
+      "file": "packages/core/src/config.ts",
+      "lines": "30-56",
+      "quote": "AppConfig 定义 OCR_ENABLED / OCR_LANG，但仓库其他位置从未引用。",
+      "implication": "OCR 配置流于形式，没有实际执行路径。"
+    }
+  ],
+  "findings": [
+    "需要新增 MIME 检测逻辑：文本/markdown/docx 可直接走 parser；PDF/图片需走 OCR（本地模型或外部 API）。",
+    "Worker pipeline 要在 fetchSource/parseDocument 阶段拉取原始二进制，并根据 config.OCR_ENABLED 决定是否触发 OCR 服务。",
+    "需要一个 OCRAdapter（可封装本地 paddle-ocr 或远程 API），输出标准 ParsedElement，让 SimpleChunkFactory 能消费。"
+  ],
+  "conclusion": "当前并无可复用的 OCR 层，必须新增“解析策略路由 + OCRAdapter + OCR 结果到 ParsedElement”的组件，并在 pipeline 中记录来源（direct_parse vs ocr_parse），否则无法满足 doc/pdf 区分要求。"
+}

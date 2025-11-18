@@ -4,17 +4,20 @@ import type {
   KnowledgeBundle,
   Chunk,
   Embedding,
-  Attachment
+  Attachment,
+  DocumentSection
 } from "@kb/shared-schemas";
 import type { Database } from "../db/schema";
 import type { KnowledgeWriter, VectorIndex } from "../types";
 
-function mapChunkToRow(chunk: Chunk) {
+function mapChunkToRow(chunk: Chunk, libraryId: string) {
   return {
     chunk_id: chunk.chunkId,
     doc_id: chunk.docId,
+    library_id: libraryId,
     hier_path: chunk.hierPath,
     section_title: chunk.sectionTitle ?? null,
+    semantic_title: chunk.semanticTitle ?? chunk.semanticMetadata?.title ?? null,
     content_text: chunk.contentText ?? null,
     content_type: chunk.contentType,
     page_no: chunk.pageNo ?? null,
@@ -23,6 +26,16 @@ function mapChunkToRow(chunk: Chunk) {
     bbox: chunk.bbox ?? null,
     entities: chunk.entities ?? null,
     topic_labels: chunk.topicLabels ?? null,
+    topics: chunk.topics ?? chunk.semanticMetadata?.topics ?? null,
+    keywords: chunk.keywords ?? chunk.semanticMetadata?.keywords ?? null,
+    semantic_tags: chunk.semanticTags ?? chunk.semanticMetadata?.semanticTags ?? null,
+    semantic_metadata: chunk.semanticMetadata ?? null,
+    env_labels: chunk.envLabels ?? chunk.semanticMetadata?.envLabels ?? null,
+    biz_entities: chunk.bizEntities ?? chunk.semanticMetadata?.bizEntities ?? null,
+    ner_entities: chunk.nerEntities ?? chunk.semanticMetadata?.entities ?? null,
+    parent_section_id: chunk.parentSectionId ?? null,
+    parent_section_path: chunk.parentSectionPath ?? chunk.semanticMetadata?.parentSectionPath ?? null,
+    context_summary: chunk.contextSummary ?? chunk.semanticMetadata?.contextSummary ?? null,
     quality_score: chunk.qualityScore ?? null,
     created_at: chunk.createdAt ? new Date(chunk.createdAt) : sql`NOW()`
   };
@@ -40,17 +53,34 @@ function mapEmbeddingToRow(embedding: Embedding) {
   };
 }
 
-function mapAttachmentToRow(attachment: Attachment) {
+function mapAttachmentToRow(attachment: Attachment, libraryId: string) {
   return {
     asset_id: attachment.assetId,
     doc_id: attachment.docId ?? null,
     chunk_id: attachment.chunkId ?? null,
+    library_id: libraryId,
     asset_type: attachment.assetType,
     object_key: attachment.objectKey,
     mime_type: attachment.mimeType,
     page_no: attachment.pageNo ?? null,
     bbox: attachment.bbox ?? null,
     created_at: attachment.createdAt ? new Date(attachment.createdAt) : sql`NOW()`
+  };
+}
+
+function mapSectionToRow(section: DocumentSection) {
+  return {
+    section_id: section.sectionId,
+    doc_id: section.docId,
+    parent_section_id: section.parentSectionId ?? null,
+    title: section.title,
+    summary: section.summary ?? null,
+    level: section.level ?? 1,
+    path: section.path ?? [],
+    order_index: section.order ?? 0,
+    tags: section.tags ?? null,
+    keywords: section.keywords ?? null,
+    created_at: section.createdAt ? new Date(section.createdAt) : sql`NOW()`
   };
 }
 
@@ -70,6 +100,7 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
         size_bytes: document.sizeBytes ?? null,
         ingest_status: document.ingestStatus,
         tenant_id: document.tenantId ?? "default",
+        library_id: document.libraryId ?? "default",
         tags: document.tags ?? null,
         created_at: document.createdAt ? new Date(document.createdAt) : sql`NOW()`,
         updated_at: sql`NOW()`
@@ -88,6 +119,7 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
             size_bytes: docPayload.size_bytes,
             ingest_status: docPayload.ingest_status,
             tenant_id: docPayload.tenant_id,
+            library_id: docPayload.library_id,
             tags: docPayload.tags,
             updated_at: sql`NOW()`
           })
@@ -96,9 +128,22 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
 
       await trx.deleteFrom("attachments").where("doc_id", "=", document.docId).execute();
       await trx.deleteFrom("chunks").where("doc_id", "=", document.docId).execute();
+      await trx.deleteFrom("document_sections").where("doc_id", "=", document.docId).execute();
+
+      const libraryId = document.libraryId ?? "default";
+
+      if (bundle.sections?.length) {
+        await trx
+          .insertInto("document_sections")
+          .values(bundle.sections.map((section) => mapSectionToRow(section)))
+          .execute();
+      }
 
       if (bundle.chunks.length) {
-        await trx.insertInto("chunks").values(bundle.chunks.map(mapChunkToRow)).execute();
+        await trx
+          .insertInto("chunks")
+          .values(bundle.chunks.map((chunk) => mapChunkToRow(chunk, libraryId)))
+          .execute();
       }
 
       if (bundle.embeddings?.length) {
@@ -106,7 +151,10 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
       }
 
       if (bundle.attachments?.length) {
-        await trx.insertInto("attachments").values(bundle.attachments.map(mapAttachmentToRow)).execute();
+        await trx
+          .insertInto("attachments")
+          .values(bundle.attachments.map((attachment) => mapAttachmentToRow(attachment, libraryId)))
+          .execute();
       }
     });
 
@@ -118,6 +166,7 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
           payload: {
             docId: bundle.document.docId,
             tenantId: bundle.document.tenantId ?? "default",
+            libraryId: bundle.document.libraryId ?? "default",
             topicLabels: bundle.chunks
               .find((chunk) => chunk.chunkId === embedding.chunkId)
               ?.topicLabels ?? []

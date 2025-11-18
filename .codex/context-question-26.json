@@ -1,0 +1,36 @@
+{
+  "question_id": "Q1",
+  "focus": "README 需要更新哪些段落以指导使用 /paddle/docker-compose 部署 PaddleOCR",
+  "reason_for_investigation": "当前 README 多处提到 `docker/paddleocr` 和手写 docker run 命令，与仓库实际提供的 /paddle docker compose 不符，需确认所有需替换的片段。",
+  "evidence": [
+    {
+      "file": "README.md",
+      "lines": "131-170",
+      "quote": "（可选）本地 OCR：若希望 Worker 完全离线运行 OCR，请按照下文 [PaddleOCR 本地部署（Docker）] 使用官方镜像启动推理容器...",
+      "implication": "Quick Start 已链接到后续旧章节，用户仍会跳转到 docker/paddleocr 指令。"
+    },
+    {
+      "file": "README.md",
+      "lines": "327-381",
+      "quote": "### PaddleOCR 本地部署（Docker 官方镜像）... docker run ... -v $PWD/docker/paddleocr/server.py:/workspace/server.py ...",
+      "implication": "重点章节示例仍要求手动挂载 `docker/paddleocr/server.py`，未提及仓库现有的 /paddle docker compose、port=8000。"
+    },
+    {
+      "file": "README.md",
+      "lines": "382-445",
+      "quote": "### PaddleOCR Docker 服务... 挂载本仓库的 `docker/paddleocr/server.py` ... OCR_API_URL=http://localhost:9009/paddle/ocr ...",
+      "implication": "HTTP 模式同样使用旧路径 `/paddle/ocr` 与 9009 端口，与实际 server.py 输出（/ocr on 8000）不一致。"
+    },
+    {
+      "file": "README.md",
+      "lines": "500-518",
+      "quote": "### PaddleOCR Docker 服务（参考部署示例）... -v $PWD/docker/paddleocr/server.py ...",
+      "implication": "文档末尾的“参考部署示例”重复旧命令，需统一区分 compose 部署与 HTTP 调用。"
+    }
+  ],
+  "findings": [
+    "README 至少四处引用过时路径（Quick Start 提示、PaddleOCR 本地部署、PaddleOCR Docker 服务、参考示例），用户无法得知 /paddle 目录及 docker compose 的存在。",
+    "端口/路径描述（9009、/paddle/ocr）与当前 server.py (8000, /ocr) 不符，容易导致 `.env` 配置错误。"
+  ],
+  "conclusion": "README 需要在 Quick Start 中直接指向 `/paddle/docker-compose.yml`，并将所有 `docker/paddleocr`、9009 端口与 `/paddle/ocr` 字样替换为 `/paddle` 目录、8000 端口和 `/ocr` 接口，并提供 `cd paddle && docker compose up -d` 的推荐步骤。"
+}

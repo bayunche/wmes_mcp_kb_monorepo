@@ -1,0 +1,28 @@
+{
+  "id": "Q1",
+  "question": "Qdrant 400 的具体原因？如何防止 Worker upsert 失败？",
+  "timestamp": "2025-11-17T12:27:25.112966+08:00",
+  "findings": [
+    {
+      "evidence": "packages/data/src/qdrant/client.ts:8-37 直接调用 /collections/{collection}/points?wait=true，非 2xx 即抛出 `Qdrant upsert failed (${status})`，没有重试或自动创建集合。",
+      "insight": "报错 400 来自这里，说明 HTTP 请求已送达 Qdrant，但被校验拒绝。"
+    },
+    {
+      "evidence": "packages/data/src/index.ts:13-30 QdrantVectorIndex 初始化时 collection 被硬编码为 knowledge_text，除非 createDataLayer 传参，否则所有嵌入（包括图片）都写入该集合。",
+      "insight": "无论嵌入模态为何都写入 knowledge_text collection。"
+    },
+    {
+      "evidence": "ops/scripts/bootstrap-storage.ts:23-51 只创建 knowledge_text(dim=1024) 与 knowledge_image(dim=768)，脚本默认需手动执行（bun run scripts/bootstrap-storage.ts）。",
+      "insight": "若脚本未执行，collection 不存在会 404；但用户日志为 400，说明集合已存在但 payload 校验失败。"
+    },
+    {
+      "evidence": "apps/worker/src/worker.ts:27-42 VectorClient 使用 config.PGVECTOR_DIM 作为 fallbackDim（默认为 1024）。",
+      "insight": "当远程 embedding endpoint 正常时，向量长度与 PGVECTOR_DIM 对齐（1024），与 knowledge_text 匹配。"
+    },
+    {
+      "evidence": "apps/worker/src/pipeline.ts:206-220 embedChunks fallback 时改为 `Array.from({ length: deps.config.VECTOR_FALLBACK_DIM ?? 4 })`，.env 默认 512。",
+      "insight": "若远程 embedding 未配置或失败，最终写入 Qdrant 的向量长度=VECTOR_FALLBACK_DIM(512)，与 collection 尺寸 1024 不符，Qdrant 返回 400。"
+    }
+  ],
+  "conclusion": "报错 400 并非 Qdrant 容器异常，而是 Worker 在未配置远程 embedding（或调用失败）时退回到 VECTOR_FALLBACK_DIM=512，而 knowledge_text 集合按照 bootstrap-storage 固定为 1024。Qdrant 校验 vectors.size=1024，收到 512 维度数据即返回 400。需在配置或代码中保证 fallback 维度与 collection 一致（例如将 VECTOR_FALLBACK_DIM 默认改为与 PGVECTOR_DIM 相同，或根据 embedding modality 选择不同 collection/尺寸）。此外建议在 QdrantVectorIndex.upsert 中增加错误响应体日志并在 Worker 启动阶段校验集合存在与维度匹配，避免运行时失败。"
+}
