@@ -54,3 +54,8 @@ operable program or batch file.
 [2025-11-19T11:31:21.607Z] INFO  Worker subscription ready
 [2025-11-19T11:32:09.183Z] ERROR OCR extraction failed: Unable to connect. Is the computer able to access the url?
 [2025-11-19T11:32:09.216Z] ERROR Ingestion task failed for 5a3ff934-1590-4823-a4d1-f10c49e371e2: 语义切分模型未配置，无法继续解析
+[2025-11-19T04:21:46.263Z] INFO  Worker subscription ready.
+[2025-11-19T04:21:46.263Z] INFO  Worker subscription ready
+[2025-11-19T05:45:10.838Z] ERROR Ingestion task failed for dcabaf92-631d-4ac9-9ba5-a07466284b8e: 语义切分模型未配置，无法继续解析
+[2025-11-19T05:47:04.745Z] INFO  Worker subscription ready.
+[2025-11-19T05:47:04.745Z] INFO  Worker subscription ready
