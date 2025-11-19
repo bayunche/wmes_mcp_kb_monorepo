@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchStats, listDocuments, reindexDocument } from "../api";
+import { useOrgOptions } from "../hooks/useOrgOptions";
 
 type DocSummary = {
   docId: string;
@@ -10,6 +11,7 @@ type DocSummary = {
   updatedAt?: string;
   sizeBytes?: number;
   tags?: string[];
+  errorMessage?: string;
 };
 
 const STATUS_LABELS: Record<string, { label: string; tone: "info" | "success" | "warning" | "danger" }> = {
@@ -26,9 +28,10 @@ function formatBytes(value?: number) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function IngestionStatusPanel({ refreshSignal }: { refreshSignal: number }) {
+export function IngestionStatusPanel({ refreshSignal = 0 }: { refreshSignal?: number }) {
   const [tenant, setTenant] = useState("default");
   const [library, setLibrary] = useState("default");
+  const { tenants, libraries, loading: orgLoading, error: orgError, refresh } = useOrgOptions();
   const [documents, setDocuments] = useState<DocSummary[]>([]);
   const [pendingJobs, setPendingJobs] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
@@ -54,6 +57,21 @@ export function IngestionStatusPanel({ refreshSignal }: { refreshSignal: number 
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
   }, [load, refreshSignal]);
+
+  useEffect(() => {
+    if (!tenants.length) return;
+    if (!tenants.some((item) => item.tenantId === tenant)) {
+      setTenant(tenants[0].tenantId);
+    }
+  }, [tenants, tenant]);
+
+  useEffect(() => {
+    if (!libraries.length) return;
+    const scoped = libraries.filter((lib) => !lib.tenantId || lib.tenantId === tenant);
+    if (scoped.length && !scoped.some((lib) => lib.libraryId === library)) {
+      setLibrary(scoped[0].libraryId);
+    }
+  }, [libraries, tenant, library]);
 
   const orderedDocuments = useMemo(() => {
     return [...documents].sort((a, b) => {
@@ -93,23 +111,34 @@ export function IngestionStatusPanel({ refreshSignal }: { refreshSignal: number 
       </header>
       <div className="toolbar">
         <label>
-          Tenant ID
-          <input
-            value={tenant}
-            onChange={(event) => setTenant(event.target.value)}
-            placeholder="default"
-          />
+          租户
+          <select value={tenant} onChange={(event) => setTenant(event.target.value)}>
+            {tenants.length
+              ? tenants.map((item) => (
+                  <option key={item.tenantId} value={item.tenantId}>
+                    {item.displayName ?? item.tenantId}（{item.tenantId}）
+                  </option>
+                ))
+              : <option value="default">默认租户</option>}
+          </select>
         </label>
         <label>
-          Library ID
-          <input
-            value={library}
-            onChange={(event) => setLibrary(event.target.value)}
-            placeholder="default"
-          />
+          知识库
+          <select value={library} onChange={(event) => setLibrary(event.target.value)}>
+            {libraries
+              .filter((lib) => !lib.tenantId || lib.tenantId === tenant)
+              .map((lib) => (
+                <option key={lib.libraryId} value={lib.libraryId}>
+                  {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
+                </option>
+              ))}
+          </select>
         </label>
         <button type="button" className="ghost" onClick={load}>
           手动刷新
+        </button>
+        <button type="button" className="ghost" onClick={refresh}>
+          刷新配置
         </button>
         <div className="stat-grid" style={{ flex: 1 }}>
           <div className="stat-card">
@@ -118,6 +147,8 @@ export function IngestionStatusPanel({ refreshSignal }: { refreshSignal: number 
           </div>
         </div>
       </div>
+      {orgLoading && <p className="muted-text">同步租户/知识库列表中…</p>}
+      {orgError && <p className="muted-text">{orgError}</p>}
       <p className="guide-hint">解析完成后会自动生成主题标签，方便在检索页过滤。</p>
       <div className="pill-switch">
         {[
@@ -158,13 +189,16 @@ export function IngestionStatusPanel({ refreshSignal }: { refreshSignal: number 
                 : "-";
               return (
                 <tr key={doc.docId}>
-                  <td>
-                    <div className="doc-title">{doc.title}</div>
-                    <div className="tag-inline">
-                      {doc.tags?.length ? (
-                        doc.tags.slice(0, 4).map((tag) => (
-                          <span key={`${doc.docId}-${tag}`} className="tag-chip subtle">
-                            {tag}
+                <td>
+                  <div className="doc-title">{doc.title}</div>
+                  {doc.ingestStatus === "failed" && doc.errorMessage && (
+                    <div className="error-text">{doc.errorMessage}</div>
+                  )}
+                  <div className="tag-inline">
+                    {doc.tags?.length ? (
+                      doc.tags.slice(0, 4).map((tag) => (
+                        <span key={`${doc.docId}-${tag}`} className="tag-chip subtle">
+                          {tag}
                           </span>
                         ))
                       ) : (

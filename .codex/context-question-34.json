@@ -1,0 +1,32 @@
+{
+  "question_id": "Q1",
+  "focus": "租户/库下拉的数据源",
+  "reason_for_investigation": "前端多处要求下拉选择，但当前实现均为手动输入，需要确认是否已有专门的配置存储",
+  "evidence": [
+    {
+      "file": "packages/data/src/db/schema.ts",
+      "lines": "1-120",
+      "quote": "Database 接口仅包含 documents/chunks/model_settings 等表，没有 tenants 或 libraries 配置表。tenant_id / library_id 只存在于 documents 等业务表的列。",
+      "implication": "当前数据库不存在独立的租户/库元数据表，意味着无法直接查询下拉列表。"
+    },
+    {
+      "file": "apps/web/src/components/UploadForm.tsx",
+      "lines": "45-85",
+      "quote": "Tenant ID / Library ID 输入框均为 `<input>`，默认值 `default`，没有调用任何列表 API。",
+      "implication": "前端完全依赖手动输入，无法满足“下拉选择”的需求。"
+    },
+    {
+      "file": "apps/web/src/pages/ModelSettingsPage.tsx",
+      "lines": "200-230",
+      "quote": "模型配置表单同样是手输 tenantId/libraryId，并没有引用某个列表。",
+      "implication": "即使在配置页，也没有可复用的租户/库管理。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "60-170",
+      "quote": "API 仅接收 tenantId/libraryId 参数并通过 resolveTenant/resolveLibrary 使用 `DEFAULT_*` 环境变量，没有任何 `/tenants` 或 `/libraries` 的配置接口。",
+      "implication": "后端没有提供租户/库管理 API，无法直接支持前端下拉。"
+    }
+  ],
+  "conclusion": "仓库目前没有租户/库配置的数据表或 API。要实现下拉选择，需要新增持久化（例如 tenant_configs/library_configs 表或使用 JSON 配置）和对应的 REST 接口，并在前端统一消费这些接口。"
+}

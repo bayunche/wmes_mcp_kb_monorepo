@@ -7,6 +7,7 @@ import {
   reindexDocument,
   updateChunkTags
 } from "../api";
+import { useOrgOptions } from "../hooks/useOrgOptions";
 
 export function MetadataEditor({ refreshToken }: { refreshToken: number }) {
   const [documents, setDocuments] = useState<any[]>([]);
@@ -17,8 +18,9 @@ export function MetadataEditor({ refreshToken }: { refreshToken: number }) {
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
   const [stats, setStats] = useState<{ documents: number; attachments: number; chunks: number; pendingJobs: number } | null>(null);
+  const { tenants, libraries, loading: orgLoading, error: orgError, refresh: refreshOrgOptions } = useOrgOptions();
 
-  const refresh = async () => {
+  const refreshDocuments = async () => {
     const response = await listDocuments(tenantId || undefined, libraryId || undefined);
     setDocuments(response.items ?? []);
   };
@@ -29,12 +31,27 @@ export function MetadataEditor({ refreshToken }: { refreshToken: number }) {
   };
 
   useEffect(() => {
-    refresh();
+    refreshDocuments();
     refreshStats();
     setSelectedId("");
     setChunks([]);
     setChunkEdits({});
   }, [tenantId, libraryId, refreshToken]);
+
+  useEffect(() => {
+    if (!tenants.length) return;
+    if (!tenants.some((tenant) => tenant.tenantId === tenantId)) {
+      setTenantId(tenants[0].tenantId);
+    }
+  }, [tenants, tenantId]);
+
+  useEffect(() => {
+    if (!libraries.length) return;
+    const scoped = libraries.filter((lib) => !lib.tenantId || lib.tenantId === tenantId);
+    if (scoped.length && !scoped.some((lib) => lib.libraryId === libraryId)) {
+      setLibraryId(scoped[0].libraryId);
+    }
+  }, [libraries, tenantId, libraryId]);
 
   const loadChunks = async (docId: string) => {
     if (!docId) {
@@ -82,7 +99,7 @@ export function MetadataEditor({ refreshToken }: { refreshToken: number }) {
     try {
       await deleteDocument(selectedId, tenantId || undefined);
       setSelectedId("");
-      await refresh();
+      await refreshDocuments();
       await refreshStats();
       setStatus("文档已删除");
     } catch (error) {
@@ -115,17 +132,45 @@ export function MetadataEditor({ refreshToken }: { refreshToken: number }) {
       </header>
       <div className="toolbar">
         <label>
-          Tenant ID
-          <input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="default" />
+          租户
+          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+            {tenants.length
+              ? tenants.map((tenant) => (
+                  <option key={tenant.tenantId} value={tenant.tenantId}>
+                    {tenant.displayName ?? tenant.tenantId}（{tenant.tenantId}）
+                  </option>
+                ))
+              : <option value="default">默认租户</option>}
+          </select>
         </label>
         <label>
-          Library ID
-          <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} placeholder="default" />
+          知识库
+          <select value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+            {libraries
+              .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+              .map((lib) => (
+                <option key={lib.libraryId} value={lib.libraryId}>
+                  {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
+                </option>
+              ))}
+          </select>
         </label>
-        <button type="button" className="ghost" onClick={() => { refresh(); refreshStats(); }}>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            refreshDocuments();
+            refreshStats();
+          }}
+        >
           刷新列表/统计
         </button>
+        <button type="button" className="ghost" onClick={refreshOrgOptions}>
+          刷新配置
+        </button>
       </div>
+      {orgLoading && <p className="muted-text">同步租户/库列表中…</p>}
+      {orgError && <p className="muted-text">{orgError}</p>}
       {stats && (
         <div className="stat-grid">
           <div className="stat-card">

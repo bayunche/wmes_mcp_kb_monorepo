@@ -1,0 +1,26 @@
+{
+  "question_id": "Q2",
+  "focus": "确认修复 adm-zip 依赖时需同步哪些包管理文件",
+  "reason_for_investigation": "错误提示发生在 runtime 解析阶段，需确定是否仅修改 packages/core/package.json 还是需要更新 lockfile 和 node_modules",
+  "evidence": [
+    {
+      "file": "package.json",
+      "lines": "1-22",
+      "quote": "\"dependencies\": { ... , \"adm-zip\": \"^0.5.12\" }",
+      "implication": "根工作区已经声明 adm-zip，应当在 bun.lock 中出现。"
+    },
+    {
+      "file": "bun.lock",
+      "lines": "(查询结果)",
+      "quote": "rg -n \"adm-zip\" bun.lock → 未找到匹配",
+      "implication": "Bun 尚未安装 adm-zip，锁文件缺少记录，必须运行 bun install（或 bun add adm-zip）以生成条目。"
+    },
+    {
+      "file": "node_modules",
+      "lines": "列表",
+      "quote": "ls node_modules | head → 仅包含 dotenv/kysely 等，不包含 adm-zip",
+      "implication": "当前安装目录没有 adm-zip，运行 dev 会报模块缺失；修复需重新安装。"
+    }
+  ],
+  "conclusion": "需要两步：1）将 adm-zip 添加到 packages/core/package.json；2）执行 bun install 以更新 bun.lock 和 node_modules，确保 dev/worker 运行可找到依赖。"
+}

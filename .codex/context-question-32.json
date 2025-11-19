@@ -1,0 +1,26 @@
+{
+  "question_id": "Q1",
+  "focus": "确认 adm-zip 的真实使用范围以决定依赖声明位置",
+  "reason_for_investigation": "worker 运行时只要 core 包声明依赖即可，必须确认是否有其他包直接引用 adm-zip，以免遗漏",
+  "evidence": [
+    {
+      "file": "rg -n \"adm-zip\" -g*.ts",
+      "lines": "",
+      "quote": "tests/unit/core/office_parser.test.ts:2:import AdmZip from \"adm-zip\"",
+      "implication": "仅 core 相关测试引用 adm-zip，说明使用范围局限于 packages/core。"
+    },
+    {
+      "file": "packages/core/src/parsing.ts",
+      "lines": "1-90",
+      "quote": "import AdmZip from \"adm-zip\"; ... export class OfficeParser implements DocumentParser { ... const zip = new AdmZip(Buffer.from(input.buffer)); }",
+      "implication": "核心实现位于 packages/core，需在该包 dependencies 中注册 adm-zip。"
+    },
+    {
+      "file": "packages/core/package.json",
+      "lines": "1-12",
+      "quote": "\"dependencies\": { \"@xenova/transformers\": \"^2.6.1\" }",
+      "implication": "当前未声明 adm-zip，违反 workspace 子包显式依赖要求。"
+    }
+  ],
+  "conclusion": "adm-zip 仅被 packages/core 使用，应把依赖添加到 packages/core/package.json，并执行 bun install 让锁文件更新。"
+}

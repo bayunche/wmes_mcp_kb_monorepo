@@ -14,7 +14,9 @@ import type {
   ObjectStorage,
   QueueAdapter,
   VectorIndex,
-  VectorLogRepository
+  VectorLogRepository,
+  TenantConfigRepository,
+  LibraryConfigRepository
 } from "@kb/data";
 import type { ChunkRepository } from "@kb/core/src/retrieval";
 import {
@@ -25,14 +27,25 @@ import {
   ModelSettingSecret,
   ModelRoleSchema,
   SearchRequestSchema,
-  SearchResponseSchema
+  SearchResponseSchema,
+  TenantConfigInputSchema,
+  LibraryConfigInputSchema,
+  RemoteModelRequestSchema
 } from "@kb/shared-schemas";
+import type { RemoteModelRequest } from "@kb/shared-schemas";
 import { DbMcpRepository } from "../../mcp/src/repository/db";
 import { createSearchTool } from "../../mcp/src/tools/search";
 import { createRelatedTool } from "../../mcp/src/tools/related";
 import { createPreviewTool } from "../../mcp/src/tools/preview";
 import type { McpToolContext } from "../../mcp/src/types";
 import { loadModelCatalog } from "./modelCatalog";
+import {
+  modelManifest,
+  ensureModelArtifact,
+  listModelStatuses,
+  listExtraModelFiles,
+  findArtifact
+} from "../../../packages/tooling/src/models";
 
 const STREAM_THRESHOLD_BYTES = (() => {
   const mb = Number(process.env.API_UPLOAD_STREAM_THRESHOLD_MB ?? "256");
@@ -51,6 +64,9 @@ export interface ApiRoutesDeps {
   defaultLibraryId: string;
   modelSettings?: ModelSettingsRepository;
   vectorLogs?: VectorLogRepository;
+  tenantConfigs?: TenantConfigRepository;
+  libraryConfigs?: LibraryConfigRepository;
+  modelsDir: string;
 }
 
 export async function handleRequest(request: Request, deps: ApiRoutesDeps): Promise<Response> {
@@ -79,6 +95,72 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     return json(saved, 201);
   }
 
+  if (url.pathname === "/config/tenants") {
+    if (!deps.tenantConfigs) {
+      return new Response("Tenant config repository not configured", { status: 501 });
+    }
+    if (request.method === "GET") {
+      const items = await deps.tenantConfigs.list();
+      return json({ items });
+    }
+    if (request.method === "PUT") {
+      return handleUpsertTenant(request, deps);
+    }
+  }
+
+  const deleteTenantMatch = url.pathname.match(/^\/config\/tenants\/([^/]+)$/);
+  if (deleteTenantMatch && request.method === "DELETE") {
+    if (!deps.tenantConfigs) {
+      return new Response("Tenant config repository not configured", { status: 501 });
+    }
+    await deps.tenantConfigs.delete(deleteTenantMatch[1]);
+    return new Response(null, { status: 204 });
+  }
+
+  if (url.pathname === "/config/libraries") {
+    if (!deps.libraryConfigs) {
+      return new Response("Library config repository not configured", { status: 501 });
+    }
+    if (request.method === "GET") {
+      const tenantFilter = url.searchParams.get("tenantId") ?? undefined;
+      const items = await deps.libraryConfigs.list(tenantFilter ?? undefined);
+      return json({ items });
+    }
+    if (request.method === "PUT") {
+      return handleUpsertLibrary(request, deps);
+    }
+  }
+
+  const deleteLibraryMatch = url.pathname.match(/^\/config\/libraries\/([^/]+)$/);
+  if (deleteLibraryMatch && request.method === "DELETE") {
+    if (!deps.libraryConfigs) {
+      return new Response("Library config repository not configured", { status: 501 });
+    }
+    await deps.libraryConfigs.delete(deleteLibraryMatch[1]);
+    return new Response(null, { status: 204 });
+  }
+
+  if (request.method === "GET" && url.pathname === "/models") {
+    const items = listModelStatuses(deps.modelsDir);
+    const extras = listExtraModelFiles(deps.modelsDir);
+    return json({ dir: deps.modelsDir, items, extras });
+  }
+
+  if (request.method === "POST" && url.pathname === "/models/install") {
+    const payload = await request.json().catch(() => null);
+    const identifier = payload?.name ?? payload?.filename;
+    if (!identifier) {
+      return new Response("name is required", { status: 400 });
+    }
+    const artifact = findArtifact(identifier);
+    if (!artifact) {
+      return new Response("Model not found", { status: 404 });
+    }
+    await ensureModelArtifact(deps.modelsDir, artifact);
+    const item = listModelStatuses(deps.modelsDir).find((status) => status.name === artifact.name);
+    return json({ item });
+  }
+
   if (request.method === "POST" && url.pathname === "/upload") {
     return handleUpload(request, deps);
   }
@@ -99,6 +181,10 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
   if (request.method === "GET" && url.pathname === "/model-settings/catalog") {
     const catalog = await loadModelCatalog();
     return json({ items: catalog });
+  }
+
+  if (request.method === "POST" && url.pathname === "/model-settings/models") {
+    return handleFetchRemoteModels(request);
   }
 
   if (url.pathname === "/model-settings") {
@@ -435,7 +521,7 @@ async function handleReindexDocument(request: Request, deps: ApiRoutesDeps, docI
     return new Response("Forbidden", { status: 403 });
   }
   const libraryId = resolveLibrary(request, deps.defaultLibraryId, doc.libraryId);
-  await deps.documents.updateStatus(doc.docId, "uploaded");
+  await deps.documents.updateStatus(doc.docId, "uploaded", undefined);
   await enqueueIngestion(deps.queue, doc.docId, tenantId, libraryId);
   return json({ status: "queued", docId, libraryId });
 }
@@ -544,6 +630,38 @@ async function handleSaveModelSettings(request: Request, deps: ApiRoutesDeps): P
   return json({ setting: sanitizeModelSetting(saved) });
 }
 
+async function handleUpsertTenant(request: Request, deps: ApiRoutesDeps): Promise<Response> {
+  if (!deps.tenantConfigs) {
+    return new Response("Tenant config repository not configured", { status: 501 });
+  }
+  const payload = await request.json();
+  const parsed = TenantConfigInputSchema.parse(payload);
+  const saved = await deps.tenantConfigs.upsert(parsed);
+  return json({ tenant: saved });
+}
+
+async function handleUpsertLibrary(request: Request, deps: ApiRoutesDeps): Promise<Response> {
+  if (!deps.libraryConfigs) {
+    return new Response("Library config repository not configured", { status: 501 });
+  }
+  const payload = await request.json();
+  const parsed = LibraryConfigInputSchema.parse(payload);
+  const saved = await deps.libraryConfigs.upsert(parsed);
+  return json({ library: saved });
+}
+
+async function handleFetchRemoteModels(request: Request): Promise<Response> {
+  try {
+    const payload = await request.json();
+    const parsed = RemoteModelRequestSchema.parse(payload);
+    const items = await fetchRemoteModels(parsed);
+    return json({ items });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load models";
+    return new Response(message, { status: 502 });
+  }
+}
+
 function sanitizeModelSetting(setting: ModelSettingSecret) {
   return {
     tenantId: setting.tenantId,
@@ -569,6 +687,58 @@ function maskKey(apiKey?: string) {
   }
   const suffix = apiKey.slice(-4);
   return `${"*".repeat(Math.max(apiKey.length - 4, 0))}${suffix}`;
+}
+
+async function fetchRemoteModels(input: RemoteModelRequest) {
+  if (input.provider === "openai") {
+    if (!input.apiKey) {
+      throw new Error("OpenAI 模型列表需要提供 API Key");
+    }
+    const response = await fetch(buildOpenAiModelsUrl(input.baseUrl), {
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        "content-type": "application/json"
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI 模型列表请求失败 (${response.status})`);
+    }
+    const payload = await response.json();
+    const list = Array.isArray(payload?.data) ? payload.data : [];
+    return list
+      .map((item: { id?: string }) => item?.id)
+      .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+      .map((modelName) => ({ modelName, label: modelName, provider: "openai" }));
+  }
+  if (input.provider === "ollama") {
+    const response = await fetch(buildOllamaModelsUrl(input.baseUrl));
+    if (!response.ok) {
+      throw new Error(`Ollama 模型列表请求失败 (${response.status})`);
+    }
+    const payload = await response.json();
+    const list = Array.isArray(payload?.models) ? payload.models : [];
+    return list
+      .map((item: { name?: string; model?: string }) => item?.name ?? item?.model)
+      .filter((name: unknown): name is string => typeof name === "string" && name.length > 0)
+      .map((modelName) => ({ modelName, label: modelName, provider: "ollama" }));
+  }
+  return [];
+}
+
+function buildOpenAiModelsUrl(baseUrl: string): string {
+  const target = new URL(baseUrl);
+  target.pathname = "/v1/models";
+  target.search = "";
+  target.hash = "";
+  return target.toString();
+}
+
+function buildOllamaModelsUrl(baseUrl: string): string {
+  const target = new URL(baseUrl);
+  target.pathname = "/api/tags";
+  target.search = "";
+  target.hash = "";
+  return target.toString();
 }
 
 function collectFiles(form: FormData): File[] {

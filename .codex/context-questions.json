@@ -1,33 +1,32 @@
 {
-  "timestamp": "2025-11-18T21:07:12+08:00",
+  "timestamp": "2025-11-19T16:44:18+08:00",
   "known": [
-    "README.md 已定义 API、Worker、MCP、Web 以及 packages/* 的职责划分，核心 runtime 为 Bun + TypeScript，数据面包括 Postgres/pgvector/Qdrant/MinIO/RabbitMQ。",
-    "apps/api/src/main.ts 与 routes.ts 构成上传、队列入栈、检索、治理及 /mcp/* 代理的实现入口，startApiServer 负责 CORS/Auth/Metrics。",
-    "apps/worker/src/worker.ts + pipeline.ts 实现 fetch → parse → chunk → metadata → embed → persist 的 ingestion 流程，并依赖 packages/core 中的 parser、OCR、vector client、semantic metadata 等模块。",
-    "apps/mcp/src/server.ts 和 tools/{search,related,preview}.ts 暴露 kb.* 工具，复用数据库与 HybridRetriever；packages/data 将各 storage/repo/queue 抽象。"
+    "model_settings 表已经存在（packages/data/src/repositories/modelSettings.ts），可存储 provider/baseUrl/modelName/apiKey/options，并在 API /model-settings 路由读写",
+    "前端上传/治理/诊断功能集中在 apps/web/src/pages/IngestionDashboard.tsx 及其组件中，Tenant/Library/标签均使用自由输入",
+    "ModelSettingsPage 目前支持 fetchModelCatalog()，但只是列表展示，表单中的 modelName 仍允许手动输入"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "最终功能拆解文档需要覆盖哪些一级业务功能？是否以\"上传/治理/检索/MCP/运维脚本\"为纲，还是按 API/Worker/MCP/Packages 模块划分？",
+      "question": "租户 (tenantId) 与库 (libraryId) 下拉选项的数据源是什么？是否需要新增数据库表/API 以便配置页面创建/维护后前端才能引用？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "每个功能对应的核心 TypeScript 文件与关键函数有哪些？需要逐个定位 apps/api、apps/worker、apps/mcp、packages/core/data 的实现以便文档引用。",
+      "question": "“modelName 通过请求 URL 获取列表”具体指向哪个服务？需要在后端增加根据 provider/baseUrl 动态代理远程 /models 接口，还是沿用现有 /model-settings/catalog 静态目录？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q3",
-      "question": "数据在\"上传→对象存储→队列→worker→向量/数据库→检索/MCP\"过程中，哪些模块负责转换/过滤/打标签？需要确认 pipeline.ts、retrieval.ts、routes.ts、mcp 工具之间的调用链并描述。",
-      "priority": "high",
-      "blocking": true
+      "question": "上传表单移除手动标签后，由谁负责自动生成标签？是否依赖 worker 已有的自动标注流程，或者需要在 API 层新增逻辑？",
+      "priority": "medium",
+      "blocking": false
     },
     {
       "id": "Q4",
-      "question": "文档是否需要包含 Web 控制台或脚本（ops/scripts、scripts/）的功能点，还是聚焦后端？若需涵盖，需要找到对应 TS 实现。",
+      "question": "前端导航如何划分新的页面（入库、队列监控、治理、诊断、配置）？是否需要新增路由/URL 规范和面包屑？",
       "priority": "medium",
       "blocking": false
     }

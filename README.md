@@ -50,6 +50,8 @@
 > 📚 库隔离：所有文档/文本块都带有 `libraryId`。请在 `.env` 中设置 `DEFAULT_LIBRARY_ID` 并在前端 `.env`（或运行 `bun dev` 前的环境变量）配置 `VITE_LIBRARY_ID`，确保 API、Worker、Web 共用同一知识库；一个库可以包含多个文件，但检索和治理均按文本块粒度执行。
 
 > ⚠️ 向量化必须使用本地模型：`.env*` 中的 `LOCAL_EMBEDDING_ENABLED` 默认开启，且需指定 `LOCAL_TEXT_MODEL_ID`（例如 `Xenova/all-MiniLM-L6-v2`）。若禁用该配置，Worker 会直接报错并停止，以确保“向量用本地模型”这一要求得以强制执行。
+>
+> 🧠 混合召回默认启用本地 Rerank：请在 `.env*` 中配置 `LOCAL_RERANK_MODEL_ID`（默认 `Xenova/bge-reranker-v2-m3`），`scripts/sync-models.ts` 会自动下载该模型并供 `HybridRetriever` 的 rerank 阶段使用；同时也可在 Web 控制台「配置 → 本地模型管理」中查看/下载所有配套模型。
 
 ### Linux / macOS
 

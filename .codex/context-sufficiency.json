@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-18T21:08:10+08:00",
+  "timestamp": "2025-11-19T16:45:12+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "REST API (/upload,/documents,/search,/mcp/*,/vector-logs) 与 Worker pipeline（fetch→parse→chunk→metadata→embed→persist）及 MCP kb.* 工具的输入输出均已定位到具体 TS 文件，可在文档中给出契约说明。",
-    "tech_choices": "架构采用 Bun + TypeScript + RabbitMQ + MinIO + Postgres/pgvector/Qdrant + HybridRetriever，所有关键依赖路径 (apps/*, packages/core, packages/data) 已明确。",
-    "risks_identified": "主要风险是功能拆解文档可能遗漏 Web/脚本或某些数据流分支；需确保引用的 TS 路径真实存在并注明多租户/库隔离语义。",
-    "verification_plan": "编写文档时引用 README、项目需求和源码行号；交付前以 git diff/.codex 文件自查，同时在 testing.md/verification.md 标注“纯文档更新”理由。"
+    "interface_contract": "API 层需新增租户/库配置 CRUD（如 /config/tenants、/config/libraries）、模型目录代理接口（根据 provider/baseUrl 查询远程 /models），上传接口需只接收标题/文件/tenant/library 并将标签交给 worker 自动生成；前端需消费这些接口并提供表单/下拉。",
+    "tech_choices": "后端延续 Bun + Fastify + Kysely + Postgres；租户/库配置使用新表 + Repository；模型目录代理调用远程 provider API（OpenAI/ollama）；前端使用 React Router 组织多个页面、共享 hooks。",
+    "risks_identified": "1) 新表/接口需迁移脚本；2) 多租户权限校验；3) WSL 无法执行 Bun，需在宿主验证；4) 路由重构涉及大量组件移动；5) 自动标签完全依赖 worker，若 pipeline 不覆盖需补逻辑。",
+    "verification_plan": "代码完成后计划在具备 Bun 的环境执行 `bun test` + `bun run web` 手动测试表单、并调用新 API 进行 curl 验证；当前沙箱无法运行 Bun，需在提交说明中提示用户在宿主复现。同时可通过 TypeScript 编译/静态检查确保无语法错误。"
   }
 }

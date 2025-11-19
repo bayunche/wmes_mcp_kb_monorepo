@@ -244,9 +244,21 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       elements: ParsedElement[],
       source: SourcePayload
     ): Promise<ChunkFragment[]> {
-      const { fragments, sections } = await buildSemanticFragments(doc, elements, source, deps);
-      source.semanticSections = sections;
-      return fragments;
+      const fallback = () => {
+        const fragments = chunkFactory.createChunks(doc, elements);
+        source.semanticSections = [];
+        return fragments;
+      };
+      try {
+        const { fragments, sections } = await buildSemanticFragments(doc, elements, source, deps);
+        source.semanticSections = sections;
+        return fragments;
+      } catch (error) {
+        deps.logger.warn?.(
+          `Semantic segmentation unavailable，fallback to chunk-based splitting: ${(error as Error).message}`
+        );
+        return fallback();
+      }
     },
     async extractMetadata(doc: Document, chunks: Chunk[]): Promise<Chunk[]> {
       const enriched = chunks.map((chunk) => ({
@@ -796,7 +808,7 @@ export async function handleQueueMessage(task: unknown, deps: WorkerDependencies
     deps.metrics?.counter("kb_ingestion_errors_total", "Ingestion task errors").inc();
     if (deps.documents) {
       try {
-        await deps.documents.updateStatus(parsedTask.docId, "failed");
+        await deps.documents.updateStatus(parsedTask.docId, "failed", (error as Error).message);
       } catch (updateError) {
         deps.logger.error?.(
           `Failed to update status for ${parsedTask.docId}: ${(updateError as Error).message}`

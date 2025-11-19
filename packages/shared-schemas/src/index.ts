@@ -3,6 +3,40 @@ import { z } from "zod";
 export const TenantIdSchema = z.string().min(1, "tenantId is required");
 export const LibraryIdSchema = z.string().min(1, "libraryId is required");
 
+export const TenantConfigSchema = z.object({
+  tenantId: TenantIdSchema,
+  displayName: z.string().min(1),
+  description: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional()
+});
+export type TenantConfig = z.infer<typeof TenantConfigSchema>;
+
+export const TenantConfigInputSchema = TenantConfigSchema.pick({
+  tenantId: true,
+  displayName: true,
+  description: true
+});
+export type TenantConfigInput = z.infer<typeof TenantConfigInputSchema>;
+
+export const LibraryConfigSchema = z.object({
+  libraryId: LibraryIdSchema,
+  tenantId: TenantIdSchema.optional(),
+  displayName: z.string().min(1),
+  description: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional()
+});
+export type LibraryConfig = z.infer<typeof LibraryConfigSchema>;
+
+export const LibraryConfigInputSchema = LibraryConfigSchema.pick({
+  libraryId: true,
+  tenantId: true,
+  displayName: true,
+  description: true
+});
+export type LibraryConfigInput = z.infer<typeof LibraryConfigInputSchema>;
+
 export const DocumentStatusSchema = z.enum(["uploaded", "parsed", "indexed", "failed"]);
 export type DocumentStatus = z.infer<typeof DocumentStatusSchema>;
 
@@ -24,6 +58,7 @@ export const DocumentSchema = z.object({
   tenantId: TenantIdSchema.default("default"),
   libraryId: LibraryIdSchema.default("default"),
   tags: z.array(z.string()).optional(),
+  errorMessage: z.string().optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional()
 });
@@ -74,6 +109,20 @@ export const ModelSettingViewSchema = ModelSettingBaseSchema.extend({
   updatedAt: z.string().datetime().optional()
 });
 export type ModelSettingView = z.infer<typeof ModelSettingViewSchema>;
+
+export const RemoteModelRequestSchema = z.object({
+  provider: ModelProviderSchema,
+  baseUrl: z.string().min(1),
+  apiKey: z.string().optional()
+});
+export type RemoteModelRequest = z.infer<typeof RemoteModelRequestSchema>;
+
+export const RemoteModelOptionSchema = z.object({
+  modelName: z.string(),
+  label: z.string().optional(),
+  provider: ModelProviderSchema.optional()
+});
+export type RemoteModelOption = z.infer<typeof RemoteModelOptionSchema>;
 
 export const SemanticEntitySchema = z.object({
   name: z.string(),

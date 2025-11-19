@@ -1130,3 +1130,77 @@
 | 2025-11-18T21:07:40+08:00 | shell | `cat <<'EOF' > .codex/context-question-30.json` | 记录 Q2 深挖结果 |
 | 2025-11-18T21:07:45+08:00 | shell | `cat <<'EOF' > .codex/context-question-31.json` | 记录 Q3 深挖结果，并提示“评估成本”避免过度收集 |
 | 2025-11-18T21:08:20+08:00 | shell | `shrimp-task-manager --help` | 工具未安装，已记录无法直接调用，后续改用 update_plan 手工规划 |
+| 2025-11-19T13:49:30+08:00 | sequential-thinking | 初始思考 | 分析 worker 缺少 adm-zip 的报错背景与修复方向 |
+| 2025-11-19T13:49:45+08:00 | sequential-thinking | 复盘上下文需求 | 规划结构化扫描与依赖定位步骤 |
+| 2025-11-19T13:50:00+08:00 | shell | `ls` | 查看仓库根目录结构 |
+| 2025-11-19T13:50:05+08:00 | shell | `ls packages` | 了解 workspace 子目录 |
+| 2025-11-19T13:50:10+08:00 | shell | `ls packages/core` | 确认 core 包结构 |
+| 2025-11-19T13:50:15+08:00 | shell | `cat packages/core/package.json` | 检查 core 包依赖（未含 adm-zip） |
+| 2025-11-19T13:50:20+08:00 | shell | `ls packages/core/src` | 浏览核心源码文件 |
+| 2025-11-19T13:50:30+08:00 | shell | `sed -n '1,200p' packages/core/src/parsing.ts` | 阅读 OfficeParser 使用 adm-zip 的实现 |
+| 2025-11-19T13:50:40+08:00 | shell | `cat package.json` | 查看根依赖（含 adm-zip）与 scripts |
+| 2025-11-19T13:50:45+08:00 | shell | `ls apps/worker` | 确认 worker 模块结构 |
+| 2025-11-19T13:50:48+08:00 | shell | `cat apps/worker/package.json` | 了解 worker 对 core 的依赖方式 |
+| 2025-11-19T13:50:52+08:00 | shell | `ls packages/core/src/__tests__` | 查阅 core 包测试目录 |
+| 2025-11-19T13:50:55+08:00 | shell | `ls .codex` | 查看现有上下文/日志文件 |
+| 2025-11-19T13:50:58+08:00 | shell | `sed -n '1,160p' .codex/operations-log.md` | 了解既有操作日志格式 |
+| 2025-11-19T13:51:05+08:00 | shell | `date -Iseconds` | 获取上下文扫描时间戳 |
+| 2025-11-19T13:52:15+08:00 | shell | `cat > .codex/context-scan.json` | 写入本次结构化扫描结果 |
+| 2025-11-19T13:53:00+08:00 | sequential-thinking | 关键疑问识别 | 提炼依赖与锁文件相关的高优先级问题 |
+| 2025-11-19T13:53:20+08:00 | shell | `cat .codex/context-questions.json` | 查看旧问题列表示例 |
+| 2025-11-19T13:53:40+08:00 | shell | `cat > .codex/context-questions.json` | 更新关键疑问列表 |
+| 2025-11-19T13:53:50+08:00 | shell | `rg -n "adm-zip" -g"*.ts"` | 搜索 adm-zip 使用范围（code-index 不可用，退回 rg） |
+| 2025-11-19T13:54:10+08:00 | shell | `cat > .codex/context-question-32.json` | 记录 Q1 深挖证据与结论 |
+| 2025-11-19T13:55:00+08:00 | shell | `cat > .codex/context-question-33.json` | 记录 Q2 深挖（锁文件与安装状态） |
+| 2025-11-19T13:55:40+08:00 | shell | `cat .codex/context-sufficiency.json` | 查看既有充分性检查模板 |
+| 2025-11-19T13:56:20+08:00 | shell | `cat > .codex/context-sufficiency.json` | 更新充分性检查结果 |
+| 2025-11-19T13:55:50+08:00 | shell | `rg -n "adm-zip" bun.lock` | 确认锁文件缺少 adm-zip 记录 |
+| 2025-11-19T13:55:55+08:00 | shell | `ls node_modules | head` | 验证当前安装集中未包含 adm-zip |
+| 2025-11-19T13:57:00+08:00 | update_plan | 3-step plan | 规划添加依赖→安装→验证的执行步骤 |
+| 2025-11-19T13:57:30+08:00 | apply_patch | 修改 `packages/core/package.json` | 为 core 包添加 adm-zip 依赖 |
+| 2025-11-19T13:58:00+08:00 | shell | `bun install` | 试图更新依赖，但 Bun 调用 Windows 可执行被拒绝（WSL 无法执行 bun.exe） |
+| 2025-11-19T13:58:20+08:00 | shell | `npm install --workspace packages/core adm-zip@^0.5.12 --no-package-lock` | 命令超时（网络受限） |
+| 2025-11-19T13:58:45+08:00 | shell | `npm install --workspace packages/core adm-zip@^0.5.12 --no-package-lock` (w/ escalated) | npm 不支持 workspace:* 依赖，命令失败 |
+| 2025-11-19T13:59:10+08:00 | shell | `curl -L -o /tmp/bun-linux-x64.zip ...` | 下载 Bun Linux 压缩包（成功但后续解压失败） |
+| 2025-11-19T13:59:40+08:00 | shell | `busybox unzip` | 由于 ZIP64 支持受限导致 short read，解压失败 |
+| 2025-11-19T14:00:05+08:00 | shell | `npm pack adm-zip@0.5.12` | 拉取 adm-zip tgz 成功，用于手动安装 |
+| 2025-11-19T14:00:15+08:00 | shell | `tar -xzf adm-zip-0.5.12.tgz ...` | 手动解包至 packages/core/node_modules 与根 node_modules |
+| 2025-11-19T14:00:25+08:00 | apply_patch | 更新 `bun.lock` | 添加 adm-zip 依赖与包记录 |
+| 2025-11-19T14:01:00+08:00 | shell | `npx vitest run tests/unit/core/office_parser.test.ts` | 因 PATH 仅有 .exe/.bunx 失败（vitest: not found） |
+| 2025-11-19T14:01:20+08:00 | shell | `node node_modules/vitest/vitest.mjs run tests/unit/core/office_parser.test.ts` | 缺少 @rollup/rollup-linux-x64-gnu 可执行导致失败 |
+| 2025-11-19T16:42:30+08:00 | sequential-thinking | 新需求初步思考 | 梳理模型配置/上传/路由改造的核心目标 |
+| 2025-11-19T16:43:05+08:00 | shell | `cat > .codex/context-scan.json` | 记录本轮上下文扫描（聚焦前端路由与模型配置） |
+| 2025-11-19T16:43:20+08:00 | sequential-thinking | 关键疑问识别 | 列出租户/库数据源、模型目录获取方式等堵点 |
+| 2025-11-19T16:44:20+08:00 | shell | `cat > .codex/context-questions.json` | 更新关键疑问列表（Q1-Q4） |
+| 2025-11-19T16:44:40+08:00 | shell | 读取 schema/前端源码 | 支撑 Q1 深挖（确认无租户/库配置存储） |
+| 2025-11-19T16:44:50+08:00 | shell | `cat > .codex/context-question-34.json` | 记录 Q1 证据与结论 |
+| 2025-11-19T16:45:00+08:00 | shell | 查阅 ModelSettingsPage / modelCatalog | 支撑 Q2 深挖（模型目录静态） |
+| 2025-11-19T16:45:05+08:00 | shell | `cat > .codex/context-question-35.json` | 记录 Q2 证据与结论 |
+| 2025-11-19T16:45:12+08:00 | shell | `cat > .codex/context-sufficiency.json` | 更新充分性检查（确认接口/技术/风险/验证计划） |
+| 2025-11-19T16:45:30+08:00 | shell | `shrimp plan_task ...` | 失败：命令不存在（环境未安装 shrimp-task-manager） |
+| 2025-11-19T16:46:00+08:00 | update_plan | 8-step plan | 定义数据层扩展、API、新 hooks、前端路由改造等任务 |
+| 2025-11-19T16:55:00+08:00 | shell | 新增 `db/migrations/0006_org_configs.sql` | 创建租户/知识库配置表及默认记录 |
+| 2025-11-19T16:58:00+08:00 | apply_patch | 更新 data layer/schema | 增加 tenant/library repository 并导出 |
+| 2025-11-19T17:05:00+08:00 | apply_patch | 修改 apps/api/routes.ts | 新增 /config/* 与 /model-settings/models API，扩展依赖 |
+| 2025-11-19T17:20:00+08:00 | shell | 创建 `QueueMonitorPage.tsx`、`DiagnosticsPage.tsx` | 拆分队列监控与诊断页面 |
+| 2025-11-19T17:25:00+08:00 | apply_patch | 重构 UploadForm/ModelSettingsPage | 实现下拉选择、远程模型列表与租户/库配置面板 |
+| 2025-11-19T17:35:00+08:00 | apply_patch | 更新导航/FlowGuide/路由 | 调整 App.tsx、FlowGuide.js 使功能归类清晰 |
+| 2025-11-19T17:45:00+08:00 | apply_patch | 更新 SearchPanel/VectorLogPanel 等组件 | 切换为下拉控件并使用共享 hook |
+| 2025-11-19T17:55:00+08:00 | shell | 更新 `.codex/testing.md`/`verification.md` | 记录测试受限及需宿主复现的说明 |
+| 2025-11-19T18:10:00+08:00 | shell | `cat > apps/web/src/styles.css` | 将 UI 更新为毛玻璃 + 黑白灰蓝配色，统一控制组件样式 |
+| 2025-11-19T18:22:00+08:00 | apply_patch | 重写 `apps/web/src/styles.css` | 将背景统一为白色、保留毛玻璃与黑白灰蓝配色的 UI 主题 |
+| 2025-11-19T18:30:00+08:00 | apply_patch | 调整 App.tsx 与 styles.css | 导航改为左侧浮动栏，内容区改为主视图，CSS 新增 floating nav 布局与响应式设置 |
+| 2025-11-19T18:38:00+08:00 | apply_patch | 更新 `apps/web/src/pages/ModelSettingsPage.tsx` | 拉取模型结果自动填充并提示采用 OpenAI `/v1/models` 与 Ollama `/api/tags` |
+| 2025-11-19T18:45:00+08:00 | apply_patch | 删除 `ProcessOverview` | 应用户要求移除“MaxKB 风格概览”tab，整理 `IngestionDashboard` |
+| 2025-11-19T18:55:00+08:00 | apply_patch | 更新 `packages/core/src/vector.ts` | 支持本地 rerank 模型（加载管线、rerankLocally、环境变量） |
+| 2025-11-19T18:55:30+08:00 | apply_patch | 更新 `packages/core/src/retrieval.ts` | HybridRetriever 计算中加入 rerank 结果并混合得分 |
+| 2025-11-19T18:56:00+08:00 | apply_patch | 更新 `.env.example`/`README.md`/`docs/retrieval.md` | 文档补充 LOCAL_RERANK_MODEL_ID 及混合召回说明 |
+| 2025-11-19T19:05:00+08:00 | apply_patch | 新增 `packages/tooling/src/models.ts` | 抽取模型 manifest/安装逻辑供脚本与 API 复用 |
+| 2025-11-19T19:05:30+08:00 | apply_patch | 更新 `ops/scripts/sync-models.ts` | 复用共享 manifest + installer |
+| 2025-11-19T19:06:00+08:00 | apply_patch | 更新 `apps/api/src/routes.ts` 等 | 提供 `/models` 列表与 `/models/install` API，传入 MODELS_DIR |
+| 2025-11-19T19:07:00+08:00 | apply_patch | 更新前端 API/ModelSettingsPage | 增加本地模型管理表，可触发下载并展示路径/大小 |
+| 2025-11-19T19:15:00+08:00 | apply_patch | 新增 `db/migrations/0007_document_errors.sql` | documents 表增加 error_message 字段用于记录失败原因 |
+| 2025-11-19T19:16:00+08:00 | apply_patch | 更新 data/shared schemas | documents schema/Repo/KnowledgeWriter 支持 errorMessage，updateStatus 接收消息 |
+| 2025-11-19T19:18:00+08:00 | apply_patch | Worker pipeline 友好降级 | chunkDocument 捕获语义切分异常并回退至 chunkFactory，handleQueueMessage 记录失败信息 |
+| 2025-11-19T19:20:00+08:00 | apply_patch | API & 前端显示错误 | `/documents` 返回 errorMessage，前端列表/队列面板展示；Reindex 清理错误 |
+| 2025-11-19T19:23:00+08:00 | apply_patch | 本地模型管理 API/UI | 新增 `/models`/`/models/install`，前端配置页可查看/下载模型 |

@@ -1,0 +1,26 @@
+{
+  "question_id": "Q2",
+  "focus": "modelName 列表的来源",
+  "reason_for_investigation": "需求要求“通过请求 URL 获取模型列表，而不是手动填写”，需要确认当前实现是否具备远程查询能力",
+  "evidence": [
+    {
+      "file": "apps/web/src/pages/ModelSettingsPage.tsx",
+      "lines": "80-210",
+      "quote": "表单字段 `modelName` 使用 `<input>`，并提供 `applyCatalogModel()` 将静态目录写入输入框，仍允许用户自由编辑。",
+      "implication": "现有 UI 并未限制模型来自远程列表。"
+    },
+    {
+      "file": "apps/api/src/modelCatalog.ts",
+      "lines": "1-80",
+      "quote": "loadModelCatalog() 仅从 `MODEL_CATALOG_PATH` 读取 JSON 或使用 DEFAULT_MODEL_CATALOG，未调用任何外部 API。",
+      "implication": "后端提供的模型目录是静态/文件驱动，并非对 provider/baseUrl 的实时请求。"
+    },
+    {
+      "file": "apps/api/src/routes.ts",
+      "lines": "90-120",
+      "quote": "`GET /model-settings/catalog` 直接返回 `loadModelCatalog()` 的结果，不带 provider/baseUrl 参数。",
+      "implication": "当前 API 只能返回静态目录，无法根据不同 Base URL 列表模型。"
+    }
+  ],
+  "conclusion": "仓库尚无“通过请求 URL 获取模型列表”的实现。若要满足需求，需要在后端新增代理接口（例如 `/model-settings/models?provider=openai&baseUrl=...`）去请求远程 `/models` 并返回列表，前端再据此渲染下拉。"
+}

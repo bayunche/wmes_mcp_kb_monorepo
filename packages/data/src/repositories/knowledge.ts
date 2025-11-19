@@ -102,6 +102,7 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
         tenant_id: document.tenantId ?? "default",
         library_id: document.libraryId ?? "default",
         tags: document.tags ?? null,
+        error_message: document.errorMessage ?? null,
         created_at: document.createdAt ? new Date(document.createdAt) : sql`NOW()`,
         updated_at: sql`NOW()`
       };
@@ -121,6 +122,7 @@ export class PgKnowledgeWriter implements KnowledgeWriter {
             tenant_id: docPayload.tenant_id,
             library_id: docPayload.library_id,
             tags: docPayload.tags,
+            error_message: docPayload.error_message,
             updated_at: sql`NOW()`
           })
         )

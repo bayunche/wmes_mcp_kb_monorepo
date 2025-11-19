@@ -42,6 +42,9 @@ async function bootstrap() {
     vectorIndex: dataLayer.vectorIndex,
     modelSettings: dataLayer.modelSettings,
     vectorLogs: dataLayer.vectorLogs,
+    tenantConfigs: dataLayer.tenantConfigs,
+    libraryConfigs: dataLayer.libraryConfigs,
+    modelsDir: config.MODELS_DIR,
     defaultTenantId: config.DEFAULT_TENANT_ID,
     defaultLibraryId: config.DEFAULT_LIBRARY_ID,
     metrics

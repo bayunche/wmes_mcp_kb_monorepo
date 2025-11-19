@@ -17,6 +17,7 @@ export interface VectorClientOptions {
   enableLocalModels?: boolean;
   localTextModelId?: string;
   localImageModelId?: string;
+  localRerankerModelId?: string;
   modelCacheDir?: string;
   logger?: {
     debug?: (message: string, payload?: unknown) => void;
@@ -127,9 +128,11 @@ export class VectorClient {
   private readonly localModelsEnabled: boolean;
   private readonly localTextModelId?: string;
   private readonly localImageModelId?: string;
+  private readonly localRerankerModelId?: string;
   private readonly modelCacheDir?: string;
   private textPipelinePromise?: Promise<TransformersPipeline>;
   private imagePipelinePromise?: Promise<TransformersPipeline>;
+  private rerankPipelinePromise?: Promise<TransformersPipeline>;
 
   constructor(options: VectorClientOptions = {}) {
     this.textEndpoint = options.textEndpoint;
@@ -144,6 +147,7 @@ export class VectorClient {
     this.localModelsEnabled = options.enableLocalModels ?? false;
     this.localTextModelId = options.localTextModelId;
     this.localImageModelId = options.localImageModelId;
+    this.localRerankerModelId = options.localRerankerModelId;
     this.modelCacheDir = options.modelCacheDir;
   }
 
@@ -186,7 +190,12 @@ export class VectorClient {
       }
       return response.scores;
     }
-
+    if (this.localModelsEnabled) {
+      const scores = await this.rerankLocally(query, documents);
+      if (scores.length) {
+        return scores;
+      }
+    }
     return documents.map((doc) => doc.length * 0.01);
   }
 
@@ -278,6 +287,52 @@ export class VectorClient {
     return this.imagePipelinePromise;
   }
 
+  private async loadRerankPipeline() {
+    if (!this.rerankPipelinePromise) {
+      this.rerankPipelinePromise = this.loadPipeline(
+        "text-classification",
+        this.localRerankerModelId ?? this.rerankerModel
+      );
+    }
+    return this.rerankPipelinePromise;
+  }
+
+  private async rerankLocally(query: string, documents: string[]): Promise<number[]> {
+    if (!documents.length) return [];
+    try {
+      const pipeline = await this.loadRerankPipeline();
+      const scores: number[] = [];
+      for (const doc of documents) {
+        const output = await pipeline(
+          { text: query, text_pair: doc },
+          { topk: 1, function_to_apply: "none" }
+        );
+        const parsed = this.parseRerankScore(output);
+        scores.push(parsed ?? 0);
+      }
+      return scores;
+    } catch (error) {
+      this.logger.warn?.(
+        "Local reranker failed",
+        error instanceof Error ? error.message : error
+      );
+      return [];
+    }
+  }
+
+  private parseRerankScore(output: unknown): number | undefined {
+    if (Array.isArray(output)) {
+      const first = output[0];
+      if (first && typeof first === "object" && "score" in first) {
+        return Number((first as { score: number }).score);
+      }
+    }
+    if (output && typeof output === "object" && "score" in output) {
+      return Number((output as { score: number }).score);
+    }
+    return undefined;
+  }
+
   private async loadPipeline(task: string, modelId: string): Promise<TransformersPipeline> {
     if (this.modelCacheDir && !process.env.TRANSFORMERS_CACHE) {
       process.env.TRANSFORMERS_CACHE = this.modelCacheDir;
@@ -297,6 +352,7 @@ export function createVectorClientFromEnv(): VectorClient {
     enableLocalModels: parseBoolean(process.env.LOCAL_EMBEDDING_ENABLED),
     localTextModelId: process.env.LOCAL_TEXT_MODEL_ID ?? undefined,
     localImageModelId: process.env.LOCAL_IMAGE_MODEL_ID ?? undefined,
+    localRerankerModelId: process.env.LOCAL_RERANK_MODEL_ID ?? undefined,
     modelCacheDir: process.env.MODELS_DIR
   });
 }

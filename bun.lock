@@ -5,6 +5,7 @@
       "name": "mcp-kb-monorepo",
       "dependencies": {
         "@xenova/transformers": "^2.6.1",
+        "adm-zip": "^0.5.12",
         "dotenv": "^16.4.5",
         "kysely": "^0.27.2",
         "zod": "^3.23.8",
@@ -65,6 +66,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@xenova/transformers": "^2.6.1",
+        "adm-zip": "^0.5.12",
       },
     },
     "packages/data": {
@@ -314,6 +316,8 @@
     "acorn": ["acorn@8.15.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg=="],
 
     "acorn-walk": ["acorn-walk@8.3.4", "", { "dependencies": { "acorn": "^8.11.0" } }, "sha512-ueEepnujpqee2o5aIYnvHU6C0A42MNdsIDeqy5BydrkuC5R1ZuUFnm27EeFJGoEHJQgn3uleRvmTXaJgfXbt4g=="],
+
+    "adm-zip": ["adm-zip@0.5.12", "", {}, "sha512-6TVU49mK6KZb4qG6xWaaM4C7sA/sgUMLy/JYMOzkcp3BvVLpW0fXDFQiIzAuxFCt/2+xD7fNIiPFAoLZPhVNLQ=="],
 
     "amqplib": ["amqplib@0.10.9", "", { "dependencies": { "buffer-more-ints": "~1.0.0", "url-parse": "~1.5.10" } }, "sha512-jwSftI4QjS3mizvnSnOrPGYiUnm1vI2OP1iXeOUz5pb74Ua0nbf6nPyyTzuiCLEE3fMpaJORXh2K/TQ08H5xGA=="],
 

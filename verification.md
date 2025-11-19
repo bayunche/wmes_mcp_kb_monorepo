@@ -136,3 +136,43 @@
 - **剩余风险**：
   - 功能拆解文档未覆盖 future roadmap（例如 Web 新页面、AI Agent 扩展）；后续功能上线需同步更新该文档。
   - Flow 描述依赖当前实现，如队列或存储技术栈更换（RabbitMQ/Qdrant）需要重新校准 TS 路径。
+
+---
+
+- **日期**：2025-11-19
+- **范围**：修复 worker 启动缺失 `adm-zip` 依赖（packages/core OfficeParser）
+- **验证步骤**：
+  - 更新 `packages/core/package.json` 以及 `bun.lock`，确保 `@kb/core` 显式依赖 `adm-zip`。
+  - 通过 `npm pack adm-zip@0.5.12` → `tar -xzf` 手动解压到 `packages/core/node_modules` 与根 `node_modules`，替代无法执行的 `bun install`。
+  - 尝试执行 `bun install`（失败：WSL 不允许运行 Windows bun.exe）。
+  - 尝试 `npx vitest run tests/unit/core/office_parser.test.ts`（失败：node_modules/.bin 仅包含 .exe/.bunx，npx 无可执行脚本）。
+  - 尝试 `node node_modules/vitest/vitest.mjs run tests/unit/core/office_parser.test.ts`（失败：缺少 `@rollup/rollup-linux-x64-gnu`，Bun 专用可选依赖在当前环境中不可用）。
+- **测试情况**：受限于当前沙箱无法运行 Bun 或安装 Linux 版 vitest/rollup，可执行验证全部失败；已在 `.codex/testing.md` 记录三次尝试及失败原因。需在具备 Bun CLI 的环境运行 `bun install && bun test` 或 `bun dev` 以完整验证 worker 启动。
+- **剩余风险**：
+  - 当前 `node_modules` 通过手工解包生成，建议在宿主执行 `bun install` 重新安装以确保依赖树干净。
+  - 未能运行自动化测试；待 Bun CLI 可用后需重点回归 `tests/unit/core/office_parser.test.ts` 与 worker pipeline smoke。 
+
+---
+
+- **日期**：2025-11-19
+- **范围**：前端路由重构、租户/知识库配置、模型目录 API、上传体验优化
+- **验证步骤**：
+  - 静态检查 React 组件（App.tsx、UploadForm、ModelSettingsPage、GovernancePage、QueueMonitorPage、DiagnosticsPage）与 API 客户端改动，确保所有租户/库选择均来自新下拉。
+  - 通过阅读 `apps/api/src/routes.ts` 与 `packages/data` 新增仓储确认 `/config/tenants`、`/config/libraries` 以及 `/model-settings/models` 返回结构与前端消费一致。
+  - 手动检查 `useOrgOptions` hook 缓存逻辑，确保多个页面不会重复触发 API。
+- **测试情况**：由于当前 WSL 环境无法运行 Bun，可执行验证全部受阻；已在 `.codex/testing.md` 登记待在宿主运行 `bun test` 与 `bun run web` 进行完整回归。
+- **剩余风险**：
+  - 新增的租户/知识库表需执行 `db/migrations/0006_org_configs.sql`，未在当前环境验证。
+  - `/model-settings/models` 会对远程 API 发起请求，需在具备真实 API Key 的环境验证权限及速率限制。
+  - 前端多处使用同一 hook，如需在 SSR/多窗口下共享数据需进一步封装全局状态。
+
+---
+
+- **日期**：2025-11-19
+- **范围**：语义切分回退 + 错误上报 + 本地模型管理
+- **验证步骤**：
+  - 静态审查 `apps/worker/src/pipeline.ts`，确认 `chunkDocument` 捕获异常并回退，`handleQueueMessage` 能写入 `error_message`。
+  - 检查 `packages/data`/`packages/shared-schemas`/`db/migrations/0007` 的一致性，确保 `documents` 映射包含新字段。
+  - 确认 `/models`、`/models/install` API 通过 `packages/tooling/src/models.ts` 提供的 manifest 工作，并在前端 `ModelSettingsPage` 新增管理面板。
+  - 前端 `IngestionStatusPanel` / `DocumentsList` 显示 errorMessage，ModelSettings 页面可查看/下载模型。
+- **测试情况**：由于 WSL 仍无法运行 Bun，未能执行 `bun test` 或 `bun run web`。需要在宿主机验证上传失败时的提示、本地模型列表展示与模型下载按钮。 |

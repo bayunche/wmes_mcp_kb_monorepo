@@ -10,6 +10,24 @@ export interface DocumentsTable {
   tenant_id: string;
   library_id: string;
   tags: string[] | null;
+  error_message: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface TenantConfigsTable {
+  tenant_id: string;
+  display_name: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface LibraryConfigsTable {
+  library_id: string;
+  tenant_id: string | null;
+  display_name: string;
+  description: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -139,6 +157,8 @@ export interface VectorLogsTable {
 
 export interface Database {
   documents: DocumentsTable;
+  tenant_configs: TenantConfigsTable;
+  library_configs: LibraryConfigsTable;
   chunks: ChunksTable;
   document_sections: DocumentSectionsTable;
   embeddings: EmbeddingsTable;

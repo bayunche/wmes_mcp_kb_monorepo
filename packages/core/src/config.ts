@@ -54,6 +54,7 @@ const envSchema = z.object({
     .default(false),
   LOCAL_TEXT_MODEL_ID: optionalString,
   LOCAL_IMAGE_MODEL_ID: optionalString,
+  LOCAL_RERANK_MODEL_ID: optionalString,
   VECTOR_FALLBACK_DIM: z.coerce.number().int().positive().default(512),
   CHUNK_MAX_CHARS: z.coerce.number().int().positive().default(900),
   CHUNK_OVERLAP_CHARS: z.coerce.number().int().nonnegative().default(120),

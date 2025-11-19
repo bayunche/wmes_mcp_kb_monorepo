@@ -10,27 +10,34 @@ const STEPS = [
   },
   {
     id: 2,
-    title: "排队与切块",
-    description: "Worker 会解析并生成文本块、预览、附件，然后写入 Postgres + Qdrant。",
-    to: "/ingestion",
+    title: "队列监控",
+    description: "Worker 会解析并生成文本块/附件，可在队列页观察状态并手动重试。",
+    to: "/queue",
     cta: "查看队列"
   },
   {
     id: 3,
+    title: "数据治理",
+    description: "在治理页审阅块级元数据、自动标签与附件，并执行重新索引。",
+    to: "/governance",
+    cta: "管理治理"
+  },
+  {
+    id: 4,
     title: "检索预览",
     description: "使用混合检索查看段落、附件和自动标签，验证召回质量。",
     to: "/search",
     cta: "开始检索"
   },
   {
-    id: 4,
-    title: "数据治理",
-    description: "在治理页审阅块级元数据、自动标签与附件，并执行重新索引。",
-    to: "/governance",
-    cta: "查看治理"
+    id: 5,
+    title: "实时诊断",
+    description: "查看向量化日志与章节树，定位处理阶段及潜在失败原因。",
+    to: "/diagnostics",
+    cta: "打开诊断"
   },
   {
-    id: 5,
+    id: 6,
     title: "MCP & 指标",
     description: "通过 MCP 页面调用工具并查看实时指标。",
     to: "/mcp",

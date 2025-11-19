@@ -46,3 +46,11 @@ operable program or batch file.
 [2025-11-18T06:34:14.050Z] ERROR OCR extraction failed: Unable to connect. Is the computer able to access the url?
 [2025-11-18T06:34:14.063Z] ERROR Failed to append vector logs: insert or update on table "vector_logs" violates foreign key constraint "vector_logs_chunk_id_fkey"
 [2025-11-18T06:34:16.353Z] INFO  Ingestion pipeline completed for 2d5ce353-4106-40e8-a7c2-a5720d218373
+[2025-11-19T09:56:26.068Z] INFO  Worker subscription ready.
+[2025-11-19T09:56:26.069Z] INFO  Worker subscription ready
+[2025-11-19T11:27:50.395Z] INFO  Worker subscription ready.
+[2025-11-19T11:27:50.395Z] INFO  Worker subscription ready
+[2025-11-19T11:31:21.606Z] INFO  Worker subscription ready.
+[2025-11-19T11:31:21.607Z] INFO  Worker subscription ready
+[2025-11-19T11:32:09.183Z] ERROR OCR extraction failed: Unable to connect. Is the computer able to access the url?
+[2025-11-19T11:32:09.216Z] ERROR Ingestion task failed for 5a3ff934-1590-4823-a4d1-f10c49e371e2: 语义切分模型未配置，无法继续解析

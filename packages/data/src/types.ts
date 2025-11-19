@@ -6,7 +6,9 @@ import type {
   ModelSettingSecret,
   ModelRole,
   VectorLog,
-  DocumentSection
+  DocumentSection,
+  TenantConfig,
+  LibraryConfig
 } from "@kb/shared-schemas";
 import type { ChunkRecord, ChunkRepository } from "@kb/core/src/retrieval";
 
@@ -22,7 +24,7 @@ export interface DocumentRepository {
   list(tenantId?: string, libraryId?: string): Promise<Document[]>;
   get(docId: string): Promise<Document | null>;
   updateTags(docId: string, tags: string[]): Promise<Document | null>;
-  updateStatus(docId: string, status: Document["ingestStatus"]): Promise<void>;
+  updateStatus(docId: string, status: Document["ingestStatus"], errorMessage?: string): Promise<void>;
   delete(docId: string): Promise<void>;
   count(tenantId?: string, libraryId?: string): Promise<number>;
   stats(tenantId?: string, libraryId?: string): Promise<DocumentStats>;
@@ -84,6 +86,18 @@ export interface AttachmentRepository {
   count(tenantId?: string): Promise<number>;
 }
 
+export interface TenantConfigRepository {
+  list(): Promise<TenantConfig[]>;
+  upsert(config: TenantConfig): Promise<TenantConfig>;
+  delete(tenantId: string): Promise<void>;
+}
+
+export interface LibraryConfigRepository {
+  list(tenantId?: string): Promise<LibraryConfig[]>;
+  upsert(config: LibraryConfig): Promise<LibraryConfig>;
+  delete(libraryId: string): Promise<void>;
+}
+
 export interface ModelSettingsRepository {
   get(tenantId: string, libraryId: string, modelRole?: ModelRole): Promise<ModelSettingSecret | null>;
   list(tenantId: string, libraryId: string): Promise<ModelSettingSecret[]>;
@@ -110,6 +124,8 @@ export interface DataLayer {
   attachments: AttachmentRepository;
   modelSettings?: ModelSettingsRepository;
   vectorLogs?: VectorLogRepository;
+  tenantConfigs?: TenantConfigRepository;
+  libraryConfigs?: LibraryConfigRepository;
   storage?: ObjectStorage;
   close(): Promise<void>;
 }

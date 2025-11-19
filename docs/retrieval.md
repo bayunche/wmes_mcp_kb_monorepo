@@ -4,8 +4,10 @@
 
 ## 1. Hybrid 检索模型
 - **向量相似度**：`VectorClient`（`packages/core/src/vector.ts`）提供文本/图片嵌入，默认启用本地 @xenova 模型。  
+- **本地 Rerank**：同一个 `VectorClient.rerank` 会优先调用本地交叉编码模型（`LOCAL_RERANK_MODEL_ID`，默认 `Xenova/bge-reranker-v2-m3`），若配置远程 `RERANK_ENDPOINT` 则自动切换到兼容 OpenAI API 的 `/v1/models` 接口。  
 - **语义元数据**：Chunk 含 `title/summary/tags/topics/keywords/entities/parentSectionPath`，`HybridRetriever` 可以按这些字段过滤或加分。  
 - **融合权重**：`HybridRetriever`（`packages/core/src/retrieval.ts`）按 α~ζ 加权：向量、关键词、层级、时间衰减、topic、模态匹配与邻居得分。  
+- **二次排序**：基础得分计算完成后，候选文本会交给 rerank 模型，最终得分 = 0.6 * hybrid + 0.4 * rerank，确保召回/排序兼顾语义匹配与上下文词面适配。  
 - **数据源**：`PgChunkRepository + Qdrant` 组合；结构树数据通过 `document_sections` 表读取。  
 - **邻居扩展**：`includeNeighbors=true` 时返回同章节/关联块，便于 RAG 对话引用完整上下文。
 

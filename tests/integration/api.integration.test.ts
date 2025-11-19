@@ -70,10 +70,10 @@ describe("API integration (vitest)", () => {
       this.docs.set(docId, updated);
       return updated;
     }
-    async updateStatus(docId: string, status: string) {
+    async updateStatus(docId: string, status: string, errorMessage?: string) {
       const doc = this.docs.get(docId);
       if (!doc) return;
-      this.docs.set(docId, { ...doc, ingestStatus: status });
+      this.docs.set(docId, { ...doc, ingestStatus: status, errorMessage });
     }
     async delete(docId: string) {
       this.docs.delete(docId);

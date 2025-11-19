@@ -21,6 +21,7 @@ function mapRow(row: DocumentsTable): Document {
     tenantId: row.tenant_id,
     libraryId: row.library_id,
     tags: row.tags ?? undefined,
+    errorMessage: row.error_message ?? undefined,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
   });
@@ -43,6 +44,7 @@ export class PgDocumentRepository implements DocumentRepository {
       tenant_id: document.tenantId ?? "default",
       library_id: document.libraryId ?? "default",
       tags: document.tags ?? null,
+      error_message: document.errorMessage ?? null,
       updated_at: now,
       created_at: document.createdAt ? new Date(document.createdAt) : now
     };
@@ -62,6 +64,7 @@ export class PgDocumentRepository implements DocumentRepository {
           tenant_id: payload.tenant_id,
           library_id: payload.library_id,
           tags: payload.tags,
+          error_message: payload.error_message,
           updated_at: payload.updated_at
         })
       )
@@ -108,11 +111,12 @@ export class PgDocumentRepository implements DocumentRepository {
     return this.get(docId);
   }
 
-  async updateStatus(docId: string, status: Document["ingestStatus"]): Promise<void> {
+  async updateStatus(docId: string, status: Document["ingestStatus"], errorMessage?: string): Promise<void> {
     await this.db
       .updateTable("documents")
       .set({
         ingest_status: status,
+        error_message: errorMessage ?? null,
         updated_at: sql`NOW()`
       })
       .where("doc_id", "=", docId)

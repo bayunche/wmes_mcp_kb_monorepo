@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildAttachmentUrl, previewChunk, relatedChunks, searchDocuments } from "../api";
+import { useOrgOptions } from "../hooks/useOrgOptions";
 
 type SearchResult = {
   chunk: {
@@ -39,6 +40,22 @@ export default function SearchPanel() {
   const [metadataKey, setMetadataKey] = useState("");
   const [metadataValue, setMetadataValue] = useState("");
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(false);
+  const { tenants, libraries, loading: orgLoading, error: orgError, refresh: refreshOrgOptions } = useOrgOptions();
+
+  useEffect(() => {
+    if (!tenants.length) return;
+    if (!tenants.some((tenant) => tenant.tenantId === tenantId)) {
+      setTenantId(tenants[0].tenantId);
+    }
+  }, [tenants, tenantId]);
+
+  useEffect(() => {
+    if (!libraries.length) return;
+    const scoped = libraries.filter((lib) => !lib.tenantId || lib.tenantId === tenantId);
+    if (scoped.length && !scoped.some((lib) => lib.libraryId === libraryId)) {
+      setLibraryId(scoped[0].libraryId);
+    }
+  }, [libraries, tenantId, libraryId]);
 
   const handleSearch = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -131,12 +148,28 @@ export default function SearchPanel() {
         </label>
         <div className="split">
           <label>
-            Tenant ID
-            <input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="default" />
+            租户
+            <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+              {tenants.length
+                ? tenants.map((tenant) => (
+                    <option key={tenant.tenantId} value={tenant.tenantId}>
+                      {tenant.displayName ?? tenant.tenantId}（{tenant.tenantId}）
+                    </option>
+                  ))
+                : <option value="default">默认租户</option>}
+            </select>
           </label>
           <label>
-            Library ID
-            <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} placeholder="default" />
+            知识库
+            <select value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+              {libraries
+                .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                .map((lib) => (
+                  <option key={lib.libraryId} value={lib.libraryId}>
+                    {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
+                  </option>
+                ))}
+            </select>
           </label>
         </div>
         <div className="split">
@@ -168,8 +201,13 @@ export default function SearchPanel() {
         </label>
         <div className="button-row">
           <button type="submit">检索</button>
+          <button type="button" className="ghost" onClick={refreshOrgOptions}>
+            刷新租户/知识库
+          </button>
         </div>
       </form>
+      {orgLoading && <p className="muted-text">同步租户/知识库中…</p>}
+      {orgError && <p className="muted-text">{orgError}</p>}
       <div className="result-list">
         {results.map((item) => (
           <article key={item.chunk.chunkId} className="result-card">

@@ -325,6 +325,106 @@ export async function fetchModelCatalog() {
   return response.json();
 }
 
+export async function fetchTenants() {
+  const response = await fetch(`${API_BASE}/config/tenants`, {
+    headers
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchLocalModels() {
+  const response = await fetch(`${API_BASE}/models`, { headers });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function installModel(payload: { name: string }) {
+  const response = await fetch(`${API_BASE}/models/install`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function saveTenant(payload: { tenantId: string; displayName: string; description?: string }) {
+  const response = await fetch(`${API_BASE}/config/tenants`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function deleteTenant(tenantId: string) {
+  const response = await fetch(`${API_BASE}/config/tenants/${tenantId}`, {
+    method: "DELETE",
+    headers
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+}
+
+export async function fetchLibraries(params: { tenantId?: string } = {}) {
+  const url = new URL(`${API_BASE}/config/libraries`);
+  if (params.tenantId) {
+    url.searchParams.set("tenantId", params.tenantId);
+  }
+  const response = await fetch(url, {
+    headers
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function saveLibrary(payload: { libraryId: string; tenantId?: string; displayName: string; description?: string }) {
+  const response = await fetch(`${API_BASE}/config/libraries`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function deleteLibrary(libraryId: string) {
+  const response = await fetch(`${API_BASE}/config/libraries/${libraryId}`, {
+    method: "DELETE",
+    headers
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+}
+
+export async function discoverModels(payload: { provider: "openai" | "ollama"; baseUrl: string; apiKey?: string }) {
+  const response = await fetch(`${API_BASE}/model-settings/models`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
 export async function fetchMetrics() {
   const response = await fetch(`${API_BASE}/metrics`, {
     method: "GET",

@@ -93,6 +93,16 @@ function neighborScore(record: ChunkRecord) {
   return Math.min(record.neighbors.length * 0.05, 0.2);
 }
 
+function normalizeScores(scores: number[]): number[] {
+  if (!scores.length) return [];
+  const min = Math.min(...scores);
+  const max = Math.max(...scores);
+  if (max === min) {
+    return scores.map(() => 0.5);
+  }
+  return scores.map((value) => Number(((value - min) / (max - min)).toFixed(6)));
+}
+
 export class HybridRetriever {
   private readonly vectorClient: VectorClient;
   private readonly repo: ChunkRepository;
@@ -116,6 +126,10 @@ export class HybridRetriever {
       normalizeVector(result.vector)
     );
 
+    const rerankTexts = candidates.map((record) => record.chunk.contentText ?? "");
+    const rerankRaw = rerankTexts.length ? await this.vectorClient.rerank(request.query, rerankTexts) : [];
+    const rerankScores = normalizeScores(rerankRaw);
+
     const scored = candidates.map((record, index) => {
       const similarity = cosineSimilarity(queryVector, chunkVectors[index]);
       const keyword = keywordScore(request.query, record.chunk);
@@ -124,7 +138,7 @@ export class HybridRetriever {
       const topic = topicScore(record, request.filters);
       const neighbors = neighborScore(record);
 
-      const score =
+      const hybridScore =
         this.weights.alpha * similarity +
         this.weights.beta * keyword +
         this.weights.gamma * hierarchy +
@@ -132,7 +146,10 @@ export class HybridRetriever {
         this.weights.epsilon * topic +
         this.weights.zeta * neighbors;
 
-      return { record, score: Number(score.toFixed(6)) };
+      const rerankBoost = rerankScores.length ? rerankScores[index] ?? 0 : 0;
+      const finalScore = 0.6 * hybridScore + 0.4 * rerankBoost;
+
+      return { record, score: Number(finalScore.toFixed(6)) };
     });
 
     const sorted = scored.sort((a, b) => b.score - a.score).slice(0, request.limit ?? 10);

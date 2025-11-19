@@ -56,3 +56,10 @@
 - 2025-11-18: bun test (failed: Bun executable not runnable under WSL).
 | 2025-11-18T19:21:15+08:00 | 说明 | N/A | 本次仅更新 README 的 PaddleOCR 指南与 `.env` 说明，未涉及可执行代码；仍受限于 WSL 无法运行 Bun/Docker，需在可执行环境手动验证 `cd paddle && docker compose up -d` 与 Worker OCR 调用。|
 | 2025-11-18T21:08:40+08:00 | 说明 | N/A | 仅新增《功能拆解》文档，无代码执行路径；受限于当前环境依旧无法运行 Bun/脚本，因此未触发自动化测试。 |
+| 2025-11-19T13:58:05+08:00 | 安装失败 | `bun install` | 依赖 Bun Windows 可执行，WSL 无法执行 `bun.exe`（Permission denied），未能刷新 bun.lock。转而使用 npm pack 手动解压。 |
+| 2025-11-19T14:01:00+08:00 | vitest | `npx vitest run tests/unit/core/office_parser.test.ts` | 失败：node_modules/.bin 仅包含 Windows `.exe/.bunx` 启动器，npx 无法找到可执行脚本。 |
+| 2025-11-19T14:01:20+08:00 | vitest | `node node_modules/vitest/vitest.mjs run tests/unit/core/office_parser.test.ts` | 失败：缺少 `@rollup/rollup-linux-x64-gnu`（Bun 专用依赖未安装），需在具备 Bun CLI 的环境运行 `bun test`。 |
+| 2025-11-19T17:30:00+08:00 | bun test | `bun test` | 环境仍无法执行 Bun（WSL 无法调用 bun.exe），无法运行新增 API/UI 相关测试；请在宿主运行 `bun test` 与 `bun run web` 做回归。 |
+| 2025-11-19T18:57:00+08:00 | 说明 | `bun test` | 仍因 WSL 无法运行 Bun，未能对 rerank/hybrid 改动执行自动化测试；需在宿主运行 `bun test`。 |
+| 2025-11-19T19:08:00+08:00 | 说明 | `bun run web` | 仍无法在 WSL 启动前端，因此未验证新的本地模型管理 UI；需在宿主浏览器测试 `/models` API 及按钮触发下载。 |
+| 2025-11-19T19:25:00+08:00 | 说明 | `bun test`/`bun run web` | 受限于 WSL 仍无法执行，未能验证新的模型管理 API、语义切分回退及错误提示；请在宿主机运行相关测试与手动上传用例。 |
