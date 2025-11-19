@@ -1,0 +1,11 @@
+{
+  "questionId": "Q39",
+  "focus": "向量化/重排是否默认使用本地模型且无需 .env",
+  "why": "用户关切 worker 是否仍需在 .env 中配置 LOCAL_* 或远程 endpoint 才能运行，需要明确默认行为",
+  "analysis": {
+    "vector_client": "apps/worker/src/worker.ts:32-120 强制以 enableLocalModels=true 实例化 VectorClient，并传入 resolveLocalModelId 结果；即使 TEXT_EMBEDDING_ENDPOINT/RERANK_ENDPOINT 留空也会走本地 pipeline",
+    "model_discovery": "packages/tooling/src/models.ts:200-260 的 resolveLocalModelId 会先解析 local:// 引用，再遍历 manifest/extra 文件自动返回 MODELS_DIR/<role>/ 中的首个可用模型，不依赖环境变量",
+    "fallbacks": "仅当 `.env` 配置 TEXT_EMBEDDING_ENDPOINT 或 RERANK_ENDPOINT 时才会走远程；默认缺省时 VectorClient embedText/rerank 均调用本地 pipeline，最终退化为 deterministicVector 只是兜底"
+  },
+  "conclusion": "向量化与重排不需要 .env 即可启用本地模型，只需在 MODELS_DIR 放入对应权重或通过前端配置 embedding/rerank 的 provider=local；远程 endpoint 仅在显式设置时才会被调用"
+}

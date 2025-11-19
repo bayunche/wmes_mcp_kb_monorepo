@@ -1,5 +1,26 @@
 ﻿# 验证报告
 
+- **日期**：2025-11-20
+- **范围**：ModelSettingsPage 本地模型配置修复（ROLE_TO_MODEL_KIND、provider=local 类型放开、UI 提示）
+- **验证步骤**：
+  - 手动检查 `apps/web/src/pages/ModelSettingsPage.tsx` 与 `apps/web/src/api.ts` diff，确认仅新增本地 provider 支持、角色映射常量与 UI 提示，未改动后端接口。
+  - 尝试运行 `bun test` 复核 Web/共享包类型，命令在 WSL 环境报 `/mnt/c/.../bun.exe: Permission denied`，与仓库历史记录一致。
+- **结果**：静态审查通过；自动化测试因无可执行 Bun CLI 未跑通，待在宿主机或具备 Linux Bun CLI 的环境重新执行 `bun install && bun test`。
+- **剩余风险**：未实际运行 `bun run web` 或前端构建；需待 Bun CLI 可用后同时验证 `bun test` 与 Vite dev server 以确认 TS/React 依赖完整。
+
+---
+
+- **日期**：2025-11-19
+- **范围**：ModelSettingsPage 去除模型目录卡片 + API 层清理
+- **验证步骤**：
+  - 手动审查 `apps/web/src/pages/ModelSettingsPage.tsx` 与 `apps/web/src/api.ts` diff，确认仅移除 catalog UI/状态/接口，对现有表单、本地模型管理没有影响。
+  - 运行 `bunx tsc --noEmit`（WSL 触发 `/mnt/c/.../bunx.exe` 权限限制，失败）。
+  - 运行 `npx tsc --noEmit`（因沙箱禁止联网，npm 请求 registry.npmjs.org 返回 EAI_AGAIN，失败）。
+- **结果**：静态审查通过。TypeScript 检查需在宿主 Windows（或支持 bunx/npx 且可联网的环境）执行 `bunx tsc --noEmit` 再复核。
+- **剩余风险**：未实际运行 `bun run web` 或 `bun test`，需在具备 Bun CLI 的环境确保页面编译通过；若宿主仍保留模型目录相关 API，可在后续 PR 中考虑删除后端的 `/model-settings/catalog`。
+
+---
+
 - **日期**：2025-11-10
 - **范围**：AGENTS.md 文档新增
 - **验证步骤**：

@@ -75,7 +75,7 @@ export const DocumentSummarySchema = DocumentSchema.pick({
 });
 export type DocumentSummary = z.infer<typeof DocumentSummarySchema>;
 
-export const ModelProviderSchema = z.enum(["openai", "ollama"]);
+export const ModelProviderSchema = z.enum(["openai", "ollama", "local"]);
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 
 export const ModelRoleSchema = z.enum(["embedding", "tagging", "metadata", "ocr", "rerank", "structure"]);

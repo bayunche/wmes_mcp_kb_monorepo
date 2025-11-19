@@ -268,7 +268,7 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       if (!enriched.length) {
         return enriched;
       }
-      if (!deps.semanticMetadata || !deps.modelSettings) {
+      if (!deps.modelSettings) {
         throw new Error("Semantic metadata模型未配置，无法继续解析");
       }
       const setting = await loadModelSetting(doc, deps, "metadata");
@@ -279,6 +279,10 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       const limit =
         configuredLimit > 0 ? Math.min(enriched.length, configuredLimit) : enriched.length;
       const results: Chunk[] = [];
+      const useLocalMetadata = setting.provider === "local";
+      if (!useLocalMetadata && !deps.semanticMetadata) {
+        throw new Error("语义元数据模型未注入，无法调用远程 API");
+      }
       for (const [index, chunk] of enriched.entries()) {
         if (!chunk.contentText?.trim()) {
           results.push(chunk);
@@ -288,7 +292,12 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
           throw new Error("语义元数据生成被限制，请提高 SEMANTIC_METADATA_LIMIT 或删除限制");
         }
         try {
-          const metadata = await deps.semanticMetadata(
+          if (useLocalMetadata) {
+            const metadata = generateLocalSemanticMetadata(doc, chunk);
+            results.push(applySemanticMetadata(chunk, metadata));
+            continue;
+          }
+          const metadata = await deps.semanticMetadata?.(
             {
               provider: setting.provider,
               baseUrl: setting.baseUrl,
@@ -310,6 +319,9 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
                   : undefined
             }
           );
+          if (!metadata) {
+            throw new Error("语义元数据生成返回空对象");
+          }
           results.push(applySemanticMetadata(chunk, metadata));
         } catch (error) {
           deps.logger.error?.(
@@ -465,6 +477,27 @@ function resolveVectorProvider(config: WorkerDependencies["config"]) {
     provider: config.LOCAL_TEXT_MODEL_ID ?? "local-model",
     driver: "local" as const
   };
+}
+
+function generateLocalSemanticMetadata(doc: Document, chunk: Chunk): SemanticMetadata {
+  const content = chunk.contentText ?? doc.title ?? "";
+  const normalized = content.replace(/\s+/g, " ").trim();
+  const summary = normalized.slice(0, 240);
+  const tokens = tokenizeContent(content).slice(0, 10);
+  const semanticTags = mergeTags(chunk.semanticTags ?? [], tokens.slice(0, 5), 5);
+  const topics = mergeTags(chunk.topics ?? [], tokens.slice(0, 3), 3);
+  return {
+    title: chunk.semanticTitle ?? chunk.sectionTitle ?? doc.title,
+    contextSummary: summary,
+    semanticTags,
+    topics,
+    keywords: tokens,
+    envLabels: chunk.envLabels?.slice(0, 3),
+    bizEntities: chunk.bizEntities ?? undefined,
+    entities: chunk.nerEntities ?? undefined,
+    parentSectionPath: chunk.parentSectionPath ?? chunk.hierPath,
+    source: "heuristic"
+  } as SemanticMetadata;
 }
 
 function buildRawObjectKey(tenantId: string, docId: string, mimeType?: string) {

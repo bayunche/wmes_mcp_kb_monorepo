@@ -2,6 +2,123 @@
 
 | 时间 | 工具 | 参数/命令 | 摘要 |
 | --- | --- | --- | --- |
+| 2025-11-20T02:07:00+08:00 | python3 | 更新 `.codex/context-sufficiency.json` | 记录本轮检查后的充分性说明 |
+| 2025-11-20T02:06:30+08:00 | shell | `cat <<'EOF' > .codex/context-question-40.json` | 深挖 Q40：语义功能使用远程模型的范围 |
+| 2025-11-20T02:06:10+08:00 | shell | `cat <<'EOF' > .codex/context-question-39.json` | 深挖 Q39：向量/重排行为是否依赖 .env |
+| 2025-11-20T02:05:40+08:00 | apply_patch | 更新 `.codex/context-scan.json` | 重新整理结构化扫描，聚焦本地模型与语义功能 |
+| 2025-11-20T02:05:20+08:00 | shell | `cat <<'EOF' > /tmp/context_scan.json` | 草拟新的 context-scan JSON |
+| 2025-11-20T02:05:00+08:00 | sequential-thinking | 关键疑问分析 | 识别向量/语义范围等优先级 |
+| 2025-11-20T02:04:30+08:00 | shell | `sed -n '1,200p' packages/core/src/semantic-metadata.ts` | 审查语义元数据的远程调用逻辑 |
+| 2025-11-20T02:04:10+08:00 | shell | `sed -n '1,200p' packages/core/src/semantic-structure.ts` | 审查语义切割对 model_settings 的依赖 |
+| 2025-11-20T02:03:50+08:00 | shell | `sed -n '320,420p' packages/core/src/vector.ts` | 确认 createVectorClientFromEnv 行为 |
+| 2025-11-20T02:03:30+08:00 | shell | `sed -n '1,200p' packages/core/src/vector.ts` | 阅读本地 embedding/rerank 实现 |
+| 2025-11-20T02:03:10+08:00 | shell | `sed -n '200,260p' apps/worker/src/worker.ts` | 查看 resolveLocalModelOverride 逻辑 |
+| 2025-11-20T02:02:50+08:00 | shell | `sed -n '1,200p' apps/worker/src/worker.ts` | 审查 startWorker how vector client is configured |
+| 2025-11-20T01:58:00+08:00 | sequential-thinking | 质量复盘 | 确认本地配置修复与残留测试风险 |
+| 2025-11-20T01:57:45+08:00 | update_plan | 所有步骤标记完成 | 修复与测试记录更新后关闭计划 |
+| 2025-11-20T01:57:30+08:00 | python3 | 更新 verification.md 插入最新验证记录 | 记录配置页修复的验证与风险 |
+| 2025-11-20T01:57:15+08:00 | python3 | 更新 `.codex/testing.md` | 写入 `bun test` 权限失败说明 |
+| 2025-11-20T01:57:00+08:00 | shell | `bun test` | 运行失败（WSL 执行 bun.exe Permission denied），用于记录测试情况 |
+| 2025-11-20T01:56:45+08:00 | apply_patch | 调整 ModelSettingsPage 模型提示文本 | 根据 provider 切换展示“本地模型无需远程拉取”描述 |
+| 2025-11-20T01:56:30+08:00 | apply_patch | 更新 ModelSettingsPage API Key 输入与按钮 | 本地 provider 禁用远程按钮，并增加 API Key placeholder/提示 |
+| 2025-11-20T01:56:15+08:00 | apply_patch | 调整 ModelSettingsPage placeholder 常量 | 为 local provider 提供 local://、bge-m3.onnx 等默认值 |
+| 2025-11-20T01:56:00+08:00 | apply_patch | 修改 loadRemoteModels | 增加 provider === local 早退提示，避免错误请求 |
+| 2025-11-20T01:55:45+08:00 | apply_patch | 新增 provider 变更 useEffect | 切换到 local 时清空 API Key 与 Key 状态 |
+| 2025-11-20T01:55:30+08:00 | apply_patch | 补充 ROLE_TO_MODEL_KIND 注释 | 说明 tagging/metadata 共用本地目录 |
+| 2025-11-20T01:55:15+08:00 | apply_patch | 调整 ModelSettingsPage import/常量 | 引入 ModelProvider 类型并定义 ROLE_TO_MODEL_KIND |
+| 2025-11-20T01:55:00+08:00 | apply_patch | 更新 apps/web/src/api.ts | 将 saveModelSettings provider 类型扩展为含 local 并导出 ModelProvider |
+| 2025-11-20T01:53:45+08:00 | shell | `split_tasks --help` | 命令未找到，无法调用 shrimp split tasks |
+| 2025-11-20T01:53:35+08:00 | shell | `reflect_task --help` | 命令未找到，无法调用 shrimp reflect |
+| 2025-11-20T01:53:25+08:00 | shell | `analyze_task --help` | 命令未找到，无法调用 shrimp analyze |
+| 2025-11-20T01:53:15+08:00 | shell | `plan_task --help` | 命令未找到，确认 shrimp-task-manager 不可用 |
+| 2025-11-20T01:52:13+08:00 | shell | `date -Iseconds` | 记录当前时间戳以对齐后续日志 |
+| 2025-11-20T01:51:50+08:00 | update_plan | 规划“审查→实现→验证”三步 | 设定配置页修复的执行计划 |
+| 2025-11-20T01:51:20+08:00 | apply_patch | 更新 `.codex/context-sufficiency.json` | 写入新任务的充分性检查结果 |
+| 2025-11-20T01:51:00+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json` | 生成充分性检查草稿待 apply_patch 落盘 |
+| 2025-11-20T01:50:45+08:00 | shell | `cat <<'EOF' > .codex/context-question-38.json` | 记录 Q38：saveModelSettings 缺少 local provider |
+| 2025-11-20T01:50:30+08:00 | shell | `cat <<'EOF' > .codex/context-question-37.json` | 记录 Q37：ROLE_TO_MODEL_KIND 未定义 |
+| 2025-11-20T01:50:15+08:00 | shell | `rg -n "ROLE_TO_MODEL_KIND" -n` | 确认全仓仅在配置页有引用且无定义 |
+| 2025-11-20T01:49:55+08:00 | shell | `nl -ba apps/web/src/pages/ModelSettingsPage.tsx | sed -n '1,160p'` | 抓取关键行号（Provider/LOCAL_ROLE_KIND_MAP 等） |
+| 2025-11-20T01:49:40+08:00 | shell | `nl -ba packages/shared-schemas/src/index.ts | sed -n '70,140p'` | 核对 ModelProviderSchema 支持 local |
+| 2025-11-20T01:49:20+08:00 | sequential-thinking | 识别关键疑问 | 输出本轮“已知/未知/优先级”列表 |
+| 2025-11-20T01:48:55+08:00 | apply_patch | 更新 `.codex/context-scan.json` | 将结构化扫描焦点切换到配置页修复 |
+| 2025-11-20T01:48:40+08:00 | shell | `cat <<'EOF' > /tmp/new_context_scan.json` | 写入新的 context-scan JSON 草稿 |
+| 2025-11-20T01:48:15+08:00 | shell | `sed -n '400,640p' apps/web/src/pages/ModelSettingsPage.tsx` | 继续阅读本地模型管理与表单区段 |
+| 2025-11-20T01:47:55+08:00 | shell | `tail -n 120 apps/web/src/pages/ModelSettingsPage.tsx` | 检查“功能模型快捷选择” JSX 末尾 |
+| 2025-11-20T01:47:35+08:00 | shell | `sed -n '360,720p' apps/web/src/pages/ModelSettingsPage.tsx` | 评估表单+列表区域结构 |
+| 2025-11-20T01:47:15+08:00 | shell | `sed -n '200,360p' apps/web/src/pages/ModelSettingsPage.tsx` | 阅读保存逻辑及状态管理 |
+| 2025-11-20T01:46:55+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/ModelSettingsPage.tsx` | 查看顶层类型定义与 state 初始化 |
+| 2025-11-20T01:46:35+08:00 | shell | `ls apps/web/src/pages` | 确认页面文件列表（定位 ModelSettingsPage） |
+| 2025-11-20T01:46:20+08:00 | shell | `ls apps/web/src` | 浏览前端源码目录结构 |
+| 2025-11-20T01:46:05+08:00 | shell | `cat .codex/context-scan.json` | 读取上一次结构化扫描内容 |
+| 2025-11-20T01:45:45+08:00 | sequential-thinking | 接收“先修复配置页”指令后的初步思考 | 明确需聚焦 web 配置页缺陷 |
+| 2025-11-20T01:45:20+08:00 | shell | `sed -n '1,200p' apps/web/src/api.ts` | 阅读 API 客户端顶部逻辑（含 fetch headers） |
+| 2025-11-20T01:45:05+08:00 | shell | `rg -n "model" apps/web/src/api.ts` | 搜索模型相关函数入口 |
+| 2025-11-20T01:44:50+08:00 | shell | `sed -n '250,420p' apps/web/src/api.ts` | 聚焦 saveModelSettings/fetchLocalModels 等实现 |
+| 2025-11-20T01:44:35+08:00 | shell | `rg -n "model-settings" -n` | 定位后端路由/仓储的引用范围 |
+| 2025-11-20T01:44:20+08:00 | shell | `sed -n '500,650p' apps/api/src/routes.ts` | 阅读 /model-settings 相关 handler |
+| 2025-11-20T01:44:05+08:00 | shell | `sed -n '1,250p' apps/api/src/routes.ts` | 浏览路由顶端与模型 API 定义 |
+| 2025-11-20T01:43:50+08:00 | shell | `rg -n "handle.*model" apps/api/src/routes.ts` | 确认无额外 handler，锁定需要阅读的函数 |
+| 2025-11-20T01:43:35+08:00 | shell | `sed -n '1,200p' packages/shared-schemas/src/index.ts` | 复核 schema 定义（ModelSettingInput） |
+| 2025-11-20T01:43:20+08:00 | shell | `rg -n "tagging" -n` | 搜索 worker/API/docs 内的标签模型使用点 |
+| 2025-11-20T01:43:05+08:00 | shell | `sed -n '860,940p' apps/worker/src/pipeline.ts` | 查看 generateRemoteTags 及 loadModelSetting |
+| 2025-11-20T01:42:50+08:00 | shell | `sed -n '1,200p' packages/core/src/tagging.ts` | 了解标签生成仅支持 openai/ollama |
+| 2025-11-20T01:42:35+08:00 | shell | `sed -n '1,200p' apps/api/src/modelCatalog.ts` | 确认模型目录默认内容与角色列表 |
+| 2025-11-20T01:42:20+08:00 | shell | `sed -n '1,120p' .codex/context-question-36.json` | 参考历史 question 文件格式 |
+| 2025-11-19T21:23:10+08:00 | sequential-thinking | 新一轮思考 | 明确需验证本地模型链路与 API 使用范围 |
+| 2025-11-19T21:23:40+08:00 | shell | `sed -n '1,200p' apps/worker/src/pipeline.ts` | 查看 worker 管道对模型配置的调用点 |
+| 2025-11-19T21:24:00+08:00 | shell | `sed -n '1,200p' packages/core/src/vector.ts` | 审查 VectorClient 本地/远程策略 |
+| 2025-11-19T21:24:20+08:00 | shell | `sed -n '1,200p' apps/worker/src/worker.ts` | 检查 startWorker 如何解析本地模型 |
+| 2025-11-19T21:24:40+08:00 | shell | `sed -n '1,200p' packages/data/src/repositories/modelSettings.ts` | 确认 model_settings 读写结构 |
+| 2025-11-19T21:25:00+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json` | 记录最新结构化扫描，聚焦本地模型配置 |
+| 2025-11-19T21:25:40+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json` | 更新关键疑问列表 |
+| 2025-11-19T21:26:10+08:00 | shell | `rg -n --hidden --no-ignore "resolveLocalModelId"` | 深挖缺失函数，确认全仓无定义 |
+| 2025-11-19T21:26:40+08:00 | shell | `cat <<'EOF' > .codex/context-question-36.json` | 记录 Q1 深挖结论 |
+| 2025-11-19T21:27:20+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json` | 更新充分性检查（标注缺失函数风险） |
+| 2025-11-19T21:07:25+08:00 | shell | `rg -n "catalogStatus" -n` | 确认状态文本未再被引用 |
+| 2025-11-19T21:07:15+08:00 | shell | `rg -n "CatalogModel" -n` | 校验 catalog 类型定义已彻底移除 |
+| 2025-11-19T21:07:05+08:00 | shell | `rg -n "CatalogEntry" -n` | 确认仓库内已无 CatalogEntry 类型引用 |
+| 2025-11-19T21:06:50+08:00 | shell | `sed -n '640,760p' apps/web/src/pages/ModelSettingsPage.tsx` | 复核卡片删减后的 JSX 结构 |
+| 2025-11-19T21:06:30+08:00 | sequential-thinking | 变更后审查 | 复盘 catalog 删除风险与验证缺口 |
+| 2025-11-19T21:06:10+08:00 | apply_patch | 更新 verification.md | 记录模型目录移除与 typecheck 受限说明 |
+| 2025-11-19T21:05:30+08:00 | shell | `git status -sb` | 查看当前工作区改动，确认目标文件列表 |
+| 2025-11-19T21:04:45+08:00 | update_plan | 所有步骤标记完成 | 记录类型检查受限的说明 |
+| 2025-11-19T21:03:10+08:00 | shell | `bunx tsc --noEmit` | 尝试运行 TypeScript 检查但 bunx.exe 权限受限 |
+| 2025-11-19T21:04:30+08:00 | shell | `npx tsc --noEmit` | 受限网络导致 npm EAI_AGAIN，无法下载 tsc |
+| 2025-11-19T21:02:40+08:00 | update_plan | Step1/2 完成 | 更新计划状态，确认测试动作待定 |
+| 2025-11-19T21:02:30+08:00 | shell | `rg -n "Catalog" apps/web/src/pages/ModelSettingsPage.tsx` | 校验页面已无 Catalog 相关字符串 |
+| 2025-11-19T21:02:20+08:00 | shell | `rg -n "fetchModelCatalog" -n` | 确认仓库内已无该函数引用 |
+| 2025-11-19T21:02:10+08:00 | apply_patch | 删除 fetchModelCatalog API | 移除 apps/web/src/api.ts 中的无用接口 |
+| 2025-11-19T21:01:50+08:00 | shell | `rg -n "catalog" apps/web/src/pages/ModelSettingsPage.tsx` | 确认页面不再引用 catalog 状态 |
+| 2025-11-19T21:01:40+08:00 | shell | `python3 - <<'PY'` | 记录删除模型目录卡片的操作 |
+| 2025-11-19T21:01:35+08:00 | apply_patch | 删除模型目录卡片 JSX | 移除 UI 上的“模型目录” Tab |
+| 2025-11-19T21:01:25+08:00 | shell | `python3 - <<'PY'` | 记录移除 applyCatalogModel 的修改 |
+| 2025-11-19T21:01:20+08:00 | apply_patch | 删除 applyCatalogModel 函数 | 彻底取消模型目录交互 |
+| 2025-11-19T21:01:10+08:00 | shell | `python3 - <<'PY'` | 记录删除 catalog useEffect 的日志 |
+| 2025-11-19T21:01:05+08:00 | apply_patch | 移除 fetchModelCatalog useEffect | 停止从服务器加载模型目录 |
+| 2025-11-19T21:00:55+08:00 | shell | `python3 - <<'PY'` | 记录删除 catalog state 的日志 |
+| 2025-11-19T21:00:50+08:00 | apply_patch | 移除 catalog/catalgStatus useState | 清理 ModelSettingsPage 状态定义 |
+| 2025-11-19T21:00:40+08:00 | shell | `python3 - <<'PY'` | 记录删除 Catalog 类型的日志行 |
+| 2025-11-19T21:00:30+08:00 | apply_patch | 删除 CatalogModel/CatalogEntry 定义 | 精简 ModelSettingsPage.tsx 中的 catalog 相关类型 |
+| 2025-11-19T21:00:10+08:00 | apply_patch | 移除 fetchModelCatalog import | 清理 ModelSettingsPage.tsx 顶部依赖 |
+| 2025-11-19T20:57:20+08:00 | shell | `python3 - <<'PY'` | 以脚本方式插入 update_plan 日志行 |
+| 2025-11-19T20:57:10+08:00 | update_plan | 清理 ModelSettingsPage 等三步计划 | 记录执行计划并跟踪后续状态 |
+| 2025-11-19T20:56:40+08:00 | shell | `python3 - <<'PY'` | 通过脚本方式在 operations-log 中插入批量日志记录 |
+| 2025-11-19T20:45:05+08:00 | sequential-thinking | 初始思考 | 研判最新用户需求，确认需移除模型目录卡片并清理依赖 |
+| 2025-11-19T20:45:20+08:00 | sequential-thinking | 深化思考 | 分析需要的上下文收集与规划步骤 |
+| 2025-11-19T20:45:35+08:00 | shell | `ls` | 查看仓库根目录，确认目标文件位置 |
+| 2025-11-19T20:45:45+08:00 | shell | `ls .codex` | 检查现有上下文文件列表 |
+| 2025-11-19T20:46:00+08:00 | shell | `cat .codex/context-scan.json` | 阅读上一次结构化扫描内容 |
+| 2025-11-19T20:46:15+08:00 | shell | `sed -n '700,820p' apps/web/src/pages/ModelSettingsPage.tsx` | 定位模型目录卡片的 JSX 片段 |
+| 2025-11-19T20:46:25+08:00 | shell | `sed -n '1,200p' apps/web/src/pages/ModelSettingsPage.tsx` | 查看顶部 import 与 state 定义 |
+| 2025-11-19T20:46:35+08:00 | shell | `rg -n "applyCatalogModel" apps/web/src/pages/ModelSettingsPage.tsx` | 查找函数定义与使用点 |
+| 2025-11-19T20:46:45+08:00 | shell | `sed -n '220,340p' apps/web/src/pages/ModelSettingsPage.tsx` | 阅读 applyCatalogModel 函数实现 |
+| 2025-11-19T20:46:55+08:00 | shell | `rg -n "modelCatalog" -n` | 搜索 catalog 相关 API 定义 |
+| 2025-11-19T20:47:05+08:00 | shell | `sed -n '260,360p' apps/web/src/api.ts` | 检查 fetchModelCatalog 请求实现 |
+| 2025-11-19T20:47:50+08:00 | shell | `cat <<'EOF' > .codex/context-scan.json` | 重写结构化扫描，明确本次聚焦点 |
+| 2025-11-19T20:48:10+08:00 | shell | `cat <<'EOF' > .codex/context-questions.json` | 更新关键疑问列表 |
+| 2025-11-19T20:48:30+08:00 | shell | `cat <<'EOF' > .codex/context-sufficiency.json` | 完成充分性检查记录 |
+| 2025-11-19T20:55:55+08:00 | shell | `date -Iseconds` | 记录当前时间戳，便于后续日志使用 |
 | 2025-11-10T09:13:30+08:00 | sequential-thinking | 初始思考 | 梳理需求，确认需进行上下文收集与规划 |
 | 2025-11-10T09:13:45+08:00 | shell | `ls -a` | 查看仓库根目录内容，仅有 `项目需求.md` |
 | 2025-11-10T09:13:55+08:00 | shell | `cat 项目需求.md` | 阅读主规格文档，了解整体架构和模块 |
@@ -1204,3 +1321,10 @@
 | 2025-11-19T19:18:00+08:00 | apply_patch | Worker pipeline 友好降级 | chunkDocument 捕获语义切分异常并回退至 chunkFactory，handleQueueMessage 记录失败信息 |
 | 2025-11-19T19:20:00+08:00 | apply_patch | API & 前端显示错误 | `/documents` 返回 errorMessage，前端列表/队列面板展示；Reindex 清理错误 |
 | 2025-11-19T19:23:00+08:00 | apply_patch | 本地模型管理 API/UI | 新增 `/models`/`/models/install`，前端配置页可查看/下载模型 |
+| 2025-11-19T19:35:00+08:00 | apply_patch | 更新 `packages/tooling/src/models.ts` | manifest 增加 role/hfModelId，提供 resolveLocalModelId |
+| 2025-11-19T19:35:30+08:00 | apply_patch | 更新 `apps/worker/src/worker.ts` | VectorClient 默认从 MODELS_DIR 自动侦测文本/图像/rerank 模型，无需 .env 强制配置 |
+| 2025-11-19T19:45:00+08:00 | apply_patch | 扩展 ModelSettingsProvider & Worker | 新增 provider "local" 并让 Worker 读取 model_settings 的 embedding/rerank 选择覆盖默认模型 |
+| 2025-11-19T19:46:00+08:00 | apply_patch | ModelSettings UI | 本地模型管理按用途分组，提供嵌入/Rerank 下拉快捷配置并自动填充表单，provider 下拉新增 "local" |
+| 2025-11-19T20:00:00+08:00 | apply_patch | 更新 `packages/tooling/src/models.ts` | 本地模型分角色子目录，status/installer/resolveLocalModelId 支持新结构并兼容旧文件 |
+| 2025-11-19T20:01:00+08:00 | apply_patch | ModelSettings Quick Select | 角色下拉自动遍历 text/rerank/ocr，provider 支持 local，提示可直接写入表单 |
+| 2025-11-19T20:02:00+08:00 | apply_patch | README/docs 更新 | 说明 MODELS_DIR/<role>/... 子目录及本地模型绑定方式 |

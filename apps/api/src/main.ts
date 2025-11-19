@@ -4,19 +4,30 @@ import { VectorClient } from "../../../packages/core/src/vector";
 import { MetricsRegistry, startMetricsServer } from "../../../packages/tooling/src/metrics";
 import { createDataLayer } from "@kb/data";
 import { loadConfig } from "../../../packages/core/src/config";
+import { resolveLocalModelId } from "../../../packages/tooling/src/models";
 
 async function bootstrap() {
   const config = loadConfig();
   const dataLayer = createDataLayer(config);
+  const localTextModelId =
+    resolveLocalModelId("text", config.MODELS_DIR, config.LOCAL_TEXT_MODEL_ID ?? undefined) ??
+    config.LOCAL_TEXT_MODEL_ID ?? undefined;
+  const localImageModelId =
+    resolveLocalModelId("image", config.MODELS_DIR, config.LOCAL_IMAGE_MODEL_ID ?? undefined) ??
+    config.LOCAL_IMAGE_MODEL_ID ?? undefined;
+  const localRerankModelId =
+    resolveLocalModelId("rerank", config.MODELS_DIR, config.LOCAL_RERANK_MODEL_ID ?? undefined) ??
+    config.LOCAL_RERANK_MODEL_ID ?? undefined;
   const vectorClient = new VectorClient({
     textEndpoint: config.TEXT_EMBEDDING_ENDPOINT,
     rerankEndpoint: config.RERANK_ENDPOINT,
     imageEndpoint: config.IMAGE_EMBEDDING_ENDPOINT,
     apiKey: config.VECTOR_API_KEY,
     fallbackDim: config.PGVECTOR_DIM,
-    enableLocalModels: config.LOCAL_EMBEDDING_ENABLED,
-    localTextModelId: config.LOCAL_TEXT_MODEL_ID ?? undefined,
-    localImageModelId: config.LOCAL_IMAGE_MODEL_ID ?? undefined,
+    enableLocalModels: true,
+    localTextModelId,
+    localImageModelId,
+    localRerankerModelId: localRerankModelId,
     modelCacheDir: config.MODELS_DIR
   });
   const retriever = new HybridRetriever({

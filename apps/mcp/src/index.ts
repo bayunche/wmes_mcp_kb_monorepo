@@ -8,6 +8,7 @@ import { createPreviewTool } from "./tools/preview";
 import { McpToolContext } from "./types";
 import { createDataLayer, DataLayer, AttachmentRepository } from "@kb/data";
 import { loadConfig, AppConfig } from "../../../packages/core/src/config";
+import { resolveLocalModelId } from "../../../packages/tooling/src/models";
 
 export interface CreateMcpServerOptions {
   vectorClient?: VectorClient;
@@ -33,9 +34,16 @@ export function createMcpServer(options: CreateMcpServerOptions = {}) {
       imageEndpoint: config.IMAGE_EMBEDDING_ENDPOINT,
       apiKey: config.VECTOR_API_KEY,
       fallbackDim: config.PGVECTOR_DIM,
-      enableLocalModels: config.LOCAL_EMBEDDING_ENABLED,
-      localTextModelId: config.LOCAL_TEXT_MODEL_ID ?? undefined,
-      localImageModelId: config.LOCAL_IMAGE_MODEL_ID ?? undefined,
+      enableLocalModels: true,
+      localTextModelId:
+        resolveLocalModelId("text", config.MODELS_DIR, config.LOCAL_TEXT_MODEL_ID ?? undefined) ??
+        config.LOCAL_TEXT_MODEL_ID ?? undefined,
+      localImageModelId:
+        resolveLocalModelId("image", config.MODELS_DIR, config.LOCAL_IMAGE_MODEL_ID ?? undefined) ??
+        config.LOCAL_IMAGE_MODEL_ID ?? undefined,
+      localRerankerModelId:
+        resolveLocalModelId("rerank", config.MODELS_DIR, config.LOCAL_RERANK_MODEL_ID ?? undefined) ??
+        config.LOCAL_RERANK_MODEL_ID ?? undefined,
       modelCacheDir: config.MODELS_DIR
     });
   const retriever = new HybridRetriever({

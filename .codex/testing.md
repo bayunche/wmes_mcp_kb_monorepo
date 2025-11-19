@@ -2,6 +2,9 @@
 
 | 时间 | 类型 | 命令 | 结果 |
 | --- | --- | --- | --- |
+| 2025-11-20T01:54:30+08:00 | bun test | `bun test` | 失败：WSL 尝试执行 `/mnt/c/nvm4w/nodejs/node_modules/bun/bin/bun.exe` 报 Permission denied，需在宿主 OS 运行 Bun CLI。 |
+| 2025-11-19T21:03:10+08:00 | typecheck | `bunx tsc --noEmit` | 失败：WSL 调用 /mnt/c/.../bunx.exe 权限受限，无法执行；需在宿主机运行 `bunx tsc --noEmit`。 |
+| 2025-11-19T21:04:30+08:00 | typecheck | `npx tsc --noEmit` | 失败：npx 访问 registry.npmjs.org 返回 EAI_AGAIN，需联网环境复跑。 |
 | 2025-11-10T09:18:05+08:00 | 文档验证 | `wc -w AGENTS.md` | 395 词，满足 200-400 词要求。 |
 | 2025-11-10T09:18:05+08:00 | 说明 | N/A | 本次仅编写文档，暂无可执行自动化测试；已人工审阅章节完整性与内容准确性。 |
 | 2025-11-10T09:25:25+08:00 | 文档验证 | `wc -w AGENTS.md` | 185 词（因中文文本计数方式不同，长度与原英文版本相当）。 |
@@ -63,3 +66,4 @@
 | 2025-11-19T18:57:00+08:00 | 说明 | `bun test` | 仍因 WSL 无法运行 Bun，未能对 rerank/hybrid 改动执行自动化测试；需在宿主运行 `bun test`。 |
 | 2025-11-19T19:08:00+08:00 | 说明 | `bun run web` | 仍无法在 WSL 启动前端，因此未验证新的本地模型管理 UI；需在宿主浏览器测试 `/models` API 及按钮触发下载。 |
 | 2025-11-19T19:25:00+08:00 | 说明 | `bun test`/`bun run web` | 受限于 WSL 仍无法执行，未能验证新的模型管理 API、语义切分回退及错误提示；请在宿主机运行相关测试与手动上传用例。 |
+| 2025-11-19T19:47:00+08:00 | 说明 | `bun run web` | 未在 WSL 验证新的本地模型下拉及 provider=local 选择；请在宿主浏览器测试 ModelSettings 页面和 Worker 启动流程。 |

@@ -1,0 +1,16 @@
+{
+  "questionId": "Q1",
+  "focus": "resolveLocalModelId 的定义",
+  "why": "Worker 依赖该函数从 MODELS_DIR 自动推断本地模型文件，如缺失将导致启动失败并必须依赖 .env",
+  "actions": [
+    "搜索 packages/tooling/src 是否存在 resolveLocalModelId 定义，但在 models.ts（142 行）中未找到相关导出",
+    "使用 rg --hidden --no-ignore 搜索全仓 `resolveLocalModelId` 仅命中 apps/worker/src/worker.ts 与操作日志",
+    "确认 packages/tooling/src/index.ts 仅 re-export metrics/logger，没有 models 相关导出"
+  ],
+  "evidence": [
+    "packages/tooling/src/models.ts:1-142（无 resolveLocalModelId 定义，仅包含 manifest/list/download）",
+    "apps/worker/src/worker.ts:20-60（import resolveLocalModelId 并在默认模型 ID 推断中调用）",
+    "全局搜索结果仅剩引用无定义，意味着当前构建会因缺失导出而失败"
+  ],
+  "conclusion": "仓库缺少 resolveLocalModelId 实现。虽然操作日志显示曾经添加该函数，但当前源码中已不再存在，导致 Worker 仍可能 fallback 到 .env 或抛出引用错误。需要恢复/实现该函数以按 role (text/rerank/image/ocr) 扫描 MODELS_DIR。"
+}

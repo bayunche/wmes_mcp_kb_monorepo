@@ -1,49 +1,41 @@
 {
-  "timestamp": "2025-11-19T16:43:02+08:00",
+  "timestamp": "2025-11-20T02:05:00+08:00",
   "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
-  "focus": "重构前端上传/配置/治理流程，并确保语义与向量模型配置（含 API Key）持久化在数据库中，模型列表必须通过 API 拉取，租户/库的选择需来自配置页面",
+  "focus": "核实 Worker/VectorClient 默认走本地模型且无需 .env 配置，同时确认 Web 配置页为所有模型角色提供本地模型选项，并确保需要 LLM 的 API 功能仅限语义切割/标签/元数据",
   "locations": {
-    "frontend": [
-      "apps/web/src/App.tsx（当前路由入口，需重新组织 Tab）",
-      "apps/web/src/components/{UploadForm,IngestionStatusPanel,MetadataEditor,VectorLogPanel}.tsx（上传/队列/标签/诊断模块）",
-      "apps/web/src/pages/{IngestionDashboard,Gov...,ModelSettingsPage}.tsx（页面布局与配置表单）",
-      "apps/web/src/api.ts（所有 API 请求入口，需新增租户/库/模型目录接口）"
+    "worker": [
+      "apps/worker/src/worker.ts（startWorker 初始化 VectorClient、resolveLocalVectorModelOverrides）",
+      "apps/worker/src/pipeline.ts（语义元数据与标签生成阶段对 model_settings 的依赖）"
     ],
-    "backend": [
-      "apps/api/src/routes.ts（/model-settings、/documents、/libraries/* 等路由，需扩展模型目录/租户列表）",
-      "packages/data/src/repositories/modelSettings.ts（模型配置持久化，含 API Key 字段）",
-      "db/migrations/0004_semantic_pipeline.sql 等（model_settings 表结构，确认字段齐全）"
+    "tooling": [
+      "packages/tooling/src/models.ts（resolveLocalModelId 通过 MODELS_DIR 扫描本地模型）"
+    ],
+    "core": [
+      "packages/core/src/vector.ts（enableLocalModels 与本地 pipeline 实现）",
+      "packages/core/src/semantic-metadata.ts、semantic-structure.ts、tagging.ts（只有这些流程调用远程 API）"
+    ],
+    "frontend": [
+      "apps/web/src/pages/ModelSettingsPage.tsx（六个模型角色及本地模型快捷选择）",
+      "apps/web/src/api.ts（saveModelSettings provider/role 参数）"
+    ],
+    "schemas/api": [
+      "packages/shared-schemas/src/index.ts（ModelProvider=local/openai/ollama）",
+      "apps/api/src/routes.ts（/model-settings、/models 暴露给前端）"
     ]
   },
   "current_state": {
-    "model_persistence": "PgModelSettingsRepository 已支持 provider/baseUrl/modelName/apiKey/options，但 UI 仍允许手动输入模型名，未强制从目录选择",
-    "ui_inputs": "上传表单与治理面板中的 Tenant/Library/标签/标题均为手动输入；标签支持自定义且没有自动填充",
-    "routing": "App.tsx 当前仅有 Ingestion/Docs/Search/Governance/MCP/Settings 六个 Tab，Ingestion 面板混合了上传、队列、标签微调、日志等多功能",
-    "catalog_fetch": "ModelSettingsPage 通过 fetchModelCatalog() 获取 `model-settings/catalog`，但 modelName 输入域仍允许自由输入，未做绑定",
-    "diagnostics": "队列监控 IngestionStatusPanel、VectorLogPanel、StructureTree 均挂载在 Ingestion 页面而非独立路由"
+    "vector_local": "startWorker 始终以 enableLocalModels=true 实例化 VectorClient，并优先从 model_settings 或 MODELS_DIR 扫描到本地 embedding/rerank/图像模型；即使 .env 未提供 LOCAL_*_MODEL_ID，resolveLocalModelId 也会自动寻找现有权重（apps/worker/src/worker.ts:32-120,195-205; packages/tooling/src/models.ts:200-260）",
+    "frontend_control": "ModelSettingsPage 提供 embedding/tagging/metadata/ocr/rerank/structure 六个角色的 provider/local 选择，并可通过 ROLE_TO_MODEL_KIND 将 MODELS_DIR/<role>/ 文件一键写入配置（apps/web/src/pages/ModelSettingsPage.tsx:46-120,612-690）",
+    "api_scope": "Worker 内只有 semanticSegmenter、generateRemoteTags、generateSemanticMetadataViaModel 等功能会根据 model_settings 调用远程 API，满足“API 仅在语义切割/标签/元数据生成时调用”要求（apps/worker/src/pipeline.ts:235-339,871-925; packages/core/src/tagging.ts、semantic-metadata.ts、semantic-structure.ts）",
+    "model_settings": "后端 schema/路由全面支持 provider=local，Web 保存的本地模型配置可直接被 Worker 加载为覆盖值（packages/shared-schemas/src/index.ts:78-110; apps/api/src/routes.ts:592-635）"
   },
-  "similar_assets": [
-    "docs/ingestion.md（描述上传/解析/嵌入流程，可对齐 UI 文案）",
-    "docs/retrieval.md（用于解释模型配置）",
-    "apps/web/src/pages/DocumentsList.tsx（展示文档/标签，可迁移到治理区）"
-  ],
-  "tech_stack": [
-    "前端：Vite + React + TypeScript + react-router-dom",
-    "后端：Bun + Fastify 路由 + Kysely + Postgres",
-    "样式：定制 CSS（apps/web/src/styles.css）"
-  ],
   "tests": {
-    "available": [
-      "bun test（验证 API/worker/mcp 单测）",
-      "bun run scripts/test-matrix.ts（smoke + integration）"
-    ],
-    "notes": "当前 WSL 环境无法执行 Bun，可在宿主机复跑；前端改动需运行 `bun run web` 或 `bun test`（如果存在 UI 测试）"
+    "pending": "需在具备 Bun CLI 的环境运行 `bun test` 与前端构建以验证类型/依赖；当前 WSL 运行 bun.exe 仍因权限失败",
+    "notes": "本次为静态检查，尚未能跑自动化测试"
   },
   "observation_report": [
-    "模型配置虽已写入 model_settings 表，但 UI/请求层未限制来源，且上传页无法复用配置好的 tenant/library 列表",
-    "入库页面承担过多功能，需要按“上传/队列/治理/诊断”重新分路由",
-    "标签在后端可自动生成，上传表单应去掉标签输入并自动根据标题生成初始标签",
-    "文件选择后未自动填充标题，需监听 File input",
-    "需要新增租户/库/模型的配置管理接口供下拉选择"
+    "VectorClient 不再依赖 .env 切换本地模式，startWorker 强制开启 enableLocalModels 并根据 model_settings/MODELS_DIR 自动定位模型文件",
+    "ModelSettingsPage 的按角色配置与本地快捷选择覆盖六类模型，可通过 provider=local + local://filename 完成所有功能的本地化设置",
+    "语义切割、元数据、标签生成仍走 generateStructureViaModel / generateSemanticMetadataViaModel / generateTagsViaModel，且均由 model_settings 控制调用的 API"
   ]
 }

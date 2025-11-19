@@ -1,32 +1,27 @@
 {
-  "timestamp": "2025-11-19T16:44:18+08:00",
+  "timestamp": "2025-11-19T21:25:40+08:00",
   "known": [
-    "model_settings 表已经存在（packages/data/src/repositories/modelSettings.ts），可存储 provider/baseUrl/modelName/apiKey/options，并在 API /model-settings 路由读写",
-    "前端上传/治理/诊断功能集中在 apps/web/src/pages/IngestionDashboard.tsx 及其组件中，Tenant/Library/标签均使用自由输入",
-    "ModelSettingsPage 目前支持 fetchModelCatalog()，但只是列表展示，表单中的 modelName 仍允许手动输入"
+    "Worker 在启动时强制 LOCAL_EMBEDDING_ENABLED=true 并优先解析本地模型 ID",
+    "ModelSettingsPage 允许选择 provider=local 并通过功能模型快捷选择写入表单",
+    "pipeline 的语义切割（structure）和标签生成（tagging）路径会调用 model_settings",
+    "VectorClient 只有在配置 remote endpoint 时才会请求 API，否则执行本地模型"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "租户 (tenantId) 与库 (libraryId) 下拉选项的数据源是什么？是否需要新增数据库表/API 以便配置页面创建/维护后前端才能引用？",
+      "question": "resolveLocalModelId 的实现位于何处？若缺失会否阻塞自动扫描 MODELS_DIR 的能力？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "“modelName 通过请求 URL 获取列表”具体指向哪个服务？需要在后端增加根据 provider/baseUrl 动态代理远程 /models 接口，还是沿用现有 /model-settings/catalog 静态目录？",
-      "priority": "high",
-      "blocking": true
-    },
-    {
-      "id": "Q3",
-      "question": "上传表单移除手动标签后，由谁负责自动生成标签？是否依赖 worker 已有的自动标注流程，或者需要在 API 层新增逻辑？",
+      "question": "本地模型目录是否已按 role（text/rerank/image/ocr/structure）分文件夹？功能下拉是否明确限制只能选对应 role？",
       "priority": "medium",
       "blocking": false
     },
     {
-      "id": "Q4",
-      "question": "前端导航如何划分新的页面（入库、队列监控、治理、诊断、配置）？是否需要新增路由/URL 规范和面包屑？",
+      "id": "Q3",
+      "question": "API 路由中是否仍存在除语义切割/标签生成外的远程模型调用？",
       "priority": "medium",
       "blocking": false
     }

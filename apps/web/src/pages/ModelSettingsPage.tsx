@@ -3,16 +3,16 @@ import {
   fetchModelSettings,
   saveModelSettings,
   fetchModelSettingsList,
-  fetchModelCatalog,
   saveTenant,
   saveLibrary,
   discoverModels,
   fetchLocalModels,
   installModel
 } from "../api";
+import type { ModelProvider } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 
-type Provider = "openai" | "ollama";
+type Provider = ModelProvider;
 type ModelRoleOption = "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure";
 
 interface SettingResponse {
@@ -33,17 +33,14 @@ interface SettingsListResponse {
   items?: SettingResponse["setting"][];
 }
 
-interface CatalogModel {
-  modelName: string;
-  displayName: string;
-  roles: ModelRoleOption[];
-}
-
-interface CatalogEntry {
-  provider: string;
-  driver: "local" | "remote";
-  defaultBaseUrl?: string;
-  models: CatalogModel[];
+interface LocalModelStatus {
+  name: string;
+  filename: string;
+  description?: string;
+  present: boolean;
+  sizeBytes?: number;
+  role: "text" | "rerank" | "image" | "ocr" | "metadata" | "structure";
+  relativePath: string;
 }
 
 const MODEL_ROLE_OPTIONS: Array<{ value: ModelRoleOption; label: string }> = [
@@ -55,7 +52,7 @@ const MODEL_ROLE_OPTIONS: Array<{ value: ModelRoleOption; label: string }> = [
   { value: "structure", label: "语义分段 (structure)" }
 ];
 
-const PROVIDER_VALUES: Provider[] = ["openai", "ollama"];
+const PROVIDER_VALUES: Provider[] = ["openai", "ollama", "local"];
 
 const ROLE_LABEL_MAP = new Map<ModelRoleOption, string>(
   MODEL_ROLE_OPTIONS.map((item) => [item.value, item.label])
@@ -64,6 +61,15 @@ const ROLE_LABEL_MAP = new Map<ModelRoleOption, string>(
 function isSupportedProvider(value: string): value is Provider {
   return PROVIDER_VALUES.includes(value as Provider);
 }
+
+const ROLE_TO_MODEL_KIND: Record<ModelRoleOption, LocalModelStatus["role"]> = {
+  tagging: "metadata", // 标签生成与语义元数据共用本地 LLM 目录
+  metadata: "metadata",
+  embedding: "text",
+  ocr: "ocr",
+  rerank: "rerank",
+  structure: "structure"
+};
 
 export default function ModelSettingsPage() {
   const [tenantId, setTenantId] = useState("default");
@@ -81,9 +87,7 @@ export default function ModelSettingsPage() {
   const [apiKeyPreview, setApiKeyPreview] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string | null>(null);
   const [settingsList, setSettingsList] = useState<SettingResponse["setting"][]>([]);
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [listStatus, setListStatus] = useState<string | null>(null);
-  const [catalogStatus, setCatalogStatus] = useState<string | null>(null);
   const [tenantFormStatus, setTenantFormStatus] = useState<string | null>(null);
   const [libraryFormStatus, setLibraryFormStatus] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<Array<{ modelName: string; label?: string }>>([]);
@@ -92,6 +96,14 @@ export default function ModelSettingsPage() {
   const [localModelExtras, setLocalModelExtras] = useState<any[]>([]);
   const [localModelsDir, setLocalModelsDir] = useState<string>("");
   const [localModelsStatus, setLocalModelsStatus] = useState<string | null>(null);
+  const [presetSelection, setPresetSelection] = useState<Record<ModelRoleOption, string>>({
+    tagging: "",
+    metadata: "",
+    embedding: "",
+    ocr: "",
+    rerank: "",
+    structure: ""
+  });
 
   const formatBytes = (value?: number) => {
     if (!value || value <= 0) return "-";
@@ -144,21 +156,11 @@ export default function ModelSettingsPage() {
     loadSettingsList();
   }, [loadSettingsList]);
 
-  useEffect(() => {
-    const loadCatalog = async () => {
-      try {
-        setCatalogStatus("加载模型目录…");
-        const response = (await fetchModelCatalog()) as { items?: CatalogEntry[] };
-        setCatalog(response.items ?? []);
-        setCatalogStatus(null);
-      } catch (error) {
-        setCatalogStatus((error as Error).message);
-      }
-    };
-    loadCatalog();
-  }, []);
-
   const loadRemoteModels = useCallback(async () => {
+    if (provider === "local") {
+      setModelOptionsStatus("本地模型无需远程拉取");
+      return;
+    }
     if (!baseUrl) {
       setModelOptionsStatus("请先填写 Base URL");
       return;
@@ -214,6 +216,14 @@ export default function ModelSettingsPage() {
     setModelOptionsStatus(null);
   }, [provider, baseUrl]);
 
+  useEffect(() => {
+    if (provider === "local") {
+      setApiKey("");
+      setHasStoredKey(false);
+      setApiKeyPreview(undefined);
+    }
+  }, [provider]);
+
   const loadLocalModels = useCallback(async () => {
     try {
       setLocalModelsStatus("读取模型目录…");
@@ -243,21 +253,6 @@ export default function ModelSettingsPage() {
     setStatus(`已加载 ${setting.displayName ?? setting.modelName}`);
   };
 
-  const applyCatalogModel = (entry: CatalogEntry, model: CatalogModel) => {
-    if (isSupportedProvider(entry.provider)) {
-      setProvider(entry.provider);
-    }
-    if (model.roles.length) {
-      const matchedRole = model.roles.includes(modelRole) ? modelRole : model.roles[0];
-      setModelRole(matchedRole);
-    }
-    setModelName(model.modelName);
-    if (entry.defaultBaseUrl) {
-      setBaseUrl(entry.defaultBaseUrl);
-    }
-    setStatus(`已选择目录模型 ${model.displayName}`);
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setStatus("保存中…");
@@ -283,8 +278,24 @@ export default function ModelSettingsPage() {
     }
   };
 
-  const providerPlaceholder = provider === "openai" ? "https://api.openai.com/v1/chat/completions" : "http://localhost:11434/api/generate";
-  const modelPlaceholder = provider === "openai" ? "gpt-4o-mini" : "llama3.1";
+  const providerPlaceholder =
+    provider === "openai"
+      ? "https://api.openai.com/v1/chat/completions"
+      : provider === "ollama"
+        ? "http://localhost:11434/api/generate"
+        : "local://模型文件或相对 MODELS_DIR 的路径";
+  const modelPlaceholder =
+    provider === "openai"
+      ? "gpt-4o-mini"
+      : provider === "ollama"
+        ? "llama3.1"
+        : "bge-m3.onnx";
+  const apiKeyPlaceholder =
+    provider === "openai"
+      ? "sk-..."
+      : provider === "local"
+        ? "本地模型无需 Key"
+        : "可选：Ollama 可留空";
 
   const handleTenantFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -327,6 +338,18 @@ export default function ModelSettingsPage() {
     } catch (error) {
       setLibraryFormStatus((error as Error).message);
     }
+  };
+
+  const applyLocalModelPreset = (role: ModelRoleOption, filename: string) => {
+    if (!filename) return;
+    const model = localModels.find((item) => item.filename === filename);
+    if (!model) return;
+    setModelRole(role);
+    setProvider("local");
+    setModelName(model.name);
+    setBaseUrl(`local://${model.filename}`);
+    setDisplayName(model.description ?? model.name);
+    setStatus(`已选择本地模型 ${model.name} 用于 ${ROLE_LABEL_MAP.get(role) ?? role}`);
   };
 
   const handleInstallModel = async (name: string) => {
@@ -555,6 +578,7 @@ export default function ModelSettingsPage() {
               <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
                 <option value="openai">OpenAI API</option>
                 <option value="ollama">Ollama</option>
+                <option value="local">本地模型</option>
               </select>
             </label>
           </div>
@@ -584,14 +608,20 @@ export default function ModelSettingsPage() {
             </label>
           </div>
         <div className="button-row compact">
-          <button type="button" className="ghost" onClick={loadRemoteModels}>
+          <button type="button" className="ghost" onClick={loadRemoteModels} disabled={provider === "local"}>
             拉取模型列表
           </button>
           {modelOptionsStatus && <span className="status-pill info">{modelOptionsStatus}</span>}
         </div>
         <small className="muted-text">
-          该步骤会直接向已配置的大模型 API 发起请求：OpenAI 兼容接口使用 <code>/v1/models</code>，Ollama 使用
-          <code>/api/tags</code>。点击后将自动填充返回的模型 ID。
+          {provider === "local" ? (
+            <>本地模型列表直接来自 MODELS_DIR，可通过下方“按用途选择本地模型”快捷填充。</>
+          ) : (
+            <>
+              该步骤会直接向已配置的大模型 API 发起请求：OpenAI 兼容接口使用 <code>/v1/models</code>，Ollama 使用
+              <code>/api/tags</code>。点击后将自动填充返回的模型 ID。
+            </>
+          )}
         </small>
           <label>
             接口 Base URL
@@ -603,12 +633,14 @@ export default function ModelSettingsPage() {
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={provider === "openai" ? "sk-..." : "可选：Ollama 可留空"}
+              placeholder={apiKeyPlaceholder}
+              disabled={provider === "local"}
             />
             {hasStoredKey && <small className="muted-text">已保存 Key {apiKeyPreview ?? "****"}，填写新 Key 可覆盖。</small>}
             {provider === "openai" && (
               <small className="muted-text">拉取模型列表需要可用的 API Key，即使已保存也需临时填写。</small>
             )}
+            {provider === "local" && <small className="muted-text">本地模型使用 MODELS_DIR 目录，无需 Key。</small>}
           </label>
           <div className="button-row">
             <button type="submit">保存配置</button>
@@ -672,52 +704,56 @@ export default function ModelSettingsPage() {
         </div>
       </section>
 
-      <section className="card card--tall">
+      <section className="card">
         <header className="card-header">
           <div>
-            <p className="eyebrow">模型目录</p>
-            <h2>可用模型（API 提供）</h2>
+            <p className="eyebrow">功能模型快捷选择</p>
+            <h2>按用途选择本地模型</h2>
           </div>
-          {catalogStatus && <span className="status-pill info">{catalogStatus}</span>}
         </header>
-        <div className="model-catalog">
-          {catalog.map((entry) => (
-            <article key={entry.provider} className="catalog-card">
-              <div className="catalog-card__header">
-                <h3>{entry.provider}</h3>
-                <span className="badge">{entry.driver === "local" ? "本地" : "远程"}</span>
+        <div className="stacked-form">
+          {Object.entries(ROLE_TO_MODEL_KIND).map(([roleKey, kind]) => {
+            const role = roleKey as ModelRoleOption;
+            const available = localModels.filter(
+              (model) => model.role === kind && model.present
+            );
+            return (
+              <div key={role} className="split stack-on-mobile">
+                <label>
+                  {ROLE_LABEL_MAP.get(role) ?? role}
+                  <select
+                    value={presetSelection[role] ?? ""}
+                    onChange={(event) =>
+                      setPresetSelection((prev) => ({ ...prev, [role]: event.target.value }))
+                    }
+                  >
+                    <option value="">选择本地模型</option>
+                    {available.map((model) => (
+                      <option key={model.filename} value={model.filename}>
+                        {model.name}（{model.filename}）
+                      </option>
+                    ))}
+                  </select>
+                  {!available.length && (
+                    <small className="muted-text">暂无可用的本地模型，请先下载。</small>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  disabled={!presetSelection[role]}
+                  onClick={() => applyLocalModelPreset(role, presetSelection[role])}
+                >
+                  应用到表单
+                </button>
               </div>
-              {entry.defaultBaseUrl && (
-                <small className="meta-muted">默认 Base URL：{entry.defaultBaseUrl}</small>
-              )}
-              <ul className="catalog-card__list">
-                {entry.models.map((model) => (
-                  <li key={`${entry.provider}-${model.modelName}`}>
-                    <div className="catalog-card__model">
-                      <strong>{model.displayName}</strong>
-                      <small className="meta-muted">
-                        {model.roles.map((role) => ROLE_LABEL_MAP.get(role) ?? role).join(" / ")}
-                      </small>
-                    </div>
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => applyCatalogModel(entry, model)}
-                    >
-                      填入表单
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-          {!catalog.length && (
-            <p className="placeholder">
-              尚无模型目录，请检查 `/model-settings/catalog` 响应或设置 MODEL_CATALOG_PATH。
-            </p>
-          )}
+            );
+          })}
+          <small className="muted-text">
+            通过上方选择器可直接将本地嵌入/Rerank 模型写入表单，然后点击“保存配置”即可同步到服务器。
+          </small>
         </div>
       </section>
+
     </div>
   );
 }

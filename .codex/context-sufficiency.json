@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-19T16:45:12+08:00",
+  "timestamp": "2025-11-20T02:07:00+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "API 层需新增租户/库配置 CRUD（如 /config/tenants、/config/libraries）、模型目录代理接口（根据 provider/baseUrl 查询远程 /models），上传接口需只接收标题/文件/tenant/library 并将标签交给 worker 自动生成；前端需消费这些接口并提供表单/下拉。",
-    "tech_choices": "后端延续 Bun + Fastify + Kysely + Postgres；租户/库配置使用新表 + Repository；模型目录代理调用远程 provider API（OpenAI/ollama）；前端使用 React Router 组织多个页面、共享 hooks。",
-    "risks_identified": "1) 新表/接口需迁移脚本；2) 多租户权限校验；3) WSL 无法执行 Bun，需在宿主验证；4) 路由重构涉及大量组件移动；5) 自动标签完全依赖 worker，若 pipeline 不覆盖需补逻辑。",
-    "verification_plan": "代码完成后计划在具备 Bun 的环境执行 `bun test` + `bun run web` 手动测试表单、并调用新 API 进行 curl 验证；当前沙箱无法运行 Bun，需在提交说明中提示用户在宿主复现。同时可通过 TypeScript 编译/静态检查确保无语法错误。"
+    "interface_contract": "Worker start + VectorClient 仅依赖 MODELS_DIR, model_settings；嵌入/重排默认本地；ModelSettingsPage 暴露 embedding/tagging/metadata/ocr/rerank/structure 的配置入口",
+    "tech_choices": "VectorClient 通过 @xenova/transformers 加载本地 ONNX；LLM 相关功能使用 generateStructureViaModel / generateSemanticMetadataViaModel / generateTagsViaModel (OpenAI/Ollama 兼容)",
+    "risks_identified": "若 MODELS_DIR 无对应权重且未配置 provider=local，会退化为 deterministicVector；需提醒部署时同步模型；语义功能仍需有效模型配置",
+    "verification_plan": "在具备 Bun CLI 的环境运行 `bun test` 和 `bun --cwd apps/web x vite build`，并通过 Web 控制台验证本地模型选择器写入 /model-settings 后 Worker 能加载"
   }
 }

@@ -17,6 +17,7 @@ import { VectorClient } from "../../../packages/core/src/vector";
 import { HttpOcrAdapter, LocalOcrAdapter } from "../../../packages/core/src/ocr";
 import { generateSemanticMetadataViaModel } from "../../../packages/core/src/semantic-metadata";
 import { generateStructureViaModel } from "../../../packages/core/src/semantic-structure";
+import { resolveLocalModelId } from "../../../packages/tooling/src/models";
 
 export interface StartWorkerOptions extends Partial<WorkerDependencies> {
   dataLayer?: DataLayer;
@@ -35,12 +36,20 @@ export async function startWorker(options: StartWorkerOptions = {}): Promise<Que
       maxChars: config.CHUNK_MAX_CHARS,
       overlapChars: config.CHUNK_OVERLAP_CHARS
     });
-  if (!config.LOCAL_EMBEDDING_ENABLED) {
-    throw new Error("LOCAL_EMBEDDING_ENABLED 必须为 true 才能启动 Worker");
-  }
-  if (!config.LOCAL_TEXT_MODEL_ID) {
-    throw new Error("LOCAL_TEXT_MODEL_ID 未配置，无法加载本地向量模型");
-  }
+  const localOverrides = modelSettings
+    ? await resolveLocalVectorModelOverrides(config, modelSettings)
+    : {};
+  const defaultTextModelId =
+    localOverrides.embedding ??
+    resolveLocalModelId("text", config.MODELS_DIR, config.LOCAL_TEXT_MODEL_ID ?? undefined) ??
+    config.LOCAL_TEXT_MODEL_ID ?? undefined;
+  const defaultImageModelId =
+    resolveLocalModelId("image", config.MODELS_DIR, config.LOCAL_IMAGE_MODEL_ID ?? undefined) ??
+    config.LOCAL_IMAGE_MODEL_ID ?? undefined;
+  const defaultRerankerModelId =
+    localOverrides.rerank ??
+    resolveLocalModelId("rerank", config.MODELS_DIR, config.LOCAL_RERANK_MODEL_ID ?? undefined) ??
+    config.LOCAL_RERANK_MODEL_ID ?? undefined;
   const vectorClient =
     options.vectorClient ??
     new VectorClient({
@@ -48,8 +57,9 @@ export async function startWorker(options: StartWorkerOptions = {}): Promise<Que
       imageEndpoint: config.IMAGE_EMBEDDING_ENDPOINT,
       fallbackDim: config.PGVECTOR_DIM,
       enableLocalModels: true,
-      localTextModelId: config.LOCAL_TEXT_MODEL_ID,
-      localImageModelId: config.LOCAL_IMAGE_MODEL_ID ?? undefined,
+      localTextModelId: defaultTextModelId ?? undefined,
+      localImageModelId: defaultImageModelId ?? undefined,
+      localRerankerModelId: defaultRerankerModelId ?? undefined,
       modelCacheDir: config.MODELS_DIR
     });
   const vectorLogs = options.vectorLogs ?? dataLayer.vectorLogs;
@@ -172,4 +182,34 @@ function createSemanticSegmenter(
       return [];
     }
   };
+}
+
+async function resolveLocalVectorModelOverrides(
+  config: AppConfig,
+  repo: ModelSettingsRepository
+) {
+  const tenantId = config.DEFAULT_TENANT_ID;
+  const libraryId = config.DEFAULT_LIBRARY_ID;
+  const [embeddingSetting, rerankSetting] = await Promise.all([
+    repo.get(tenantId, libraryId, "embedding"),
+    repo.get(tenantId, libraryId, "rerank")
+  ]);
+  return {
+    embedding: resolveLocalModelOverride(config, embeddingSetting, "text"),
+    rerank: resolveLocalModelOverride(config, rerankSetting, "rerank")
+  };
+}
+
+function resolveLocalModelOverride(
+  config: AppConfig,
+  setting: Awaited<ReturnType<ModelSettingsRepository["get"]>>,
+  role: "text" | "rerank" | "image" | "ocr"
+) {
+  if (setting?.provider === "local") {
+    return (
+      resolveLocalModelId(role, config.MODELS_DIR, setting.modelName) ??
+      resolveLocalModelId(role, config.MODELS_DIR)
+    );
+  }
+  return undefined;
 }

@@ -51,7 +51,9 @@
 
 > ⚠️ 向量化必须使用本地模型：`.env*` 中的 `LOCAL_EMBEDDING_ENABLED` 默认开启，且需指定 `LOCAL_TEXT_MODEL_ID`（例如 `Xenova/all-MiniLM-L6-v2`）。若禁用该配置，Worker 会直接报错并停止，以确保“向量用本地模型”这一要求得以强制执行。
 >
-> 🧠 混合召回默认启用本地 Rerank：请在 `.env*` 中配置 `LOCAL_RERANK_MODEL_ID`（默认 `Xenova/bge-reranker-v2-m3`），`scripts/sync-models.ts` 会自动下载该模型并供 `HybridRetriever` 的 rerank 阶段使用；同时也可在 Web 控制台「配置 → 本地模型管理」中查看/下载所有配套模型。
+> 🧠 混合召回默认启用本地 Rerank：未配置 `.env` 时，Worker 会自动读取 `MODELS_DIR` 中的 bge-m3（embedding）、bge-reranker（rerank）、OpenCLIP（image）等模型；如需覆盖，可在 `.env*` 中设置 `LOCAL_*_MODEL_ID` 或通过 Web 控制台「本地模型管理」直接下载/替换。
+>
+> 📁 本地模型目录结构：所有模型按角色分别存放在 `MODELS_DIR/<role>/`（`text/`、`rerank/`、`image/`、`ocr/` 等），`scripts/sync-models.ts` 与 Web 控制台都会将文件下载到对应文件夹，并可在同一页面为各角色快速选择本地模型。
 
 ### Linux / macOS
 

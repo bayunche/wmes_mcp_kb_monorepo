@@ -1,0 +1,16 @@
+{
+  "questionId": "Q38",
+  "focus": "saveModelSettings 不接受 provider=local",
+  "why": "配置页可以把 provider 切换为 local 并通过 applyLocalModelPreset 自动填写模型，但 API 调用层（apps/web/src/api.ts）仍将 saveModelSettings 的 provider 类型限制为 openai/ollama，造成 TypeScript 报错并阻止前端向后端保存本地模型",
+  "actions": [
+    "检查 apps/web/src/api.ts 中 saveModelSettings 的 payload 类型（274-284 行）",
+    "对照 packages/shared-schemas/src/index.ts 中 ModelProviderSchema，确认后端允许 local",
+    "确认 ModelSettingsPage 的 provider state（77-79 行）确实包含 local，确保问题不是 UI 逻辑未支持"
+  ],
+  "evidence": [
+    "apps/web/src/api.ts:274-284 将 payload.provider 声明为 'openai' | 'ollama'，与页面 state Provider 类型不一致",
+    "packages/shared-schemas/src/index.ts:78-98 定义的 ModelProviderSchema/ModelSettingInputSchema 明确包含 'local'",
+    "apps/web/src/pages/ModelSettingsPage.tsx:54-69 中 Provider 联合类型含 local，并通过 applyLocalModelPreset 将 provider 强制设为 local"
+  ],
+  "conclusion": "需要将 saveModelSettings 的 payload 类型扩展为包含 'local' 并确保请求 payload/baseUrl 允许使用 local:// 协议，否则前端无法保存本地模型配置。"
+}

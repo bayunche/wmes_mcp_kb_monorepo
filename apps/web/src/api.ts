@@ -3,6 +3,8 @@ const API_TOKEN = import.meta.env.VITE_API_TOKEN ?? "dev-token";
 const PREVIEW_BASE = import.meta.env.VITE_PREVIEW_BASE ?? "";
 const DEFAULT_LIBRARY = import.meta.env.VITE_LIBRARY_ID ?? "default";
 
+export type ModelProvider = "openai" | "ollama" | "local";
+
 const headers = {
   "content-type": "application/json",
   Authorization: `Bearer ${API_TOKEN}`,
@@ -274,7 +276,7 @@ export async function fetchModelSettings(params: { tenantId?: string; libraryId?
 export async function saveModelSettings(payload: {
   tenantId?: string;
   libraryId?: string;
-  provider: "openai" | "ollama";
+  provider: ModelProvider;
   baseUrl: string;
   modelName: string;
   modelRole?: "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure";
@@ -308,16 +310,6 @@ export async function fetchModelSettingsList(params: { tenantId?: string; librar
     headers: params.tenantId
       ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
       : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
-  });
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return response.json();
-}
-
-export async function fetchModelCatalog() {
-  const response = await fetch(`${API_BASE}/model-settings/catalog`, {
-    headers
   });
   if (!response.ok) {
     throw new Error(await response.text());

@@ -1,0 +1,11 @@
+{
+  "questionId": "Q40",
+  "focus": "哪些功能仍需远程/可配置 LLM",
+  "why": "需证明 API 仅承担语义切割、标签、元数据生成等需要生成式模型的场景",
+  "analysis": {
+    "semantic_metadata": "apps/worker/src/pipeline.ts:235-339 在 extractMetadata 阶段读取 model_settings 中的 metadata 配置；当 provider=local 时走 generateLocalSemanticMetadata，否则通过 generateSemanticMetadataViaModel（packages/core/src/semantic-metadata.ts）调用 OpenAI/Ollama API",
+    "semantic_structure": "createSemanticSegmenter (apps/worker/src/worker.ts:118-170) 对 structure 角色模型发起 generateStructureViaModel 请求，失败则回落空数组",
+    "tagging": "generateRemoteTags (apps/worker/src/pipeline.ts:871-925) 仅在配置了 tagging 模型时调用 generateTagsViaModel（packages/core/src/tagging.ts），否则返回空；嵌入、重排等完全由 VectorClient 本地完成"
+  },
+  "conclusion": "Worker 仅在结构切割、语义元数据、标签生成三个环节根据 model_settings 调用远程 API（并且可配 local provider），其余 OCR/解析/嵌入/检索均由本地实现，符合要求"
+}

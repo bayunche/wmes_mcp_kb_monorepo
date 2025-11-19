@@ -1,0 +1,16 @@
+{
+  "questionId": "Q37",
+  "focus": "ROLE_TO_MODEL_KIND 未定义导致配置页崩溃",
+  "why": "ModelSettingsPage 在“功能模型快捷选择”区域对 ROLE_TO_MODEL_KIND 调用 Object.entries；变量未定义将触发 ReferenceError，使整个配置页无法渲染，阻塞用户配置本地模型",
+  "actions": [
+    "审查 apps/web/src/pages/ModelSettingsPage.tsx，确认常量定义与使用位置（行64-103、676-707）",
+    "运行 rg 搜索仓库内所有 ROLE_TO_MODEL_KIND 引用，确认仅在该页面出现且无声明",
+    "推断需要的映射应当复用 LOCAL_ROLE_KIND_MAP 或扩展版，以便将 modelRole 映射到 localModels 返回的 role"
+  ],
+  "evidence": [
+    "apps/web/src/pages/ModelSettingsPage.tsx:64-69 只定义 LOCAL_ROLE_KIND_MAP，未出现 ROLE_TO_MODEL_KIND",
+    "apps/web/src/pages/ModelSettingsPage.tsx:676 使用 Object.entries(ROLE_TO_MODEL_KIND)，如果变量不存在将抛错",
+    "rg -n 'ROLE_TO_MODEL_KIND' 显示仅有一处引用：apps/web/src/pages/ModelSettingsPage.tsx:676"
+  ],
+  "conclusion": "配置页缺少 ROLE_TO_MODEL_KIND 定义，应新增完整的 modelRole→ModelRoleKind 映射（或直接复用 LOCAL_ROLE_KIND_MAP）并确保覆盖 structure/tagging 等角色，否则页面始终崩溃。"
+}
