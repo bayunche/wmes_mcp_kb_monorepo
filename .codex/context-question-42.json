@@ -1,0 +1,11 @@
+{
+  "questionId": "Q42",
+  "focus": "metadata 角色缺失导致 ingestion 中断的根因与解决路径",
+  "why": "日志显示 \"缺少 metadata 角色模型配置，已终止解析\"，需要确认 pipeline 的依赖与默认配置、是否存在降级或种子数据",
+  "analysis": {
+    "pipeline_guard": "apps/worker/src/pipeline.ts:258-279 在 extractMetadata 阶段若 deps.modelSettings 未注入或未找到 metadata 角色直接 throw，阻断后续向量化",
+    "config_source": "metadata 模型不通过 .env 配置，需从 model_settings 表读取；packages/data/src/repositories/modelSettings.ts 仅提供 CRUD，无默认记录插入",
+    "schema": "db/migrations/0004_semantic_pipeline.sql 将 model_settings 扩展 model_role 枚举（embedding/tagging/metadata/ocr/rerank），未附默认 seed；因此未配置 metadata 时必然抛错"
+  },
+  "conclusion": "要避免中断需为默认租户/库写入一条 metadata 角色的模型配置（可选 provider=local/remote），或调整 pipeline 在缺省时降级为跳过并记录 warning；现状无自动种子或回退逻辑"
+}

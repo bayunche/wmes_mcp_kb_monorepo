@@ -1,27 +1,27 @@
 {
-  "timestamp": "2025-11-19T21:25:40+08:00",
+  "timestamp": "2025-11-20T20:43:47+08:00",
   "known": [
-    "Worker 在启动时强制 LOCAL_EMBEDDING_ENABLED=true 并优先解析本地模型 ID",
-    "ModelSettingsPage 允许选择 provider=local 并通过功能模型快捷选择写入表单",
-    "pipeline 的语义切割（structure）和标签生成（tagging）路径会调用 model_settings",
-    "VectorClient 只有在配置 remote endpoint 时才会请求 API，否则执行本地模型"
+    "HttpOcrAdapter 通过 OCR_API_URL 向 /ocr POST multipart，默认 60s 超时，可附加 Authorization",
+    "Worker 在 OCR_ENABLED 且 OCR_MODE=http 时注入 HttpOcrAdapter，auto 模式也会优先命令/HTTP",
+    "extractMetadata 在缺少 metadata 角色配置时直接抛错终止 ingestion，无回退",
+    "paddle 目录提供 FastAPI /ocr 服务与 docker-compose，并在 README 记录 .env 示例"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "resolveLocalModelId 的实现位于何处？若缺失会否阻塞自动扫描 MODELS_DIR 的能力？",
+      "question": "当前环境的 OCR_API_URL/OCR_MODE 配置以及实际可用的 paddle OCR 端点是什么？需如何对接 compose 服务以消除连接失败？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "本地模型目录是否已按 role（text/rerank/image/ocr/structure）分文件夹？功能下拉是否明确限制只能选对应 role？",
-      "priority": "medium",
-      "blocking": false
+      "question": "metadata 角色的模型应如何默认配置（local/remote）？是否需要在启动时自动写入默认记录或提供走 skip 的降级路径？",
+      "priority": "high",
+      "blocking": true
     },
     {
       "id": "Q3",
-      "question": "API 路由中是否仍存在除语义切割/标签生成外的远程模型调用？",
+      "question": "OCR 或 metadata 缺失时当前降级策略是否足够？是否需要增加健康检查/重试/日志以避免 ingestion 提前终止？",
       "priority": "medium",
       "blocking": false
     }

@@ -2,6 +2,11 @@
 
 | 时间 | 工具 | 参数/命令 | 摘要 |
 | --- | --- | --- | --- |
+| 2025-11-20T02:36:50+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | 限制本地模型仅用于 embedding/rerank/ocr，禁用 metadata/tagging/structure 的本地选项 |
+| 2025-11-20T02:36:30+08:00 | apply_patch | apps/worker/src/pipeline.ts | 还原 metadata 阶段强制依赖远程模型，移除本地 fallback |
+| 2025-11-20T02:35:15+08:00 | apply_patch | apps/worker/src/pipeline.ts | metadata 缺省时退回本地语义引擎，避免因未配置而抛错 |
+| 2025-11-20T02:20:10+08:00 | apply_patch | 重构 ModelSettingsPage 本地模型区域 | 合并“本地管理”与“功能选择”并引入自动扫描 |
+| 2025-11-20T02:19:40+08:00 | apply_patch | 注入 useMemo/类型定义 | 支持 extras + manifest 合并为可选列表 |
 | 2025-11-20T02:07:00+08:00 | python3 | 更新 `.codex/context-sufficiency.json` | 记录本轮检查后的充分性说明 |
 | 2025-11-20T02:06:30+08:00 | shell | `cat <<'EOF' > .codex/context-question-40.json` | 深挖 Q40：语义功能使用远程模型的范围 |
 | 2025-11-20T02:06:10+08:00 | shell | `cat <<'EOF' > .codex/context-question-39.json` | 深挖 Q39：向量/重排行为是否依赖 .env |
@@ -1328,3 +1333,14 @@
 | 2025-11-19T20:00:00+08:00 | apply_patch | 更新 `packages/tooling/src/models.ts` | 本地模型分角色子目录，status/installer/resolveLocalModelId 支持新结构并兼容旧文件 |
 | 2025-11-19T20:01:00+08:00 | apply_patch | ModelSettings Quick Select | 角色下拉自动遍历 text/rerank/ocr，provider 支持 local，提示可直接写入表单 |
 | 2025-11-19T20:02:00+08:00 | apply_patch | README/docs 更新 | 说明 MODELS_DIR/<role>/... 子目录及本地模型绑定方式 |
+| 2025-11-20T20:43:50+08:00 | sequential-thinking | `sequential-thinking` | 梳理 OCR 连接失败与 metadata 缺失问题，规划扫描步骤 |
+| 2025-11-20T20:44:05+08:00 | shell | `rg "ocr"`、`sed` 查看 ocr.ts/worker.ts/pipeline.ts/README` | 收集 OCR 适配器契约与 metadata 抛错位置、paddle 部署说明 |
+| 2025-11-20T20:44:25+08:00 | shell | `cat paddle/docker-compose.yml`、`sed -n '1,80p' paddle/server.py` | 确认 paddle OCR 服务端口 8000 与 /ocr 返回结构 |
+| 2025-11-20T20:44:40+08:00 | shell | `cat > .codex/context-scan.json` | 更新结构化扫描（OCR 对接与 metadata 缺失） |
+| 2025-11-20T20:44:50+08:00 | shell | `cat > .codex/context-questions.json`、`cat > .codex/context-question-41.json`、`cat > .codex/context-question-42.json` | 记录关键疑问与针对性深挖结论 |
+| 2025-11-20T20:45:00+08:00 | shell | `cat > .codex/context-sufficiency.json` | 更新充分性检查（接口/技术/风险/验证计划） |
+| 2025-11-20T20:45:10+08:00 | shell | `shrimp plan_task "Fix OCR connectivity and metadata config"` | 失败：shrimp 未安装（命令不存在），无法使用 shrimp-task-manager |
+| 2025-11-20T20:45:30+08:00 | apply_patch | 更新 `packages/core/src/ocr.ts` | OCR HTTP 适配器增加超时/连接错误上下文，便于定位端点问题 |
+| 2025-11-20T20:45:40+08:00 | apply_patch | 更新 `apps/worker/src/pipeline.ts` | metadata 缺省/超限时改为 warning 跳过，避免 ingestion 中断 |
+| 2025-11-20T20:45:50+08:00 | apply_patch | 更新 `README.md` | 补充需配置 metadata 角色模型的提示 |
+| 2025-11-20T20:46:00+08:00 | shell | `bun --version` | 失败：bun.exe 权限拒绝，无法执行测试 |

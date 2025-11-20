@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchModelSettings,
   saveModelSettings,
@@ -43,6 +43,14 @@ interface LocalModelStatus {
   relativePath: string;
 }
 
+interface ExtraModelStatus {
+  filename: string;
+  sizeBytes?: number;
+  role: LocalModelStatus["role"];
+  relativePath: string;
+  description?: string;
+}
+
 const MODEL_ROLE_OPTIONS: Array<{ value: ModelRoleOption; label: string }> = [
   { value: "tagging", label: "标签生成 (tagging)" },
   { value: "metadata", label: "语义元数据 (metadata)" },
@@ -71,6 +79,8 @@ const ROLE_TO_MODEL_KIND: Record<ModelRoleOption, LocalModelStatus["role"]> = {
   structure: "structure"
 };
 
+const LOCAL_MODEL_ROLES: ModelRoleOption[] = ["embedding", "rerank", "ocr"];
+
 export default function ModelSettingsPage() {
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
@@ -92,8 +102,8 @@ export default function ModelSettingsPage() {
   const [libraryFormStatus, setLibraryFormStatus] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<Array<{ modelName: string; label?: string }>>([]);
   const [modelOptionsStatus, setModelOptionsStatus] = useState<string | null>(null);
-  const [localModels, setLocalModels] = useState<any[]>([]);
-  const [localModelExtras, setLocalModelExtras] = useState<any[]>([]);
+  const [localModels, setLocalModels] = useState<LocalModelStatus[]>([]);
+  const [localModelExtras, setLocalModelExtras] = useState<ExtraModelStatus[]>([]);
   const [localModelsDir, setLocalModelsDir] = useState<string>("");
   const [localModelsStatus, setLocalModelsStatus] = useState<string | null>(null);
   const [presetSelection, setPresetSelection] = useState<Record<ModelRoleOption, string>>({
@@ -217,6 +227,13 @@ export default function ModelSettingsPage() {
   }, [provider, baseUrl]);
 
   useEffect(() => {
+    if (!LOCAL_MODEL_ROLES.includes(modelRole) && provider === "local") {
+      setProvider("openai");
+      setStatus("该模型角色仅支持远程 API，已切换至 OpenAI");
+    }
+  }, [modelRole, provider]);
+
+  useEffect(() => {
     if (provider === "local") {
       setApiKey("");
       setHasStoredKey(false);
@@ -228,8 +245,16 @@ export default function ModelSettingsPage() {
     try {
       setLocalModelsStatus("读取模型目录…");
       const response = await fetchLocalModels();
-      setLocalModels(response.items ?? []);
-      setLocalModelExtras(response.extras ?? []);
+      setLocalModels((response.items ?? []) as LocalModelStatus[]);
+      setLocalModelExtras(
+        (response.extras ?? []).map((extra: ExtraModelStatus | (ExtraModelStatus & { [key: string]: unknown })) => ({
+          filename: extra.filename,
+          sizeBytes: extra.sizeBytes,
+          role: extra.role,
+          relativePath: (extra as { relativePath?: string }).relativePath ?? extra.filename,
+          description: (extra as { description?: string }).description
+        }))
+      );
       setLocalModelsDir(response.dir ?? "");
       setLocalModelsStatus(null);
     } catch (error) {
@@ -340,14 +365,41 @@ export default function ModelSettingsPage() {
     }
   };
 
+  const localModelChoices = useMemo(() => {
+    const manifestChoices = localModels
+      .filter((model) => model.present)
+      .map((model) => ({
+        source: "manifest" as const,
+        name: model.name,
+        filename: model.filename,
+        description: model.description,
+        present: true,
+        sizeBytes: model.sizeBytes,
+        role: model.role,
+        relativePath: model.relativePath
+      }));
+    const extraChoices = localModelExtras.map((extra) => ({
+      source: "extra" as const,
+      name: extra.filename,
+      filename: extra.filename,
+      description: extra.relativePath,
+      present: true,
+      sizeBytes: extra.sizeBytes,
+      role: extra.role,
+      relativePath: extra.relativePath
+    }));
+    return [...manifestChoices, ...extraChoices];
+  }, [localModels, localModelExtras]);
+
   const applyLocalModelPreset = (role: ModelRoleOption, filename: string) => {
     if (!filename) return;
-    const model = localModels.find((item) => item.filename === filename);
+    const kind = ROLE_TO_MODEL_KIND[role];
+    const model = localModelChoices.find((item) => item.role === kind && item.filename === filename);
     if (!model) return;
     setModelRole(role);
     setProvider("local");
     setModelName(model.name);
-    setBaseUrl(`local://${model.filename}`);
+    setBaseUrl(`local://${model.relativePath ?? model.filename}`);
     setDisplayName(model.description ?? model.name);
     setStatus(`已选择本地模型 ${model.name} 用于 ${ROLE_LABEL_MAP.get(role) ?? role}`);
   };
@@ -465,71 +517,6 @@ export default function ModelSettingsPage() {
       <section className="card">
         <header className="card-header">
           <div>
-            <p className="eyebrow">模型资产</p>
-            <h2>本地模型管理</h2>
-            <small className="muted-text">目录：{localModelsDir || "未配置（MODELS_DIR）"}</small>
-          </div>
-          <div className="button-row compact">
-            {localModelsStatus && <span className="status-pill info">{localModelsStatus}</span>}
-            <button type="button" className="ghost" onClick={loadLocalModels}>
-              刷新
-            </button>
-          </div>
-        </header>
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>文件</th>
-                <th>状态</th>
-                <th>大小</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {localModels.map((model) => (
-                <tr key={model.name}>
-                  <td>
-                    <div className="doc-title">{model.name}</div>
-                    <small className="meta-muted">{model.description ?? ""}</small>
-                  </td>
-                  <td>{model.filename}</td>
-                  <td>{model.present ? "已下载" : "缺失"}</td>
-                  <td>{formatBytes(model.sizeBytes)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="ghost"
-                      disabled={model.present}
-                      onClick={() => handleInstallModel(model.name)}
-                    >
-                      {model.present ? "已安装" : "下载"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!localModels.length && (
-                <tr>
-                  <td colSpan={5} className="placeholder">
-                    尚无清单数据。
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        {localModelExtras.length ? (
-          <div className="muted-text">
-            <strong>额外文件：</strong>{" "}
-            {localModelExtras.map((extra) => `${extra.filename} (${formatBytes(extra.sizeBytes)})`).join("， ")}
-          </div>
-        ) : null}
-      </section>
-
-      <section className="card">
-        <header className="card-header">
-          <div>
             <p className="eyebrow">模型配置</p>
             <h2>语义/向量模型与 API Key</h2>
           </div>
@@ -573,15 +560,18 @@ export default function ModelSettingsPage() {
                 ))}
               </select>
             </label>
-            <label>
-              服务提供方
-              <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
-                <option value="openai">OpenAI API</option>
-                <option value="ollama">Ollama</option>
-                <option value="local">本地模型</option>
-              </select>
-            </label>
-          </div>
+        <label>
+          服务提供方
+          <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
+            <option value="openai">OpenAI API</option>
+            <option value="ollama">Ollama</option>
+            <option value="local" disabled={!LOCAL_MODEL_ROLES.includes(modelRole)}>本地模型</option>
+          </select>
+          {!LOCAL_MODEL_ROLES.includes(modelRole) && (
+            <small className="muted-text">该角色仅支持远程 API（OpenAI/Ollama），无法使用本地模型。</small>
+          )}
+        </label>
+      </div>
           <div className="split">
             <label>
               模型
@@ -707,16 +697,25 @@ export default function ModelSettingsPage() {
       <section className="card">
         <header className="card-header">
           <div>
-            <p className="eyebrow">功能模型快捷选择</p>
-            <h2>按用途选择本地模型</h2>
+            <p className="eyebrow">本地模型管理</p>
+            <h2>功能模型快捷选择</h2>
+            <small className="muted-text">目录：{localModelsDir || "未配置（MODELS_DIR）"}</small>
+          </div>
+          <div className="button-row compact">
+            {localModelsStatus && <span className="status-pill info">{localModelsStatus}</span>}
+            <button type="button" className="ghost" onClick={loadLocalModels}>
+              刷新
+            </button>
           </div>
         </header>
         <div className="stacked-form">
-          {Object.entries(ROLE_TO_MODEL_KIND).map(([roleKey, kind]) => {
+          {Object.entries(ROLE_TO_MODEL_KIND)
+            .filter(([roleKey]) => LOCAL_MODEL_ROLES.includes(roleKey as ModelRoleOption))
+            .map(([roleKey, kind]) => {
             const role = roleKey as ModelRoleOption;
-            const available = localModels.filter(
-              (model) => model.role === kind && model.present
-            );
+            const available = localModelChoices.filter((model) => model.role === kind);
+            const missingDefaults = localModels.filter((model) => model.role === kind && !model.present);
+            const recommended = missingDefaults[0];
             return (
               <div key={role} className="split stack-on-mobile">
                 <label>
@@ -729,27 +728,36 @@ export default function ModelSettingsPage() {
                   >
                     <option value="">选择本地模型</option>
                     {available.map((model) => (
-                      <option key={model.filename} value={model.filename}>
-                        {model.name}（{model.filename}）
+                      <option key={`${model.source}-${model.filename}`} value={model.filename}>
+                        {model.name}（{model.filename} · {formatBytes(model.sizeBytes)}）
                       </option>
                     ))}
                   </select>
                   {!available.length && (
-                    <small className="muted-text">暂无可用的本地模型，请先下载。</small>
+                    <small className="muted-text">
+                      暂无已下载的 {ROLE_LABEL_MAP.get(role) ?? role} 模型，可先点击“下载推荐模型”。
+                    </small>
                   )}
                 </label>
-                <button
-                  type="button"
-                  disabled={!presetSelection[role]}
-                  onClick={() => applyLocalModelPreset(role, presetSelection[role])}
-                >
-                  应用到表单
-                </button>
+                <div className="stacked-form compact">
+                  <button
+                    type="button"
+                    disabled={!presetSelection[role]}
+                    onClick={() => applyLocalModelPreset(role, presetSelection[role])}
+                  >
+                    应用到表单
+                  </button>
+                  {recommended && (
+                    <button type="button" className="ghost" onClick={() => handleInstallModel(recommended.name)}>
+                      下载推荐模型
+                    </button>
+                  )}
+                </div>
               </div>
             );
-          })}
+            })}
           <small className="muted-text">
-            通过上方选择器可直接将本地嵌入/Rerank 模型写入表单，然后点击“保存配置”即可同步到服务器。
+            通过上方选择器可自动读取 MODELS_DIR/{`<role>`} 中的文件并写入下方表单，然后点击“保存配置”即可同步到服务器。
           </small>
         </div>
       </section>

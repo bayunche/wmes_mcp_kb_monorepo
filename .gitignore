@@ -5,18 +5,22 @@ bun.lockb
 .bun-cache/
 .bun-tmp/
 
+
 # Build outputs
 dist/
 build/
 coverage/
-
+logs/
 # Env & secrets
 .env
 .env.local
 
 # Backups & uploads
 backups/
-models/weights/*
+models/weights/image/*
+models/weights/ocr/*
+models/weights/rerank/*
+models/weights/text/*
 
 # Playwright/Vitest
 playwright-report/
@@ -27,3 +31,4 @@ test-results/
 # OS artifacts
 .DS_Store
 Thumbs.db
+

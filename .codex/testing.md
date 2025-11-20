@@ -67,3 +67,4 @@
 | 2025-11-19T19:08:00+08:00 | 说明 | `bun run web` | 仍无法在 WSL 启动前端，因此未验证新的本地模型管理 UI；需在宿主浏览器测试 `/models` API 及按钮触发下载。 |
 | 2025-11-19T19:25:00+08:00 | 说明 | `bun test`/`bun run web` | 受限于 WSL 仍无法执行，未能验证新的模型管理 API、语义切分回退及错误提示；请在宿主机运行相关测试与手动上传用例。 |
 | 2025-11-19T19:47:00+08:00 | 说明 | `bun run web` | 未在 WSL 验证新的本地模型下拉及 provider=local 选择；请在宿主浏览器测试 ModelSettings 页面和 Worker 启动流程。 |
+| 2025-11-20T20:46:05+08:00 | bun --version | `bun --version` | 失败：WSL 调用 Windows bun.exe 权限拒绝，无法执行任何 bun 测试；需在可执行 Bun 的环境复跑 `bun test` 与 Worker OCR/metadata 路径。 |

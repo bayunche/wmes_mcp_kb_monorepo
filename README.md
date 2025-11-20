@@ -483,6 +483,7 @@ docker run -d --name paddle-ocr -p 9009:8000 \
   ```
 
 - 模型配置 API：`GET /model-settings/list` 按库返回已保存配置，`GET /model-settings/catalog` 返回可用 provider/model 列表，前端页面可直接加载/套用。
+- 语义元数据生成需要为每个租户/库配置 metadata 角色模型（可选 local/remote）；若未设置，Worker 会记录 warning 并跳过该阶段，请在 Web 控制台「模型设置」中至少写入一条 metadata 配置。
 
 ## 📚 Further Reading
 

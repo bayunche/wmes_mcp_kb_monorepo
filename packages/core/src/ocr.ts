@@ -42,7 +42,8 @@ export class HttpOcrAdapter implements OcrAdapter {
     form.append("response_format", "json");
     form.append("language", input.language ?? this.options.language ?? "chi_sim");
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs ?? 60000);
+    const timeoutMs = this.options.timeoutMs ?? 60000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(this.options.endpoint, {
         method: "POST",
@@ -53,10 +54,21 @@ export class HttpOcrAdapter implements OcrAdapter {
         signal: controller.signal
       });
       if (!response.ok) {
-        throw new Error(`OCR request failed (${response.status})`);
+        const body = await response.text().catch(() => "");
+        const tail = body ? `: ${body}` : "";
+        throw new Error(`OCR request failed (${response.status})${tail}`);
       }
       const payload = await response.json();
       return normalizeOcrPayload(payload);
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        throw new Error(
+          `OCR request to ${this.options.endpoint} timed out after ${timeoutMs}ms`
+        );
+      }
+      throw new Error(
+        `OCR request to ${this.options.endpoint} failed: ${(error as Error).message}`
+      );
     } finally {
       clearTimeout(timeout);
     }

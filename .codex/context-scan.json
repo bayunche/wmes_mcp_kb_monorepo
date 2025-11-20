@@ -1,41 +1,37 @@
 {
-  "timestamp": "2025-11-20T02:05:00+08:00",
+  "timestamp": "2025-11-20T20:43:47+08:00",
   "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
-  "focus": "核实 Worker/VectorClient 默认走本地模型且无需 .env 配置，同时确认 Web 配置页为所有模型角色提供本地模型选项，并确保需要 LLM 的 API 功能仅限语义切割/标签/元数据",
+  "focus": "排查 OCR HTTP 连接失败并对接 paddle OCR docker 服务，同时补齐 metadata 角色模型配置以避免 ingestion 中断",
   "locations": {
-    "worker": [
-      "apps/worker/src/worker.ts（startWorker 初始化 VectorClient、resolveLocalVectorModelOverrides）",
-      "apps/worker/src/pipeline.ts（语义元数据与标签生成阶段对 model_settings 的依赖）"
+    "ocr": [
+      "packages/core/src/ocr.ts（HttpOcrAdapter/LocalOcrAdapter，构造 multipart 并解析返回）",
+      "apps/worker/src/worker.ts（createOcrAdapter 根据 OCR_MODE/ENV 注入）",
+      "paddle/server.py、paddle/docker-compose.yml（本仓库自带 paddle OCR 服务示例）",
+      "README.md#PaddleOCR 本地部署（332-416 行，配置与验证步骤）"
     ],
-    "tooling": [
-      "packages/tooling/src/models.ts（resolveLocalModelId 通过 MODELS_DIR 扫描本地模型）"
+    "ingestion": [
+      "apps/worker/src/pipeline.ts（extractMetadata 抛出 \"缺少 metadata 角色模型配置\" 阻断流程；chunkDocument/shouldUseOcr 调用）",
+      "apps/worker/src/worker.ts（startWorker 依赖 model_settings、semanticMetadata 注入）",
+      "db/migrations/0004_semantic_pipeline.sql（model_settings 增加 role=metadata/ocr/rerank 等约束）"
     ],
-    "core": [
-      "packages/core/src/vector.ts（enableLocalModels 与本地 pipeline 实现）",
-      "packages/core/src/semantic-metadata.ts、semantic-structure.ts、tagging.ts（只有这些流程调用远程 API）"
-    ],
-    "frontend": [
-      "apps/web/src/pages/ModelSettingsPage.tsx（六个模型角色及本地模型快捷选择）",
-      "apps/web/src/api.ts（saveModelSettings provider/role 参数）"
-    ],
-    "schemas/api": [
-      "packages/shared-schemas/src/index.ts（ModelProvider=local/openai/ollama）",
-      "apps/api/src/routes.ts（/model-settings、/models 暴露给前端）"
+    "config": [
+      "packages/core/src/config.ts（OCR_ENABLED/OCR_MODE/OCR_API_URL/OCR_LOCAL_COMMAND 等环境变量定义）",
+      ".env.example（OCR_* 默认值，metadata 模型无环境变量需走 model_settings）"
     ]
   },
   "current_state": {
-    "vector_local": "startWorker 始终以 enableLocalModels=true 实例化 VectorClient，并优先从 model_settings 或 MODELS_DIR 扫描到本地 embedding/rerank/图像模型；即使 .env 未提供 LOCAL_*_MODEL_ID，resolveLocalModelId 也会自动寻找现有权重（apps/worker/src/worker.ts:32-120,195-205; packages/tooling/src/models.ts:200-260）",
-    "frontend_control": "ModelSettingsPage 提供 embedding/tagging/metadata/ocr/rerank/structure 六个角色的 provider/local 选择，并可通过 ROLE_TO_MODEL_KIND 将 MODELS_DIR/<role>/ 文件一键写入配置（apps/web/src/pages/ModelSettingsPage.tsx:46-120,612-690）",
-    "api_scope": "Worker 内只有 semanticSegmenter、generateRemoteTags、generateSemanticMetadataViaModel 等功能会根据 model_settings 调用远程 API，满足“API 仅在语义切割/标签/元数据生成时调用”要求（apps/worker/src/pipeline.ts:235-339,871-925; packages/core/src/tagging.ts、semantic-metadata.ts、semantic-structure.ts）",
-    "model_settings": "后端 schema/路由全面支持 provider=local，Web 保存的本地模型配置可直接被 Worker 加载为覆盖值（packages/shared-schemas/src/index.ts:78-110; apps/api/src/routes.ts:592-635）"
+    "ocr_adapter": "HttpOcrAdapter 使用 fetch POST multipart/form-data，字段 file/response_format=json/language，并可附加 Authorization Bearer；timeout 默认 60s，endpoint 取 OCR_API_URL，mime/filename 由上传源决定（packages/core/src/ocr.ts）",
+    "ocr_routing": "Worker createOcrAdapter 在 OCR_MODE=http 且 OCR_API_URL 存在时注入 HttpOcrAdapter；auto 模式优先本地命令再回落 HTTP，否则禁用（apps/worker/src/worker.ts）",
+    "ingestion_guard": "extractMetadata 要求 model_settings 中存在 metadata 角色配置，否则直接抛错终止 ingestion（apps/worker/src/pipeline.ts:264-279）",
+    "paddle_service": "仓库自带 paddle/docker-compose.yml 暴露 http://localhost:8000/ocr，server.py FastAPI 接口符合 HttpOcrAdapter 预期；README 提供 curl 验证与 .env 示例"
   },
   "tests": {
-    "pending": "需在具备 Bun CLI 的环境运行 `bun test` 与前端构建以验证类型/依赖；当前 WSL 运行 bun.exe 仍因权限失败",
-    "notes": "本次为静态检查，尚未能跑自动化测试"
+    "existing": "未找到针对 OCR 或 metadata 配置的自动化测试，tests/ 下无 ocr 相关用例",
+    "notes": "需要通过手动/脚本调用 paddle /ocr 端点与 worker ingest 路径验证"
   },
   "observation_report": [
-    "VectorClient 不再依赖 .env 切换本地模式，startWorker 强制开启 enableLocalModels 并根据 model_settings/MODELS_DIR 自动定位模型文件",
-    "ModelSettingsPage 的按角色配置与本地快捷选择覆盖六类模型，可通过 provider=local + local://filename 完成所有功能的本地化设置",
-    "语义切割、元数据、标签生成仍走 generateStructureViaModel / generateSemanticMetadataViaModel / generateTagsViaModel，且均由 model_settings 控制调用的 API"
+    "当前错误表明 OCR_API_URL 未通或服务未起，需按 README 启动 paddle/docker compose 并配置 OCR_MODE=http",
+    "metadata 角色未在 model_settings 配置导致 ingest 直接中断，需提供默认模型或配置指引以不中断流程",
+    "无回退逻辑：metadata 缺失时直接抛错，OCR 连接失败会导致解析为空；需要改进降级与日志"
   ]
 }

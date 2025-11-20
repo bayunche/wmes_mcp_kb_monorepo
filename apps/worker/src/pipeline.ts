@@ -269,11 +269,13 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
         return enriched;
       }
       if (!deps.modelSettings) {
-        throw new Error("Semantic metadata模型未配置，无法继续解析");
+        deps.logger.warn?.("未注入 model_settings 仓库，跳过语义元数据生成");
+        return enriched;
       }
       const setting = await loadModelSetting(doc, deps, "metadata");
       if (!setting) {
-        throw new Error("缺少 metadata 角色模型配置，已终止解析");
+        deps.logger.warn?.("缺少 metadata 角色模型配置，跳过语义元数据生成");
+        return enriched;
       }
       const configuredLimit = Number(process.env.SEMANTIC_METADATA_LIMIT ?? "0");
       const limit =
@@ -283,13 +285,21 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       if (!useLocalMetadata && !deps.semanticMetadata) {
         throw new Error("语义元数据模型未注入，无法调用远程 API");
       }
+      let limitWarningLogged = false;
       for (const [index, chunk] of enriched.entries()) {
         if (!chunk.contentText?.trim()) {
           results.push(chunk);
           continue;
         }
         if (index >= limit) {
-          throw new Error("语义元数据生成被限制，请提高 SEMANTIC_METADATA_LIMIT 或删除限制");
+          if (!limitWarningLogged) {
+            deps.logger.warn?.(
+              `已达到 SEMANTIC_METADATA_LIMIT=${limit} 上限，后续 chunk 跳过语义元数据生成`
+            );
+            limitWarningLogged = true;
+          }
+          results.push(chunk);
+          continue;
         }
         try {
           if (useLocalMetadata) {
