@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-20T20:43:47+08:00",
+  "timestamp": "2025-11-24T10:40:21+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "OCR: POST multipart 至 OCR_API_URL，字段 file/language/response_format=json，超时 60s；metadata: pipeline 需要 model_settings 中的 metadata 角色，否则抛错",
-    "tech_choices": "OCR 优先复用 paddle docker HTTP 服务，配置经 .env 的 OCR_MODE=http；metadata 依赖 model_settings provider(local/remote) 加载语义元数据模型，无 env 兜底",
-    "risks_identified": "若 paddle 服务未起或 URL/网络不通则 OCR 直接失败；metadata 未配置导致 ingestion 中断，无回退，需新增默认或降级逻辑",
-    "verification_plan": "启动 paddle docker 并以 curl /ocr 验证；配置 .env 并重启 worker 处理含图片/PDF 的任务；为 metadata 写入 model_settings 或实现降级后，重跑 ingestion 并检查日志/数据库无错误"
+    "interface_contract": "验收契约来自《项目需求.md》第 12 章与 .codex/implementation-plan Phase6：需要完成真实解析/切块/嵌入、REST+MCP 检索/治理、E2E 剧本与部署闭环。",
+    "tech_choices": "技术栈已明确：Bun + TypeScript、Postgres/pgvector、Qdrant、MinIO、RabbitMQ、bge-m3/bge-reranker/OpenCLIP、本地 PaddleOCR，前端 React+Vite。",
+    "risks_identified": "实施计划 Phase6 6.1-6.4 未完成；WSL 环境无法运行 Bun/Docker，近期测试缺失；E2E 默认 skip；大量未提交改动可能影响稳定性。",
+    "verification_plan": "在具备 Bun CLI 与 Docker 的宿主机执行 bun install → bun test → bun run scripts/test-matrix.ts，并按 README/docker-compose 跑通上传→检索→MCP→治理→备份/重索引；补充测试与部署日志到 verification.md/.codex/testing.md。"
   }
 }

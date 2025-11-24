@@ -1,37 +1,36 @@
 {
-  "timestamp": "2025-11-20T20:43:47+08:00",
+  "timestamp": "2025-11-24T11:47:53+08:00",
   "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
-  "focus": "排查 OCR HTTP 连接失败并对接 paddle OCR docker 服务，同时补齐 metadata 角色模型配置以避免 ingestion 中断",
+  "focus": "优化前端 ModelSettings 页面与模型配置保存体验（表单交互、本地/远程模型选择、保存/刷新状态）",
   "locations": {
-    "ocr": [
-      "packages/core/src/ocr.ts（HttpOcrAdapter/LocalOcrAdapter，构造 multipart 并解析返回）",
-      "apps/worker/src/worker.ts（createOcrAdapter 根据 OCR_MODE/ENV 注入）",
-      "paddle/server.py、paddle/docker-compose.yml（本仓库自带 paddle OCR 服务示例）",
-      "README.md#PaddleOCR 本地部署（332-416 行，配置与验证步骤）"
+    "frontend": [
+      "apps/web/src/pages/ModelSettingsPage.tsx（表单逻辑、状态、UI）",
+      "apps/web/src/api.ts（模型配置相关 API 调用）",
+      "apps/web/src/hooks/useOrgOptions.ts（租户/库下拉数据源）"
     ],
-    "ingestion": [
-      "apps/worker/src/pipeline.ts（extractMetadata 抛出 \"缺少 metadata 角色模型配置\" 阻断流程；chunkDocument/shouldUseOcr 调用）",
-      "apps/worker/src/worker.ts（startWorker 依赖 model_settings、semanticMetadata 注入）",
-      "db/migrations/0004_semantic_pipeline.sql（model_settings 增加 role=metadata/ocr/rerank 等约束）"
+    "backend": [
+      "apps/api/src/routes.ts（/model-settings GET/PUT/list/models、install 模型）",
+      "packages/shared-schemas/src/index.ts（ModelSetting schema）"
     ],
-    "config": [
-      "packages/core/src/config.ts（OCR_ENABLED/OCR_MODE/OCR_API_URL/OCR_LOCAL_COMMAND 等环境变量定义）",
-      ".env.example（OCR_* 默认值，metadata 模型无环境变量需走 model_settings）"
+    "logs": [
+      ".codex/testing.md（前端测试缺失与环境限制）",
+      ".codex/operations-log.md（模型配置相关操作历史）"
     ]
   },
   "current_state": {
-    "ocr_adapter": "HttpOcrAdapter 使用 fetch POST multipart/form-data，字段 file/response_format=json/language，并可附加 Authorization Bearer；timeout 默认 60s，endpoint 取 OCR_API_URL，mime/filename 由上传源决定（packages/core/src/ocr.ts）",
-    "ocr_routing": "Worker createOcrAdapter 在 OCR_MODE=http 且 OCR_API_URL 存在时注入 HttpOcrAdapter；auto 模式优先本地命令再回落 HTTP，否则禁用（apps/worker/src/worker.ts）",
-    "ingestion_guard": "extractMetadata 要求 model_settings 中存在 metadata 角色配置，否则直接抛错终止 ingestion（apps/worker/src/pipeline.ts:264-279）",
-    "paddle_service": "仓库自带 paddle/docker-compose.yml 暴露 http://localhost:8000/ocr，server.py FastAPI 接口符合 HttpOcrAdapter 预期；README 提供 curl 验证与 .env 示例"
+    "plan_progress": "implementation-plan.md 中 Phase 0-5 已勾选，但 Phase 6 的 6.1-6.4 全部未完成，仍待真实解析/检索闭环、API/MCP 验收、E2E 测试与部署验证。",
+    "test_status": "verification.md 与 .codex/testing.md 多次记录 bun test / bunx tsc / docker compose 无法在当前 WSL 环境运行；最近一轮自动化测试未执行，E2E 仍为 skip 状态。",
+    "codebase_state": "git status 显示大量已修改文件（apps/api、apps/worker、apps/mcp、packages/* 等）尚未提交，需谨慎判断是否为最终版本或仍在迭代。",
+    "docs_alignment": "需求与功能拆解文档已齐备，README 提供部署步骤，但缺少最新的实际执行/验证记录。"
   },
   "tests": {
-    "existing": "未找到针对 OCR 或 metadata 配置的自动化测试，tests/ 下无 ocr 相关用例",
-    "notes": "需要通过手动/脚本调用 paddle /ocr 端点与 worker ingest 路径验证"
+    "existing": "单元/集成测试位于 tests/unit、apps/*/__tests__、packages/*/__tests__；E2E 在 tests/e2e（默认 skip）。scripts/test-matrix.ts 可按顺序运行 unit/integration/e2e。",
+    "notes": "最近的测试命令在当前环境因 Bun/Docker 不可执行而失败；需在具备 Bun CLI 与容器能力的宿主机重跑 bun install && bun test 以及 bun run scripts/test-matrix.ts。"
   },
   "observation_report": [
-    "当前错误表明 OCR_API_URL 未通或服务未起，需按 README 启动 paddle/docker compose 并配置 OCR_MODE=http",
-    "metadata 角色未在 model_settings 配置导致 ingest 直接中断，需提供默认模型或配置指引以不中断流程",
-    "无回退逻辑：metadata 缺失时直接抛错，OCR 连接失败会导致解析为空；需要改进降级与日志"
+    "按实施计划 Phase 6 尚未完成，项目尚未达到“生产落地”验收标准。",
+    "缺少近期可执行的自动化测试结果；当前环境无法运行 Bun/Docker，完成度无法被验证。",
+    "E2E 剧本仍默认跳过，未附示例数据与实际跑通的证据。",
+    "存在大量未提交改动，需要确认是否为最终落地版本或仍需整理。"
   ]
 }

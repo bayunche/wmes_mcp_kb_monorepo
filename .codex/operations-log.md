@@ -2,6 +2,27 @@
 
 | 时间 | 工具 | 参数/命令 | 摘要 |
 | --- | --- | --- | --- |
+| 2025-11-24T11:55:00+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | 模型角色选择改为卡片展示，标注用途/本地支持度，并保留 provider 切换逻辑 |
+| 2025-11-24T11:55:00+08:00 | sequential-thinking | 模型角色卡片化方案 | 规划将模型角色选择改为卡片，明确各功能使用的模型分工 |
+| 2025-11-24T11:47:53+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | 表单校验与状态优化：新增验证、保存禁用、provider 切换默认值、本地预设清理 Key 状态 |
+| 2025-11-24T11:47:53+08:00 | sequential-thinking | 新任务初步思考 | 聚焦优化前端模型配置保存，实现前先收集上下文 |
+| 2025-11-24T11:47:53+08:00 | shell | `sed -n '1,240p' apps/web/src/pages/ModelSettingsPage.tsx` | 阅读模型配置表单逻辑和状态管理 |
+| 2025-11-24T11:47:53+08:00 | shell | `sed -n '240,520p' apps/web/src/pages/ModelSettingsPage.tsx` | 继续查看保存逻辑与本地模型快捷选择 |
+| 2025-11-24T11:47:53+08:00 | shell | `sed -n '520,1040p' apps/web/src/pages/ModelSettingsPage.tsx` | 审查列表展示与本地模型管理段落 |
+| 2025-11-24T11:47:53+08:00 | shell | `sed -n '1,200p' apps/web/src/api.ts` | 确认模型配置相关 API 客户端实现 |
+| 2025-11-24T11:47:53+08:00 | shell | `sed -n '150,240p' apps/api/src/routes.ts` | 确认 /model-settings 路由实现 |
+| 2025-11-24T11:47:53+08:00 | python3 | 更新 .codex/context-scan.json | 切换结构化扫描焦点至前端模型配置优化 |
+| 2025-11-24T11:47:53+08:00 | python3 | 新增 .codex/context-question-43.json | 记录模型配置体验痛点的关键疑问 |
+| 2025-11-24T10:40:21+08:00 | sequential-thinking | 完成度疑问梳理 | 梳理项目完成度评估的已知/未知与优先级，锁定 Phase6、测试、部署为高优先级 |
+| 2025-11-24T10:40:21+08:00 | sequential-thinking | 接收任务初步思考 | 明确需执行结构化扫描与规划后再评估完成度 |
+| 2025-11-24T10:40:21+08:00 | list_mcp_resources | N/A | 检查可用 MCP 资源（code-index 未配置，返回空列表） |
+| 2025-11-24T10:40:21+08:00 | shell | `sed -n '1,200p' README.md` | 快速扫描 README 获取架构与启动流程 |
+| 2025-11-24T10:40:21+08:00 | shell | `sed -n '1,200p' 项目需求.md` | 阅读主需求文档以了解目标与验收约束 |
+| 2025-11-24T10:40:21+08:00 | shell | `sed -n '1,200p' 功能拆解.md` | 获取功能点与源码映射、数据流 |
+| 2025-11-24T10:40:21+08:00 | shell | `sed -n '1,200p' verification.md` | 查看近期验证记录与未完成风险 |
+| 2025-11-24T10:40:21+08:00 | apply_patch | .codex/context-scan.json | 更新结构化扫描，聚焦项目完成度与缺口 |
+| 2025-11-24T10:40:21+08:00 | apply_patch | .codex/context-sufficiency.json | 更新充分性检查，明确 Phase6/测试/部署风险与验证计划 |
+| 2025-11-24T10:40:21+08:00 | shell | `plan_task|analyze_task|reflect_task|split_tasks --help` | shrimp-task-manager 命令不存在，规划工具不可用 |
 | 2025-11-20T02:36:50+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | 限制本地模型仅用于 embedding/rerank/ocr，禁用 metadata/tagging/structure 的本地选项 |
 | 2025-11-20T02:36:30+08:00 | apply_patch | apps/worker/src/pipeline.ts | 还原 metadata 阶段强制依赖远程模型，移除本地 fallback |
 | 2025-11-20T02:35:15+08:00 | apply_patch | apps/worker/src/pipeline.ts | metadata 缺省时退回本地语义引擎，避免因未配置而抛错 |

@@ -66,6 +66,48 @@ const ROLE_LABEL_MAP = new Map<ModelRoleOption, string>(
   MODEL_ROLE_OPTIONS.map((item) => [item.value, item.label])
 );
 
+const ROLE_CARD_META: Record<
+  ModelRoleOption,
+  { title: string; description: string; highlights: string; supportsLocal: boolean }
+> = {
+  embedding: {
+    title: "文本向量",
+    description: "用于检索召回与向量日志，推荐本地 bge 系列",
+    highlights: "必配 · 支持本地",
+    supportsLocal: true
+  },
+  rerank: {
+    title: "重排",
+    description: "混合检索排序优化，适合本地 reranker",
+    highlights: "排序关键 · 可本地",
+    supportsLocal: true
+  },
+  ocr: {
+    title: "OCR / Caption",
+    description: "PDF/图片文字与描述提取，支持本地/远程",
+    highlights: "图片/PDF · 可本地",
+    supportsLocal: true
+  },
+  metadata: {
+    title: "语义元数据",
+    description: "为 chunk 生成标题/摘要/标签/关键词/实体",
+    highlights: "必配 · 语义标签",
+    supportsLocal: false
+  },
+  structure: {
+    title: "语义分段",
+    description: "LLM 决定章节/段落边界，生成层级结构树",
+    highlights: "必配 · 语义切分",
+    supportsLocal: false
+  },
+  tagging: {
+    title: "标签生成",
+    description: "文档/chunk 标签与主题分类，可与 metadata 共用",
+    highlights: "可共用 metadata",
+    supportsLocal: false
+  }
+};
+
 function isSupportedProvider(value: string): value is Provider {
   return PROVIDER_VALUES.includes(value as Provider);
 }
@@ -95,6 +137,8 @@ export default function ModelSettingsPage() {
   const [apiKey, setApiKey] = useState("");
   const [hasStoredKey, setHasStoredKey] = useState(false);
   const [apiKeyPreview, setApiKeyPreview] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [settingsList, setSettingsList] = useState<SettingResponse["setting"][]>([]);
   const [listStatus, setListStatus] = useState<string | null>(null);
@@ -241,6 +285,15 @@ export default function ModelSettingsPage() {
     }
   }, [provider]);
 
+  useEffect(() => {
+    if (provider === "local") {
+      setBaseUrl((prev) => (prev.startsWith("local://") || prev.startsWith("./") ? prev : "local://"));
+      setFormError(null);
+    } else {
+      setBaseUrl((prev) => (prev.startsWith("http") ? prev : "https://api.openai.com/v1/chat/completions"));
+    }
+  }, [provider]);
+
   const loadLocalModels = useCallback(async () => {
     try {
       setLocalModelsStatus("读取模型目录…");
@@ -275,19 +328,44 @@ export default function ModelSettingsPage() {
     setModelName(setting.modelName);
     setBaseUrl(setting.baseUrl);
     setDisplayName(setting.displayName ?? "");
+    setHasStoredKey(Boolean(setting.hasApiKey));
+    setApiKeyPreview(setting.apiKeyPreview);
+    setApiKey("");
+    setFormError(null);
     setStatus(`已加载 ${setting.displayName ?? setting.modelName}`);
+  };
+
+  const validateForm = () => {
+    if (!modelName.trim()) {
+      return "请填写模型名称";
+    }
+    if (!baseUrl.trim()) {
+      return provider === "local" ? "请填写本地模型路径（local:// 或相对路径）" : "请填写 Base URL";
+    }
+    if (provider === "openai" && !apiKey && !hasStoredKey) {
+      return "OpenAI 提供方需要可用的 API Key";
+    }
+    return null;
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      setStatus(validationError);
+      return;
+    }
+    setFormError(null);
+    setSaving(true);
     setStatus("保存中…");
     try {
       const payload = await saveModelSettings({
         tenantId,
         libraryId,
         provider,
-        baseUrl,
-        modelName,
+        baseUrl: baseUrl.trim(),
+        modelName: modelName.trim(),
         modelRole,
         displayName: displayName.trim() ? displayName.trim() : undefined,
         apiKey: apiKey.length ? apiKey : undefined
@@ -300,6 +378,8 @@ export default function ModelSettingsPage() {
       await loadSettingsList();
     } catch (error) {
       setStatus((error as Error).message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -549,29 +629,53 @@ export default function ModelSettingsPage() {
               </select>
             </label>
           </div>
-          <div className="split">
-            <label>
-              模型角色
-              <select value={modelRole} onChange={(event) => setModelRole(event.target.value as ModelRoleOption)}>
-                {MODEL_ROLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-        <label>
-          服务提供方
-          <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
-            <option value="openai">OpenAI API</option>
-            <option value="ollama">Ollama</option>
-            <option value="local" disabled={!LOCAL_MODEL_ROLES.includes(modelRole)}>本地模型</option>
-          </select>
-          {!LOCAL_MODEL_ROLES.includes(modelRole) && (
-            <small className="muted-text">该角色仅支持远程 API（OpenAI/Ollama），无法使用本地模型。</small>
-          )}
-        </label>
-      </div>
+          <div className="stacked-form">
+            <span className="muted-text">选择模型角色（按功能区分）</span>
+            <div className="split stack-on-mobile" style={{ flexWrap: "wrap", gap: "8px" }}>
+              {MODEL_ROLE_OPTIONS.map((option) => {
+                const meta = ROLE_CARD_META[option.value];
+                const selected = modelRole === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="card"
+                    style={{
+                      border: selected ? "2px solid var(--primary, #0f62fe)" : "1px solid #e0e0e0",
+                      padding: "12px",
+                      minWidth: "220px",
+                      textAlign: "left"
+                    }}
+                    onClick={() => setModelRole(option.value)}
+                  >
+                    <div className="button-row compact" style={{ justifyContent: "space-between" }}>
+                      <strong>{meta?.title ?? option.label}</strong>
+                      <span className="status-pill info">{meta?.highlights}</span>
+                    </div>
+                    <div className="muted-text" style={{ marginTop: "4px" }}>
+                      {meta?.description}
+                    </div>
+                    <small className="muted-text">
+                      {meta?.supportsLocal ? "支持本地模型" : "仅远程 API（OpenAI/Ollama）"}
+                    </small>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="split">
+              <label>
+                服务提供方
+                <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
+                  <option value="openai">OpenAI API</option>
+                  <option value="ollama">Ollama</option>
+                  <option value="local" disabled={!LOCAL_MODEL_ROLES.includes(modelRole)}>本地模型</option>
+                </select>
+                {!LOCAL_MODEL_ROLES.includes(modelRole) && (
+                  <small className="muted-text">该角色仅支持远程 API（OpenAI/Ollama），无法使用本地模型。</small>
+                )}
+              </label>
+            </div>
+          </div>
           <div className="split">
             <label>
               模型
@@ -632,8 +736,11 @@ export default function ModelSettingsPage() {
             )}
             {provider === "local" && <small className="muted-text">本地模型使用 MODELS_DIR 目录，无需 Key。</small>}
           </label>
+          {formError && <small className="muted-text danger">{formError}</small>}
           <div className="button-row">
-            <button type="submit">保存配置</button>
+            <button type="submit" disabled={saving}>
+              {saving ? "保存中…" : "保存配置"}
+            </button>
             <button type="button" className="ghost" onClick={loadSetting}>
               重新加载
             </button>
@@ -713,11 +820,11 @@ export default function ModelSettingsPage() {
             .filter(([roleKey]) => LOCAL_MODEL_ROLES.includes(roleKey as ModelRoleOption))
             .map(([roleKey, kind]) => {
             const role = roleKey as ModelRoleOption;
-            const available = localModelChoices.filter((model) => model.role === kind);
-            const missingDefaults = localModels.filter((model) => model.role === kind && !model.present);
-            const recommended = missingDefaults[0];
-            return (
-              <div key={role} className="split stack-on-mobile">
+                const available = localModelChoices.filter((model) => model.role === kind);
+                const missingDefaults = localModels.filter((model) => model.role === kind && !model.present);
+                const recommended = missingDefaults[0];
+                return (
+                  <div key={role} className="split stack-on-mobile">
                 <label>
                   {ROLE_LABEL_MAP.get(role) ?? role}
                   <select
