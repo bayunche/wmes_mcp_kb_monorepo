@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadDocuments } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
+import { AsyncPhase, useAsyncTask } from "../hooks/useAsyncTask";
+import { useToast } from "./ui/Toast";
+import { GlassCard } from "./ui/GlassCard";
+import { SectionHeader } from "./ui/SectionHeader";
+import { Field } from "./ui/Field";
+import { StatusPill } from "./ui/StatusPill";
+import { Button } from "./ui/Button";
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none";
 
 function deriveTitle(filename: string) {
   const dotIndex = filename.lastIndexOf(".");
@@ -10,6 +20,8 @@ function deriveTitle(filename: string) {
   return filename;
 }
 
+type UploadResult = { docId: string; filename: string; status: string; message?: string };
+
 export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const { tenants, libraries, loading: optionLoading, error: optionError, refresh } = useOrgOptions();
   const [tenantId, setTenantId] = useState("default");
@@ -17,10 +29,9 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
   const [fileTitles, setFileTitles] = useState<string[]>([]);
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [results, setResults] = useState<
-    { docId: string; filename: string; status: string; message?: string }[]
-  >([]);
+  const [results, setResults] = useState<UploadResult[]>([]);
+  const { push: toastPush } = useToast();
+  const lastPhaseRef = useRef<AsyncPhase>("idle");
 
   const libraryOptions = useMemo(() => {
     if (!libraries.length) return [];
@@ -41,6 +52,47 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
     }
   }, [libraryOptions, libraryId]);
 
+  const uploadTask = useAsyncTask(
+    async () => {
+      const response = await uploadDocuments({
+        files,
+        title: title.trim() || undefined,
+        titles: fileTitles,
+        tenantId,
+        libraryId
+      });
+      const list: UploadResult[] = Array.isArray(response?.items)
+        ? response.items.map((item: any) => ({
+            docId: item.docId ?? "",
+            filename: item.filename ?? "",
+            status: item.status ?? "uploaded",
+            message: item.message
+          }))
+        : [];
+      setResults(list);
+      onUploaded();
+      return list.length;
+    },
+    {
+      loadingMessage: "正在上传并创建任务...",
+      successMessage: (count) => `已创建 ${count} 个文档入库任务`,
+      errorMessage: (error) => error.message
+    }
+  );
+
+  useEffect(() => {
+    const { phase, message } = uploadTask.status;
+    if (phase === lastPhaseRef.current) return;
+    lastPhaseRef.current = phase;
+
+    if (phase === "error" && message) {
+      toastPush({ title: "上传失败", description: message, tone: "danger" });
+    }
+    if (phase === "success" && message) {
+      toastPush({ title: "上传完成", description: message, tone: "success" });
+    }
+  }, [uploadTask.status.phase, uploadTask.status.message, toastPush]);
+
   const handleFilesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const list = event.target.files ? Array.from(event.target.files) : [];
     setFiles(list);
@@ -53,73 +105,66 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!files.length) {
-      setStatus("请选择至少一个文件");
+      toastPush({ title: "请至少选择一个文件", tone: "warning" });
       return;
     }
-    setStatus("上传中…");
     try {
-      const payload = await uploadDocuments({
-        files,
-        title: files.length <= 1 ? title : undefined,
-        titles: files.length > 1 ? fileTitles : undefined,
-        tenantId,
-        libraryId
-      });
-      setStatus("上传完成");
-      setResults(payload.items ?? []);
-      setTitle("");
-      setFiles([]);
-      setFileTitles([]);
-      onUploaded();
-    } catch (error) {
-      setStatus((error as Error).message);
+      await uploadTask.run();
+    } catch {
+      // 错误已由 hook 处理 toast
     }
   };
 
   return (
-    <section className="card">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">文档入口</p>
-          <h2>上传文档</h2>
-        </div>
-        <div className="button-row compact">
-          {optionLoading && <span className="status-pill info">同步配置…</span>}
-          {optionError && <span className="status-pill danger">{optionError}</span>}
-          {status && <span className="status-pill">{status}</span>}
-        </div>
-      </header>
+    <GlassCard className="p-6 space-y-4">
+      <SectionHeader
+        eyebrow="入库"
+        title="上传原始文档"
+        description="选择租户/知识库后上传文件，系统自动生成标题与标签并创建 ingestion 任务。"
+      />
+      <div className="button-row compact">
+        {optionLoading && <StatusPill tone="info">同步配置中</StatusPill>}
+        {optionError && <StatusPill tone="danger">{optionError}</StatusPill>}
+        {uploadTask.status.message && (
+          <StatusPill tone={uploadTask.status.phase === "error" ? "danger" : "info"}>
+            {uploadTask.status.message}
+          </StatusPill>
+        )}
+      </div>
       <form onSubmit={handleSubmit} className="stacked-form">
         <div className="split">
-          <label>
-            选择租户
-            <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-              {tenants.length
-                ? tenants.map((tenant) => (
-                    <option key={tenant.tenantId} value={tenant.tenantId}>
-                      {tenant.displayName ?? tenant.tenantId}（{tenant.tenantId}）
-                    </option>
-                  ))
-                : <option value="default">默认租户（default）</option>}
+          <Field label="租户">
+            <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+              {tenants.length ? (
+                tenants.map((tenant) => (
+                  <option key={tenant.tenantId} value={tenant.tenantId}>
+                    {tenant.displayName ?? tenant.tenantId}
+                  </option>
+                ))
+              ) : (
+                <option value="default">default</option>
+              )}
             </select>
-          </label>
-          <label>
-            知识库
-            <select value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-              {libraryOptions.length
-                ? libraryOptions.map((lib) => (
-                    <option key={lib.libraryId} value={lib.libraryId}>
-                      {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
-                    </option>
-                  ))
-                : <option value="default">默认知识库（default）</option>}
+          </Field>
+          <Field label="知识库">
+            <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+              {libraryOptions.length ? (
+                libraryOptions.map((lib) => (
+                  <option key={lib.libraryId} value={lib.libraryId}>
+                    {lib.displayName ?? lib.libraryId}
+                  </option>
+                ))
+              ) : (
+                <option value="default">default</option>
+              )}
             </select>
-          </label>
+          </Field>
         </div>
+
         {files.length <= 1 ? (
-          <label>
-            文档标题
+          <Field label="文档标题" hint="默认取文件名，可自行调整">
             <input
+              className={inputClass}
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -130,16 +175,16 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
                 });
               }}
               required
-              placeholder="示例：2024 合作协议"
+              placeholder="示例：2024 协议"
             />
-          </label>
+          </Field>
         ) : (
           <div className="stacked-form">
-            <p className="muted-text">已批量选择 {files.length} 个文件，可逐个调整标题：</p>
+            <p className="muted-text">已选择 {files.length} 个文件，可单独调整标题：</p>
             {files.map((file, index) => (
-              <label key={`${file.name}-${index}`}>
-                {file.name}
+              <Field key={`${file.name}-${index}`} label={file.name}>
                 <input
+                  className={inputClass}
                   value={fileTitles[index] ?? ""}
                   onChange={(e) =>
                     setFileTitles((prev) => {
@@ -150,31 +195,39 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
                   }
                   required
                 />
-              </label>
+              </Field>
             ))}
           </div>
         )}
-        <small className="muted-text">标签将根据标题 + AI 自动生成，无需手动填写。</small>
-        <label className="file-input">
-          文件
-          <input type="file" multiple onChange={handleFilesChange} />
-        </label>
+
+        <small className="muted-text">标签会基于标题 + AI 自动生成，无需手填。</small>
+
+        <Field label="文件">
+          <input className={inputClass} type="file" multiple onChange={handleFilesChange} />
+        </Field>
+
         {files.length > 0 && (
-          <ul className="file-preview">
+          <ul className="glass-card p-3 space-y-1">
             {files.map((file) => (
-              <li key={file.name}>{file.name}</li>
+              <li key={file.name} className="text-sm text-slate-700">
+                {file.name}
+              </li>
             ))}
           </ul>
         )}
+
         <div className="button-row">
-          <button type="submit">提交任务</button>
-          <button type="button" className="ghost" onClick={refresh}>
+          <Button type="submit" disabled={uploadTask.status.phase === "loading"}>
+            提交任务
+          </Button>
+          <Button type="button" variant="ghost" onClick={refresh}>
             刷新配置
-          </button>
+          </Button>
         </div>
       </form>
+
       {results.length > 0 && (
-        <div className="upload-results">
+        <div className="table-wrapper">
           <table>
             <thead>
               <tr>
@@ -197,6 +250,6 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
           </table>
         </div>
       )}
-    </section>
+    </GlassCard>
   );
 }

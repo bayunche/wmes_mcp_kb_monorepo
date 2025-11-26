@@ -22,6 +22,7 @@ function mapRow(row: DocumentsTable): Document {
     libraryId: row.library_id,
     tags: row.tags ?? undefined,
     errorMessage: row.error_message ?? undefined,
+    statusMeta: (row as any).status_meta ?? undefined,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
   });
@@ -45,6 +46,7 @@ export class PgDocumentRepository implements DocumentRepository {
       library_id: document.libraryId ?? "default",
       tags: document.tags ?? null,
       error_message: document.errorMessage ?? null,
+      status_meta: (document as any).statusMeta ?? null,
       updated_at: now,
       created_at: document.createdAt ? new Date(document.createdAt) : now
     };
@@ -65,6 +67,7 @@ export class PgDocumentRepository implements DocumentRepository {
           library_id: payload.library_id,
           tags: payload.tags,
           error_message: payload.error_message,
+          status_meta: payload.status_meta,
           updated_at: payload.updated_at
         })
       )
@@ -117,10 +120,30 @@ export class PgDocumentRepository implements DocumentRepository {
       .set({
         ingest_status: status,
         error_message: errorMessage ?? null,
+        status_meta: sql`status_meta`,
         updated_at: sql`NOW()`
       })
       .where("doc_id", "=", docId)
       .execute();
+  }
+
+  async updateStatusMeta(
+    docId: string,
+    payload: { ingestStatus?: Document["ingestStatus"]; errorMessage?: string | null; statusMeta?: unknown }
+  ): Promise<void> {
+    const updateSet: Record<string, unknown> = {
+      updated_at: sql`NOW()`
+    };
+    if (payload.ingestStatus) {
+      updateSet.ingest_status = payload.ingestStatus;
+    }
+    if (payload.errorMessage !== undefined) {
+      updateSet.error_message = payload.errorMessage ?? null;
+    }
+    if (payload.statusMeta !== undefined) {
+      updateSet.status_meta = payload.statusMeta;
+    }
+    await this.db.updateTable("documents").set(updateSet).where("doc_id", "=", docId).execute();
   }
 
   async delete(docId: string): Promise<void> {

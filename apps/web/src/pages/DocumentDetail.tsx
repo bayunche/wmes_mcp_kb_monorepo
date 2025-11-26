@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { deleteDocument, listDocuments, reindexDocument } from "../api";
+import { GlassCard } from "../components/ui/GlassCard";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { StatusPill } from "../components/ui/StatusPill";
+import { Button } from "../components/ui/Button";
 
 type DocSummary = {
   docId: string;
@@ -19,7 +23,7 @@ export default function DocumentDetail() {
 
   const load = async () => {
     if (!docId) return;
-    setStatus("加载详情中…");
+    setStatus("加载详情�?..");
     try {
       const response = await listDocuments();
       const target = (response.items ?? []).find((doc: DocSummary) => doc.docId === docId) ?? null;
@@ -36,10 +40,10 @@ export default function DocumentDetail() {
 
   const handleReindex = async () => {
     if (!docId) return;
-    setStatus("重新入队中…");
+    setStatus("重新入队重建索引...");
     try {
       await reindexDocument(docId, document?.tenantId, document?.libraryId);
-      setStatus("任务已入队");
+      setStatus("任务已入�?);
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -47,8 +51,8 @@ export default function DocumentDetail() {
 
   const handleDelete = async () => {
     if (!docId) return;
-    if (!confirm("确定要删除该文档及其附件？")) return;
-    setStatus("删除中…");
+    if (!confirm("确定删除该文档及其附件吗�?)) return;
+    setStatus("删除�?..");
     try {
       await deleteDocument(docId);
       navigate("/documents");
@@ -58,18 +62,16 @@ export default function DocumentDetail() {
   };
 
   if (!docId) {
-    return <p className="placeholder">缺少 docId。</p>;
+    return <p className="placeholder">缺少 docId</p>;
   }
 
   return (
-    <section className="card">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">文档详情</p>
-          <h2>{document?.title ?? docId}</h2>
-        </div>
-        {status && <span className="status-pill">{status}</span>}
-      </header>
+    <GlassCard>
+      <SectionHeader
+        eyebrow="文档详情"
+        title={document?.title ?? docId}
+        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+      />
       {document ? (
         <div className="detail-grid">
           <div>
@@ -77,36 +79,38 @@ export default function DocumentDetail() {
             <p>{document.docId}</p>
           </div>
           <div>
-            <strong>Tenant</strong>
-            <p>{document.tenantId ?? "default"}</p>
+            <strong>标签</strong>
+            <p>{document.tags?.join(" / ") || "-"}</p>
           </div>
           <div>
-            <strong>Library</strong>
-            <p>{document.libraryId ?? "default"}</p>
+            <strong>租户</strong>
+            <p>{document.tenantId ?? "-"}</p>
           </div>
           <div>
-            <strong>Status</strong>
+            <strong>知识�?/strong>
+            <p>{document.libraryId ?? "-"}</p>
+          </div>
+          <div>
+            <strong>状�?/strong>
             <p>{document.ingestStatus ?? "-"}</p>
-          </div>
-          <div>
-            <strong>Tags</strong>
-            <p>{document.tags?.length ? document.tags.join(", ") : "-"}</p>
           </div>
         </div>
       ) : (
-        <p className="placeholder">暂无数据。</p>
+        <p className="placeholder">未找到该文档</p>
       )}
       <div className="button-row">
-        <Link to={`/documents/${docId}/edit`} className="link-btn">
-          编辑标签
-        </Link>
-        <button type="button" className="ghost" onClick={handleReindex}>
-          重新索引
-        </button>
-        <button type="button" className="danger" onClick={handleDelete}>
+        <Button variant="ghost" onClick={handleReindex} disabled={!document}>
+          重建索引
+        </Button>
+                <Button asChild>
+          <Link to={/documents//edit}>编辑</Link>
+        </Button>
+        <Button variant="ghost" onClick={handleDelete}>
           删除
-        </button>
+        </Button>
       </div>
-    </section>
+    </GlassCard>
   );
 }
+
+

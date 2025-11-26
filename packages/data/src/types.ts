@@ -25,6 +25,10 @@ export interface DocumentRepository {
   get(docId: string): Promise<Document | null>;
   updateTags(docId: string, tags: string[]): Promise<Document | null>;
   updateStatus(docId: string, status: Document["ingestStatus"], errorMessage?: string): Promise<void>;
+  updateStatusMeta?(
+    docId: string,
+    payload: { ingestStatus?: Document["ingestStatus"]; errorMessage?: string | null; statusMeta?: unknown }
+  ): Promise<void>;
   delete(docId: string): Promise<void>;
   count(tenantId?: string, libraryId?: string): Promise<number>;
   stats(tenantId?: string, libraryId?: string): Promise<DocumentStats>;

@@ -1,36 +1,29 @@
 {
-  "timestamp": "2025-11-24T11:47:53+08:00",
-  "workspace": "/mnt/d/code/mcpçŸ¥è¯†åº“/wmes_mcp_kb_monorepo",
-  "focus": "ä¼˜åŒ–å‰ç«¯ ModelSettings é¡µé¢ä¸æ¨¡å‹é…ç½®ä¿å­˜ä½“éªŒï¼ˆè¡¨å•äº¤äº’ã€æœ¬åœ°/è¿œç¨‹æ¨¡å‹é€‰æ‹©ã€ä¿å­˜/åˆ·æ–°çŠ¶æ€ï¼‰",
-  "locations": {
-    "frontend": [
-      "apps/web/src/pages/ModelSettingsPage.tsxï¼ˆè¡¨å•é€»è¾‘ã€çŠ¶æ€ã€UIï¼‰",
-      "apps/web/src/api.tsï¼ˆæ¨¡å‹é…ç½®ç›¸å…³ API è°ƒç”¨ï¼‰",
-      "apps/web/src/hooks/useOrgOptions.tsï¼ˆç§Ÿæˆ·/åº“ä¸‹æ‹‰æ•°æ®æºï¼‰"
-    ],
-    "backend": [
-      "apps/api/src/routes.tsï¼ˆ/model-settings GET/PUT/list/modelsã€install æ¨¡å‹ï¼‰",
-      "packages/shared-schemas/src/index.tsï¼ˆModelSetting schemaï¼‰"
-    ],
-    "logs": [
-      ".codex/testing.mdï¼ˆå‰ç«¯æµ‹è¯•ç¼ºå¤±ä¸ç¯å¢ƒé™åˆ¶ï¼‰",
-      ".codex/operations-log.mdï¼ˆæ¨¡å‹é…ç½®ç›¸å…³æ“ä½œå†å²ï¼‰"
-    ]
-  },
+  "module_locations": [
+    "apps/worker/src/pipeline.ts",
+    "apps/worker/src/worker.ts",
+    "packages/core/src/semantic-structure.ts",
+    "packages/core/src/semantic-metadata.ts",
+    "packages/core/src/ocr.ts",
+    "apps/api/src/routes.ts",
+    "packages/shared-schemas/src/index.ts",
+    "docs/ingestion.md",
+    "docs/retrieval.md"
+  ],
   "current_state": {
-    "plan_progress": "implementation-plan.md ä¸­ Phase 0-5 å·²å‹¾é€‰ï¼Œä½† Phase 6 çš„ 6.1-6.4 å…¨éƒ¨æœªå®Œæˆï¼Œä»å¾…çœŸå®è§£æ/æ£€ç´¢é—­ç¯ã€API/MCP éªŒæ”¶ã€E2E æµ‹è¯•ä¸éƒ¨ç½²éªŒè¯ã€‚",
-    "test_status": "verification.md ä¸ .codex/testing.md å¤šæ¬¡è®°å½• bun test / bunx tsc / docker compose æ— æ³•åœ¨å½“å‰ WSL ç¯å¢ƒè¿è¡Œï¼›æœ€è¿‘ä¸€è½®è‡ªåŠ¨åŒ–æµ‹è¯•æœªæ‰§è¡Œï¼ŒE2E ä»ä¸º skip çŠ¶æ€ã€‚",
-    "codebase_state": "git status æ˜¾ç¤ºå¤§é‡å·²ä¿®æ”¹æ–‡ä»¶ï¼ˆapps/apiã€apps/workerã€apps/mcpã€packages/* ç­‰ï¼‰å°šæœªæäº¤ï¼Œéœ€è°¨æ…åˆ¤æ–­æ˜¯å¦ä¸ºæœ€ç»ˆç‰ˆæœ¬æˆ–ä»åœ¨è¿­ä»£ã€‚",
-    "docs_alignment": "éœ€æ±‚ä¸åŠŸèƒ½æ‹†è§£æ–‡æ¡£å·²é½å¤‡ï¼ŒREADME æä¾›éƒ¨ç½²æ­¥éª¤ï¼Œä½†ç¼ºå°‘æœ€æ–°çš„å®é™…æ‰§è¡Œ/éªŒè¯è®°å½•ã€‚"
+    "semantic_segmentation": "Worker Ê¹ÓÃ generateStructureViaModel ®” model_settings ÅäÖÃÁË role=structure •r†¢ÓÃ£¬Éú³É title/level/path/content µÄ sections KÅc chunks ºÏã£»È±ÉÙÔO¶¨•r»ØÍËé AdaptiveChunkFactory °´éL¶ÈÇĞ·Ö¡£",
+    "chunk_metadata": "extractMetadata Ê¹ÓÃ generateSemanticMetadataViaModel (role=metadata) Éú³É title/summary/semanticTags/topics/keywords/envLabels/bizEntities/entities/parentSectionPath£¬KÂäìµ½ chunk.semanticMetadata£»provider=local •r×ö†¢°lÊ½ÕªÒª£¬ŸoÔO¶¨•rÌøß^¡£",
+    "structure_tree": "normalizeSemanticSections ®aÉú document_sections£¬chunk.parentSectionPath Åc sectionId ½‰¶¨£»GET /documents/:id/structure ·µ»ØÕZÁxŒÓ¼‰¡£",
+    "retrieval": "HybridRetriever (packages/core/src/retrieval.ts) ¹© /search ¼° MCP kb.search/related/preview£¬Ö§³Ö semanticTags/envLabels/attachment filters£¬·µ»Ø chunk+document+attachments¡£",
+    "ocr": "shouldUseOcr ¸²Éw pdf/image/doc/ppt/xls£»HttpOcrAdapter/LocalOcrAdapter ÓÉ OCR_* ­h¾³×ƒÁ¿òŒ„Ó£¬ÌáÈ¡ÎÄ±¾áá×ßÍ¬Ò»ÇĞ·ÖÁ÷³Ì¡£",
+    "pipeline_flow": "upload -> queue -> preprocessRawText -> semanticSegmenter -> metadata -> embed -> persist (documents/chunks/sections/embeddings/attachments)¡£"
   },
-  "tests": {
-    "existing": "å•å…ƒ/é›†æˆæµ‹è¯•ä½äº tests/unitã€apps/*/__tests__ã€packages/*/__tests__ï¼›E2E åœ¨ tests/e2eï¼ˆé»˜è®¤ skipï¼‰ã€‚scripts/test-matrix.ts å¯æŒ‰é¡ºåºè¿è¡Œ unit/integration/e2eã€‚",
-    "notes": "æœ€è¿‘çš„æµ‹è¯•å‘½ä»¤åœ¨å½“å‰ç¯å¢ƒå›  Bun/Docker ä¸å¯æ‰§è¡Œè€Œå¤±è´¥ï¼›éœ€åœ¨å…·å¤‡ Bun CLI ä¸å®¹å™¨èƒ½åŠ›çš„å®¿ä¸»æœºé‡è·‘ bun install && bun test ä»¥åŠ bun run scripts/test-matrix.tsã€‚"
-  },
-  "observation_report": [
-    "æŒ‰å®æ–½è®¡åˆ’ Phase 6 å°šæœªå®Œæˆï¼Œé¡¹ç›®å°šæœªè¾¾åˆ°â€œç”Ÿäº§è½åœ°â€éªŒæ”¶æ ‡å‡†ã€‚",
-    "ç¼ºå°‘è¿‘æœŸå¯æ‰§è¡Œçš„è‡ªåŠ¨åŒ–æµ‹è¯•ç»“æœï¼›å½“å‰ç¯å¢ƒæ— æ³•è¿è¡Œ Bun/Dockerï¼Œå®Œæˆåº¦æ— æ³•è¢«éªŒè¯ã€‚",
-    "E2E å‰§æœ¬ä»é»˜è®¤è·³è¿‡ï¼Œæœªé™„ç¤ºä¾‹æ•°æ®ä¸å®é™…è·‘é€šçš„è¯æ®ã€‚",
-    "å­˜åœ¨å¤§é‡æœªæäº¤æ”¹åŠ¨ï¼Œéœ€è¦ç¡®è®¤æ˜¯å¦ä¸ºæœ€ç»ˆè½åœ°ç‰ˆæœ¬æˆ–ä»éœ€æ•´ç†ã€‚"
+  "tech_stack": "Bun + TypeScript£¬pgvector/Qdrant/MinIO/RabbitMQ£»LLM provider openai/ollama ½› model_settings ÅäÖÃ£¬Ä¬ÕJ†¢ÓÃ Xenova ±¾µØÄ£ĞÍ£»OCR Ö§³Ö±¾µØÃüÁî»ò HTTP¡£",
+  "tests": "apps/api/src/__tests__/api.test.ts ¸²Éw /mcp/search|related|preview£»Î´ÒŠŒ£éTµÄÕZÁxÇĞ·Ö/Ôª”µ“ş e2e œyÔ‡¡£",
+  "observations": [
+    "LLM ÇĞ·Ö/Ôª”µ“şÒÀÙ‡ model_settings role=structure/metadata£»ÌÈÈ±Ê§„tƒH°´éL¶ÈÇĞ·ÖÇÒŸoÕZÁx˜Ë×¢¡£",
+    "SEMANTIC_METADATA_LIMIT ¿ØÖÆ LLM Õ{ÓÃ”µ£¬Ä¬ÕJ²»ÏŞÖÆ¡£",
+    "OCR_ENABLED=false »òÎ´ÅäÖÃ adapter •r²»×ö OCR¡£",
+    "›]ÓĞ model_settings ·N×Ó£¬Ğè½› /model-settings API »òÖ±½ÓŒ‘ìÅäÖÃ¡£"
   ]
 }

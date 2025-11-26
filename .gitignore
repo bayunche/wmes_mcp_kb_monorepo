@@ -15,6 +15,7 @@ logs/
 .env
 .env.local
 
+.spec-workflow
 # Backups & uploads
 backups/
 models/weights/image/*
@@ -32,3 +33,4 @@ test-results/
 .DS_Store
 Thumbs.db
 
+test_assets

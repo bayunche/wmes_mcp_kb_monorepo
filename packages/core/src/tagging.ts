@@ -1,4 +1,5 @@
-import { ModelProvider } from "@kb/shared-schemas";
+﻿import { ModelProvider } from "@kb/shared-schemas";
+import OpenAI from "openai";
 
 export interface TagModelConfig {
   provider: ModelProvider;
@@ -19,6 +20,11 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 
 type JsonRecord = Record<string, unknown>;
 
+function sanitizeText(input: string | undefined | null): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
+
 export async function generateTagsViaModel(
   config: TagModelConfig,
   input: TagModelInput,
@@ -30,7 +36,7 @@ export async function generateTagsViaModel(
   }
   const prompt = buildPrompt(input, limit);
   if (config.provider === "openai") {
-    return requestOpenAi(config, prompt, limit, fetchImpl);
+    return requestOpenAi(config, prompt, limit);
   }
   return requestOllama(config, prompt, limit, fetchImpl);
 }
@@ -38,41 +44,44 @@ export async function generateTagsViaModel(
 async function requestOpenAi(
   config: TagModelConfig,
   prompt: string,
-  limit: number,
-  fetchImpl: FetchLike
+  limit: number
 ): Promise<string[]> {
-  const headers: Record<string, string> = {
-    "content-type": "application/json"
-  };
-  if (config.apiKey) {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-  }
-  const response = await fetchImpl(config.baseUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: config.modelName,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是文本标签生成器。仅以 JSON 对象 {\"tags\": [\"标签1\", ...]} 返回，不要附加解释。"
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
-    })
+  const client = new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseUrl
   });
-  if (!response.ok) {
-    throw new Error(`OpenAI tagging failed (${response.status})`);
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const completion = await client.chat.completions.create({
+        model: config.modelName,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: "You are a text tag generator. Only return JSON {\"tags\": [\"tag1\", ...]} with no explanation."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      });
+      const content =
+        (completion.choices?.[0]?.message?.content as string | null | undefined) ?? "";
+      return normalizeTags(parseTags(content), limit);
+    } catch (error) {
+      const err = error as any;
+      const status = err?.status ?? err?.response?.status;
+      const body = err?.response?.data ?? err?.responseBody ?? err?.message;
+      lastError = new Error(`OpenAI tagging failed (${status ?? "unknown"}) [attempt ${attempt} base=${config.baseUrl} model=${config.modelName}]: ${JSON.stringify(body)?.slice(0, 500)}`);
+      if (attempt === 2) {
+        throw lastError;
+      }
+    }
   }
-  const payload = (await response.json()) as JsonRecord;
-  const content = (((payload.choices as JsonRecord[] | undefined)?.[0]?.message as JsonRecord | undefined)?.content ?? "") as string;
-  return normalizeTags(parseTags(content), limit);
+  throw lastError ?? new Error("OpenAI tagging failed: unknown error");
 }
 
 async function requestOllama(
@@ -107,13 +116,17 @@ async function requestOllama(
 function buildPrompt(input: TagModelInput, limit: number): string {
   const snippets = input.snippets
     .filter((snippet) => snippet && snippet.trim().length)
-    .map((snippet) => snippet.replace(/\s+/g, " ").slice(0, 420))
+    .map((snippet) => sanitizeText(snippet).replace(/\s+/g, " ").slice(0, 420))
     .slice(0, 6)
     .map((snippet, index) => `${index + 1}. ${snippet}`)
     .join("\n");
-  const knownTags = input.tags?.length ? input.tags.join("，") : "无";
+  const knownTags = input.tags?.length
+    ? input.tags.map((t) => sanitizeText(t)).join("�?)
+    : "�?;
   const language = input.language ?? "zh";
-  return `语言: ${language}\n标题: ${input.title}\n已有标签: ${knownTags}\n正文片段:\n${snippets}\n\n请重新总结 ${limit} 个标签，越精炼越好，按照重要性排序。仅输出 JSON {"tags":[...]}。`;
+  return `语言: ${language}\n标题: ${sanitizeText(
+    input.title
+  )}\n已有标签: ${knownTags}\n正文片段:\n${snippets}\n\n请重新总结 ${limit} 个标签，越短越好，按重要性排序，仅输�?JSON {"tags":[...]}.`;
 }
 
 function parseTags(raw: string): string[] {
@@ -159,3 +172,5 @@ function normalizeTags(tags: string[], limit: number): string[] {
   }
   return result;
 }
+
+

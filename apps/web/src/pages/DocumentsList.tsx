@@ -1,141 +1,188 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listDocuments } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
+import { useAsyncTask } from "../hooks/useAsyncTask";
+import { useToast } from "../components/ui/Toast";
+import { GlassCard } from "../components/ui/GlassCard";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { StatusPill } from "../components/ui/StatusPill";
+import { Button } from "../components/ui/Button";
+import { Skeleton } from "../components/ui/Skeleton";
+import { Badge } from "../components/ui/Badge";
 
-type DocSummary = {
+interface DocItem {
   docId: string;
   title: string;
   ingestStatus?: string;
-  tenantId?: string;
-  libraryId?: string;
   tags?: string[];
-  errorMessage?: string;
+  libraryId?: string;
+  tenantId?: string;
+}
+
+const STATUS_LABELS: Record<string, { label: string; tone: "info" | "success" | "warning" | "danger" }> = {
+  uploaded: { label: "¥˝»Îø‚", tone: "warning" },
+  parsed: { label: "Ω‚ŒˆÕÍ≥…", tone: "info" },
+  indexed: { label: "“—»Îø‚", tone: "success" },
+  failed: { label: " ß∞‹", tone: "danger" }
 };
 
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 export default function DocumentsList() {
-  const [tenantFilter, setTenantFilter] = useState("default");
-  const [libraryFilter, setLibraryFilter] = useState("default");
-  const [documents, setDocuments] = useState<DocSummary[]>([]);
-  const [status, setStatus] = useState<string | null>(null);
-  const { tenants, libraries, loading: orgLoading, error: orgError, refresh: refreshOrgOptions } = useOrgOptions();
+  const { tenants, libraries } = useOrgOptions();
+  const [tenantId, setTenantId] = useState("default");
+  const [libraryId, setLibraryId] = useState("default");
+  const [items, setItems] = useState<DocItem[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "uploaded" | "parsed" | "indexed" | "failed">("all");
+  const toast = useToast();
 
-  const load = async () => {
-    setStatus("Âä†ËΩΩÊñáÊ°£‰∏≠‚Ä¶");
-    try {
-      const response = await listDocuments(tenantFilter || undefined, libraryFilter || undefined);
-      setDocuments(response.items ?? []);
-      setStatus(null);
-    } catch (error) {
-      setStatus((error as Error).message);
+  const loadTask = useAsyncTask(
+    async () => {
+      const data = await listDocuments(tenantId || undefined, libraryId || "default");
+      setItems(data.items ?? []);
+      return data.items?.length ?? 0;
+    },
+    {
+      loadingMessage: "º”‘ÿŒƒµµ¡–±Ì÷–...",
+      successMessage: (total) => `π≤ ${total} ∆™Œƒµµ`,
+      errorMessage: (error) => error.message
     }
-  };
+  );
 
   useEffect(() => {
-    load();
-  }, [tenantFilter, libraryFilter]);
+    loadTask
+      .run()
+      .catch((error) => toast.push({ title: "º”‘ÿ ß∞‹", description: (error as Error).message, tone: "danger" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, libraryId]);
 
-  useEffect(() => {
-    if (!tenants.length) return;
-    if (!tenants.some((tenant) => tenant.tenantId === tenantFilter)) {
-      setTenantFilter(tenants[0].tenantId);
-    }
-  }, [tenants, tenantFilter]);
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return items;
+    return items.filter((item) => (item.ingestStatus ?? "uploaded") === statusFilter);
+  }, [items, statusFilter]);
 
-  useEffect(() => {
-    if (!libraries.length) return;
-    const scoped = libraries.filter((lib) => !lib.tenantId || lib.tenantId === tenantFilter);
-    if (scoped.length && !scoped.some((lib) => lib.libraryId === libraryFilter)) {
-      setLibraryFilter(scoped[0].libraryId);
-    }
-  }, [libraries, tenantFilter, libraryFilter]);
+  const statusTone = loadTask.status.phase === "error" ? "danger" : loadTask.status.phase === "success" ? "success" : "info";
 
   return (
-    <section className="card">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">Ê°£Ê°à</p>
-          <h2>ÊñáÊ°£ÂàóË°®</h2>
-        </div>
-        {status && <span className="status-pill">{status}</span>}
-      </header>
-      <div className="toolbar">
-        <label>
-          ÁßüÊà∑
-          <select value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)}>
-            {tenants.length
-              ? tenants.map((tenant) => (
-                  <option key={tenant.tenantId} value={tenant.tenantId}>
-                    {tenant.displayName ?? tenant.tenantId}Ôºà{tenant.tenantId}Ôºâ
-                  </option>
-                ))
-              : <option value="default">ÈªòËÆ§ÁßüÊà∑</option>}
-          </select>
-        </label>
-        <label>
-          Áü•ËØÜÂ∫ì
-          <select value={libraryFilter} onChange={(e) => setLibraryFilter(e.target.value)}>
-            {libraries
-              .filter((lib) => !lib.tenantId || lib.tenantId === tenantFilter)
-              .map((lib) => (
-                <option key={lib.libraryId} value={lib.libraryId}>
-                  {lib.displayName ?? lib.libraryId}Ôºà{lib.libraryId}Ôºâ
+    <div className="panel-grid single-column">
+      <GlassCard className="space-y-4">
+        <SectionHeader
+          eyebrow="Œƒµµ¡–±Ì"
+          title="øÏÀŸ∂®Œª“—»Îø‚Œƒµµ"
+          status={
+            loadTask.status.message ? (
+              <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill>
+            ) : undefined
+          }
+        />
+        <div className="split">
+          <div className="flex flex-wrap items-center gap-2">
+            <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+              {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                <option key={item.tenantId} value={item.tenantId}>
+                  {item.displayName ?? item.tenantId}
                 </option>
               ))}
-          </select>
-        </label>
-        <button type="button" className="ghost" onClick={load}>
-          Âà∑Êñ∞
-        </button>
-        <button type="button" className="ghost" onClick={refreshOrgOptions}>
-          Âà∑Êñ∞ÈÖçÁΩÆ
-        </button>
-      </div>
-      {orgLoading && <p className="muted-text">ÂêåÊ≠•ÁßüÊà∑/Áü•ËØÜÂ∫ì‰∏≠‚Ä¶</p>}
-      {orgError && <p className="muted-text">{orgError}</p>}
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Ê†áÈ¢ò</th>
-              <th>Â∫ì</th>
-              <th>Áä∂ÊÄÅ</th>
-              <th>Ê†áÁ≠æ</th>
-              <th>Êìç‰Ωú</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((doc) => (
-              <tr key={doc.docId}>
-                <td>{doc.docId.slice(0, 8)}‚Ä¶</td>
-                <td>{doc.title}</td>
-                <td>{doc.libraryId ?? "default"}</td>
-                <td>
-                  {doc.ingestStatus ?? "-"}
-                  {doc.ingestStatus === "failed" && doc.errorMessage && (
-                    <div className="error-text">{doc.errorMessage}</div>
-                  )}
-                </td>
-                <td>{doc.tags?.length ? doc.tags.join(", ") : "-"}</td>
-                <td>
-                  <Link to={`/documents/${doc.docId}`} className="link">ËØ¶ÊÉÖ</Link>
-                  <Link to={`/documents/${doc.docId}/edit`} className="link">
-                    ÁºñËæë
-                  </Link>
-                </td>
-              </tr>
+            </select>
+            <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+              {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                .map((lib) => (
+                  <option key={lib.libraryId} value={lib.libraryId}>
+                    {lib.displayName ?? lib.libraryId}
+                  </option>
+                ))}
+            </select>
+            <Button variant="ghost" onClick={loadTask.run}>
+              À¢–¬
+            </Button>
+          </div>
+          <div className="pill-switch">
+            {(["all", "uploaded", "parsed", "indexed", "failed"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`pill-option ${statusFilter === key ? "is-active" : ""}`}
+                onClick={() => setStatusFilter(key)}
+              >
+                {STATUS_LABELS[key]?.label ?? "»´≤ø"}
+              </button>
             ))}
-            {!documents.length && (
+          </div>
+        </div>
+
+        <div className="table-wrapper">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={6} className="placeholder">
-                  ÊöÇÊó†Êï∞ÊçÆÔºåÂ∞ùËØï‰∏ä‰º†Êñ∞ÊñáÊ°£„ÄÇ
-                </td>
+                <th>Doc ID</th>
+                <th>±ÍÃ‚</th>
+                <th>◊¥Ã¨</th>
+                <th>±Í«©</th>
+                <th>≤Ÿ◊˜</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
+            </thead>
+            <tbody>
+              {loadTask.status.phase === "loading"
+                ? Array.from({ length: 4 }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`}>
+                      <td><Skeleton width="80%" /></td>
+                      <td><Skeleton width="90%" /></td>
+                      <td><Skeleton width="50%" /></td>
+                      <td><Skeleton width="60%" /></td>
+                      <td><Skeleton width="40%" /></td>
+                    </tr>
+                  ))
+                : filtered.map((item) => {
+                    const label = STATUS_LABELS[item.ingestStatus ?? "uploaded"] ?? STATUS_LABELS.uploaded;
+                    return (
+                      <tr key={item.docId}>
+                        <td>{item.docId}</td>
+                        <td>
+                          <div className="doc-title">{item.title}</div>
+                          <div className="meta-muted">
+                            {item.tenantId ?? tenantId} °§ {item.libraryId ?? libraryId}
+                          </div>
+                        </td>
+                        <td>
+                          <StatusPill tone={label.tone}>{label.label}</StatusPill>
+                        </td>
+                        <td>
+                          <div className="tag-inline">
+                            {item.tags?.length ? (
+                              item.tags.map((tag) => (
+                                <Badge key={`${item.docId}-${tag}`} tone="info">
+                                  {tag}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="meta-muted">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <Button asChild variant="ghost">
+                            <Link to={/documents/}>≤Èø¥</Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              {!filtered.length && loadTask.status.phase !== "loading" && (
+                <tr>
+                  <td colSpan={5} className="placeholder">
+                    ‘›Œﬁº«¬º£¨«Îµ˜’˚…∏—°∫Û‘Ÿ ‘
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </GlassCard>
+    </div>
   );
 }
+
+

@@ -1,15 +1,19 @@
 import { IngestionStatusPanel } from "../components/IngestionStatusPanel";
+import { GlassCard } from "../components/ui/GlassCard";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { StatusPill } from "../components/ui/StatusPill";
 
 export default function QueueMonitorPage() {
   return (
     <div className="panel-grid single-column">
-      <div className="step-callout">
-        <span className="step-indicator">STEP 02</span>
-        <div>
-          <h3>监控队列与任务</h3>
-          <p>实时了解文档解析/嵌入进度，必要时可手动重试或重新索引。</p>
-        </div>
-      </div>
+      <GlassCard>
+        <SectionHeader
+          eyebrow="STEP 02"
+          title="队列监控与重试"
+          description="实时查看解析 / 切分 / 向量化进度，必要时手动重试或重建索引。"
+          status={<StatusPill tone="info">实时刷新</StatusPill>}
+        />
+      </GlassCard>
       <IngestionStatusPanel />
     </div>
   );

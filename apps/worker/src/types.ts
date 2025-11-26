@@ -76,7 +76,7 @@ export interface WorkerDependencies {
     chunks: Chunk[],
     source: SourcePayload,
     context?: { fragments: ChunkFragment[] }
-  ) => Promise<Array<{ chunk: Chunk; embedding?: Embedding }>>;
+  ) => Promise<{ entries: Array<{ chunk: Chunk; embedding?: Embedding }>; logs?: VectorLogInput[] }>;
   knowledgeWriter: KnowledgeWriter;
   queue: QueueAdapter;
   logger: WorkerLogger;

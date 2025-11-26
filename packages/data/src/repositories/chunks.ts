@@ -43,6 +43,7 @@ type ChunkJoinRow = {
 };
 
 function mapRow(row: ChunkJoinRow): ChunkRecord {
+  const nerEntities = Array.isArray(row.ner_entities) ? row.ner_entities : [];
   const chunk: Chunk = ChunkSchema.parse({
     chunkId: row.chunk_id,
     docId: row.doc_id,
@@ -63,7 +64,7 @@ function mapRow(row: ChunkJoinRow): ChunkRecord {
     semanticMetadata: row.semantic_metadata ?? undefined,
     envLabels: row.env_labels ?? undefined,
     bizEntities: row.biz_entities ?? undefined,
-    nerEntities: row.ner_entities ?? undefined,
+    nerEntities,
     parentSectionId: row.parent_section_id ?? undefined,
     parentSectionPath: row.parent_section_path ?? undefined,
     contextSummary: row.context_summary ?? undefined,

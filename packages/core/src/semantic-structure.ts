@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import OpenAI from "openai";
 import { ModelProvider } from "@kb/shared-schemas";
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -25,57 +26,50 @@ export interface SemanticSection {
   path?: string[];
 }
 
+function sanitizeText(input: string | undefined | null): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
+
 export async function generateStructureViaModel(
   config: SemanticStructureConfig,
   input: SemanticStructureInput,
   fetchImpl: FetchLike = fetch
 ): Promise<SemanticSection[]> {
-  const trimmed = input.text.trim();
+  const trimmed = sanitizeText(input.text).trim();
   if (!trimmed.length) {
     return [];
   }
   const normalizedText = trimmed.slice(0, 12000);
-  const prompt = buildPrompt(input.title, normalizedText, input.language, input.maxSections ?? 20);
+  const prompt = buildPrompt(sanitizeText(input.title), normalizedText, input.language, input.maxSections ?? 20);
   const raw =
     config.provider === "openai"
-      ? await requestOpenAi(config, prompt, fetchImpl)
+      ? await requestOpenAi(config, prompt)
       : await requestOllama(config, prompt, fetchImpl);
   return normalizeSections(raw, normalizedText);
 }
 
-async function requestOpenAi(
-  config: SemanticStructureConfig,
-  prompt: string,
-  fetchImpl: FetchLike
-) {
-  const headers: Record<string, string> = {
-    "content-type": "application/json"
-  };
-  if (config.apiKey) {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-  }
-  const response = await fetchImpl(config.baseUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: config.modelName,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是结构化文档分析器。请输出 JSON 对象 {\"sections\":[{\"title\":...,\"level\":1,\"path\":[...],\"content\":...}]}，最多 20 条。"
-        },
-        { role: "user", content: prompt }
-      ]
-    })
+async function requestOpenAi(config: SemanticStructureConfig, prompt: string) {
+  const client = new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseUrl
   });
-  if (!response.ok) {
-    throw new Error(`OpenAI structure request failed (${response.status})`);
-  }
-  const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return payload.choices?.[0]?.message?.content ?? "{}";
+  const completion = await client.chat.completions.create({
+    model: config.modelName,
+    temperature: 0,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "你是结构化文档分析器。请输出 JSON 对象 {\"sections\":[{\"title\":...,\"level\":1,\"path\":[...],\"content\":...}]}，最多20条。"
+      },
+      { role: "user", content: prompt }
+    ]
+  });
+  const content =
+    (completion.choices?.[0]?.message?.content as string | null | undefined) ?? "{}";
+  return content;
 }
 
 async function requestOllama(
@@ -94,7 +88,7 @@ async function requestOllama(
     headers,
     body: JSON.stringify({
       model: config.modelName,
-      prompt: `${prompt}\n\n只输出 JSON 对象 {\"sections\": [...]}`,
+      prompt: `${prompt}\n\n仅输出 JSON 对象 {\"sections\": [...]}`,
       stream: false
     })
   });
@@ -106,13 +100,28 @@ async function requestOllama(
 }
 
 function buildPrompt(title: string, text: string, language = "zh", limit: number) {
-  return `文档标题: ${title}\n语言: ${language}\n正文(截断):\n${text}\n\n请分析整篇文档的章节结构，输出不超过 ${limit} 个 section，包含 title/level/path/content，JSON 格式。`;
+  return `文档标题: ${title}
+语言: ${language}
+正文(截断):
+${text}
+
+请分析全文的章/节/小节层级，并输出不超过 ${limit} 条 section。每条包含:
+- title: 标题
+- level: 层级数字
+- path: 标题路径数组
+- content: 该节内容（可截断）
+
+仅输出 JSON 对象 {"sections":[...]}。`;
 }
 
 function normalizeSections(raw: string, fallbackText: string): SemanticSection[] {
   try {
     const parsed = typeof raw === "string" ? JSON.parse(extractJson(raw)) : raw;
-    const sections = Array.isArray(parsed.sections) ? parsed.sections : Array.isArray(parsed) ? parsed : [];
+    const sections = Array.isArray(parsed.sections)
+      ? parsed.sections
+      : Array.isArray(parsed)
+        ? parsed
+        : [];
     if (!Array.isArray(sections) || !sections.length) {
       return fallbackSections(fallbackText);
     }
@@ -129,14 +138,22 @@ function normalizeSection(section: unknown, index: number): SemanticSection | nu
     return null;
   }
   const record = section as Record<string, unknown>;
-  const title = typeof record.title === "string" && record.title.trim().length ? record.title.trim() : `Section ${index + 1}`;
-  const content = typeof record.content === "string" && record.content.trim().length ? record.content.trim() : undefined;
+  const title =
+    typeof record.title === "string" && record.title.trim().length
+      ? sanitizeText(record.title.trim())
+      : `Section ${index + 1}`;
+  const content =
+    typeof record.content === "string" && record.content.trim().length
+      ? sanitizeText(record.content.trim())
+      : undefined;
   if (!content) {
     return null;
   }
   const level = typeof record.level === "number" ? record.level : undefined;
   const path = Array.isArray(record.path)
-    ? (record.path as unknown[]).map((item) => String(item)).filter((item) => item.trim().length)
+    ? (record.path as unknown[])
+        .map((item) => sanitizeText(String(item)))
+        .filter((item) => item.trim().length)
     : undefined;
   return {
     id: randomUUID(),
@@ -153,7 +170,7 @@ function extractJson(payload: string) {
 }
 
 function fallbackSections(text: string): SemanticSection[] {
-  const cleaned = text.trim();
+  const cleaned = sanitizeText(text.trim());
   if (!cleaned.length) {
     return [];
   }

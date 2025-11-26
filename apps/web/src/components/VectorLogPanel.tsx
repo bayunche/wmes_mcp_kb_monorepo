@@ -1,6 +1,12 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+﻿import { useCallback, useMemo, useState, useEffect } from "react";
 import { fetchVectorLogs } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
+import { GlassCard } from "./ui/GlassCard";
+import { SectionHeader } from "./ui/SectionHeader";
+import { StatusPill } from "./ui/StatusPill";
+import { Button } from "./ui/Button";
+import { Field } from "./ui/Field";
+import { Skeleton } from "./ui/Skeleton";
 
 interface VectorLogEntry {
   logId: string;
@@ -25,199 +31,138 @@ const STEP_MAP: Record<string, { label: string; description: string }> = {
   tagging: { label: "自动标签", description: "LLM 生成主题标签" },
   metadata: { label: "语义摘要", description: "上下文理解与环境标签" },
   embedding: { label: "向量化", description: "本地模型生成向量" },
-  rerank: { label: "重排", description: "可选 reranker" }
+  rerank: { label: "重排序", description: "可选 reranker" }
 };
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
 
 function summarizeStep(logs: VectorLogEntry[], role: string) {
   const entries = logs.filter((log) => log.modelRole === role);
   if (!entries.length) {
     return { status: "pending", duration: 0 } as const;
   }
-  const failed = entries.some((entry) => entry.status === "failed");
-  const duration = entries.reduce((sum, entry) => sum + entry.durationMs, 0);
-  return { status: failed ? "failed" : "done", duration } as const;
+  const failed = entries.some((log) => log.status === "failed");
+  const duration = entries.reduce((acc, cur) => acc + cur.durationMs, 0);
+  return { status: failed ? "failed" : "success", duration } as const;
 }
 
 export function VectorLogPanel() {
+  const { tenants, libraries } = useOrgOptions();
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
   const [docId, setDocId] = useState("");
-  const [chunkId, setChunkId] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
   const [logs, setLogs] = useState<VectorLogEntry[]>([]);
-  const { tenants, libraries, loading: orgLoading, error: orgError, refresh: refreshOrgOptions } = useOrgOptions();
+  const [status, setStatus] = useState<string | null>(null);
 
   const loadLogs = useCallback(async () => {
-    if (!docId.trim().length && !chunkId.trim().length) {
-      setStatus("请输入 Doc ID 或 Chunk ID");
-      return;
-    }
-    setStatus("拉取日志中…");
-    try {
-      const response = await fetchVectorLogs({
-        tenantId: tenantId || undefined,
-        libraryId: libraryId || undefined,
-        docId: docId.trim() || undefined,
-        chunkId: chunkId.trim() || undefined,
-        limit: 200
-      });
-      setLogs(response.items ?? []);
-      setStatus(`共 ${response.items?.length ?? 0} 条`);
-    } catch (error) {
-      setStatus((error as Error).message);
-    }
-  }, [tenantId, libraryId, docId, chunkId]);
+    setStatus("拉取向量日志中...");
+    const response = await fetchVectorLogs({ tenantId, libraryId, docId: docId.trim() || undefined });
+    setLogs(response.items ?? []);
+    setStatus(`已获取 ${response.items?.length ?? 0} 条日志`);
+  }, [tenantId, libraryId, docId]);
 
   useEffect(() => {
-    if (!tenants.length) return;
-    if (!tenants.some((tenant) => tenant.tenantId === tenantId)) {
-      setTenantId(tenants[0].tenantId);
-    }
-  }, [tenants, tenantId]);
+    loadLogs().catch((error) => setStatus(error.message));
+  }, [loadLogs]);
 
-  useEffect(() => {
-    if (!libraries.length) return;
-    const scoped = libraries.filter((lib) => !lib.tenantId || lib.tenantId === tenantId);
-    if (scoped.length && !scoped.some((lib) => lib.libraryId === libraryId)) {
-      setLibraryId(scoped[0].libraryId);
-    }
-  }, [libraries, tenantId, libraryId]);
-
-  const timeline = useMemo(() => {
-    return Object.entries(STEP_MAP).map(([role, meta]) => {
-      const summary = summarizeStep(logs, role);
-      return {
-        role,
-        label: meta.label,
-        description: meta.description,
-        status: summary.status,
-        duration: summary.duration
-      };
-    });
+  const summaries = useMemo(() => {
+    return Object.keys(STEP_MAP).map((role) => ({
+      role,
+      ...STEP_MAP[role],
+      ...summarizeStep(logs, role)
+    }));
   }, [logs]);
 
   return (
-    <section className="card">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">流程实时追踪</p>
-          <h2>向量化 / 语义日志</h2>
+    <GlassCard className="space-y-4">
+      <SectionHeader
+        eyebrow="向量日志"
+        title="处理链路健康与耗时"
+        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+      />
+      <div className="split">
+        <Field label="租户">
+          <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+            {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+              <option key={item.tenantId} value={item.tenantId}>
+                {item.displayName ?? item.tenantId}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="知识库">
+          <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+            {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+              .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+              .map((lib) => (
+                <option key={lib.libraryId} value={lib.libraryId}>
+                  {lib.displayName ?? lib.libraryId}
+                </option>
+              ))}
+          </select>
+        </Field>
+        <Field label="Doc ID（可选）" hint="留空则查看最近日志">
+          <input className={inputClass} value={docId} onChange={(e) => setDocId(e.target.value)} placeholder="过滤某个文档" />
+        </Field>
+        <div className="flex items-end gap-2">
+          <Button onClick={loadLogs}>刷新</Button>
         </div>
-        {status && <span className="status-pill info">{status}</span>}
-      </header>
-      <form
-        className="stacked-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          loadLogs();
-        }}
-      >
-        <div className="split">
-          <label>
-            租户
-            <select value={tenantId} onChange={(event) => setTenantId(event.target.value)}>
-              {tenants.length
-                ? tenants.map((tenant) => (
-                    <option key={tenant.tenantId} value={tenant.tenantId}>
-                      {tenant.displayName ?? tenant.tenantId}（{tenant.tenantId}）
-                    </option>
-                  ))
-                : <option value="default">默认租户</option>}
-            </select>
-          </label>
-          <label>
-            知识库
-            <select value={libraryId} onChange={(event) => setLibraryId(event.target.value)}>
-              {libraries
-                .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
-                .map((lib) => (
-                  <option key={lib.libraryId} value={lib.libraryId}>
-                    {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-        <div className="split">
-          <label>
-            Doc ID
-            <input value={docId} onChange={(event) => setDocId(event.target.value)} placeholder="必填其一" />
-          </label>
-          <label>
-            Chunk ID (可选)
-            <input value={chunkId} onChange={(event) => setChunkId(event.target.value)} placeholder="仅查看指定 chunk" />
-          </label>
-        </div>
-        <div className="button-row">
-          <button type="submit">加载日志</button>
-          <button type="button" className="ghost" onClick={refreshOrgOptions}>
-            刷新租户/知识库
-          </button>
-        </div>
-      </form>
-      {orgLoading && <p className="muted-text">同步租户/知识库中…</p>}
-      {orgError && <p className="muted-text">{orgError}</p>}
-      <div className="timeline">
-        {timeline.map((item) => (
-          <div key={item.role} className={`timeline-step status-${item.status}`}>
-            <div className="timeline-indicator" />
-            <div>
-              <p className="eyebrow">{item.label}</p>
-              <h3>{item.status === "pending" ? "等待" : item.status === "failed" ? "失败" : "完成"}</h3>
-              <p className="meta-muted">{item.description}</p>
-              {item.duration > 0 && <small className="meta-muted">耗时 {item.duration} ms</small>}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {summaries.map((item) => (
+          <div key={item.role} className="glass-card p-4 space-y-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="eyebrow">{item.label}</p>
+                <p className="text-sm text-slate-700">{item.description}</p>
+              </div>
+              <StatusPill tone={item.status === "failed" ? "danger" : item.status === "success" ? "success" : "warning"}>
+                {item.status === "success" ? "完成" : item.status === "failed" ? "失败" : "待处理"}
+              </StatusPill>
             </div>
+            <p className="muted-text">耗时：{item.duration ? `${item.duration} ms` : "-"}</p>
           </div>
         ))}
       </div>
+
       <div className="table-wrapper">
         <table>
           <thead>
             <tr>
               <th>时间</th>
-              <th>阶段</th>
+              <th>步骤</th>
               <th>模型</th>
               <th>耗时</th>
               <th>状态</th>
-              <th>备注</th>
+              <th>说明</th>
             </tr>
           </thead>
           <tbody>
+            {!logs.length && (
+              <tr>
+                <td colSpan={6} className="placeholder">暂无日志，点击刷新试试</td>
+              </tr>
+            )}
             {logs.map((log) => (
               <tr key={log.logId}>
-                <td>{new Date(log.createdAt).toLocaleString()}</td>
+                <td className="text-sm text-slate-700">{new Date(log.createdAt).toLocaleString()}</td>
                 <td>{STEP_MAP[log.modelRole]?.label ?? log.modelRole}</td>
                 <td>
                   <div className="doc-title">{log.modelName}</div>
-                  <small className="meta-muted">{log.provider}</small>
+                  <div className="meta-muted">{log.provider} · {log.driver}</div>
                 </td>
                 <td>{log.durationMs} ms</td>
                 <td>
-                  <span className={`status-pill ${log.status === "success" ? "success" : "danger"}`}>
-                    {log.status === "success" ? "成功" : "失败"}
-                  </span>
+                  <StatusPill tone={log.status === "success" ? "success" : "danger"}>{log.status}</StatusPill>
                 </td>
-                <td>
-                  {log.errorMessage ? (
-                    <span className="meta-muted">{log.errorMessage}</span>
-                  ) : log.metadata ? (
-                    <code className="code-inline">{JSON.stringify(log.metadata)}</code>
-                  ) : (
-                    <span className="meta-muted">-</span>
-                  )}
-                </td>
+                <td className="text-sm text-slate-700 max-w-[280px] whitespace-pre-wrap">{log.errorMessage ?? "-"}</td>
               </tr>
             ))}
-            {!logs.length && (
-              <tr>
-                <td colSpan={6} className="placeholder">
-                  暂无日志，请输入 Doc ID 或 Chunk ID 后查询。
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
-    </section>
+    </GlassCard>
   );
 }

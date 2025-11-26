@@ -30,7 +30,8 @@ const envSchema = z.object({
   MINIO_BUCKET_RAW: z.string().default("kb-raw"),
   MINIO_BUCKET_PREVIEW: z.string().default("kb-preview"),
   REDIS_URL: z.string(),
-  RABBITMQ_URL: z.string(),
+  // 默认值更适合本机开发；容器内运行时通过环境变量覆盖为 queue:5672
+  RABBITMQ_URL: z.string().default("amqp://guest:guest@localhost:5672"),
   MODELS_DIR: z.string(),
   OCR_ENABLED: z
     .union([z.string(), z.boolean()])
@@ -48,6 +49,7 @@ const envSchema = z.object({
   RERANK_ENDPOINT: optionalUrl,
   IMAGE_EMBEDDING_ENDPOINT: optionalUrl,
   VECTOR_API_KEY: optionalString,
+  MAX_TOKENS_PER_SEGMENT: z.coerce.number().int().positive().default(1024),
   LOCAL_EMBEDDING_ENABLED: z
     .union([z.string(), z.boolean()])
     .transform((value) => (typeof value === "boolean" ? value : value === "true"))

@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { listDocuments, updateDocumentTags } from "../api";
+import { GlassCard } from "../components/ui/GlassCard";
+import { SectionHeader } from "../components/ui/SectionHeader";
+import { StatusPill } from "../components/ui/StatusPill";
+import { Field } from "../components/ui/Field";
+import { Button } from "../components/ui/Button";
 
 export default function DocumentEdit() {
   const { docId } = useParams<{ docId: string }>();
@@ -48,27 +53,24 @@ export default function DocumentEdit() {
   };
 
   if (!docId) {
-    return <p className="placeholder">缺少 docId。</p>;
+    return <p className="placeholder">缺少 docId</p>;
   }
 
   return (
-    <section className="card">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">编辑</p>
-          <h2>文档标签 · {title}</h2>
-        </div>
-        {status && <span className="status-pill">{status}</span>}
-      </header>
+    <GlassCard>
+      <SectionHeader
+        eyebrow="编辑"
+        title={`文档标签 · ${title}`}
+        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+      />
       <form onSubmit={handleSubmit} className="stacked-form">
-        <label>
-          标签（使用逗号分隔）
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="合同, 财务" />
-        </label>
+        <Field label="标签（用逗号分隔）">
+          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="合同, 采购" />
+        </Field>
         <div className="button-row">
-          <button type="submit">保存</button>
+          <Button type="submit">保存</Button>
         </div>
       </form>
-    </section>
+    </GlassCard>
   );
 }

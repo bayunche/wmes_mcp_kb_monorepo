@@ -11,6 +11,7 @@ export interface DocumentsTable {
   library_id: string;
   tags: string[] | null;
   error_message: string | null;
+  status_meta: unknown | null;
   created_at: Date;
   updated_at: Date;
 }

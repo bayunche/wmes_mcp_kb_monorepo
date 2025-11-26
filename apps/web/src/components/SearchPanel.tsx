@@ -1,6 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { buildAttachmentUrl, previewChunk, relatedChunks, searchDocuments } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
+import { useAsyncTask } from "../hooks/useAsyncTask";
+import { useToast } from "./ui/Toast";
+import { GlassCard } from "./ui/GlassCard";
+import { SectionHeader } from "./ui/SectionHeader";
+import { Field } from "./ui/Field";
+import { Button } from "./ui/Button";
+import { Badge } from "./ui/Badge";
+import { StatusPill } from "./ui/StatusPill";
+import { Skeleton } from "./ui/Skeleton";
+
+const inputClass =
+  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
 
 type SearchResult = {
   chunk: {
@@ -20,6 +32,7 @@ type SearchResult = {
     tags?: string[];
     ingestStatus?: string;
     sourceUri?: string;
+    libraryId?: string;
   };
   attachments?: any[];
   score?: number;
@@ -28,11 +41,8 @@ type SearchResult = {
 export default function SearchPanel() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<any | null>(null);
-  const [loadingChunk, setLoadingChunk] = useState<string | null>(null);
   const [related, setRelated] = useState<any[]>([]);
-  const [relatedStatus, setRelatedStatus] = useState<string | null>(null);
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
   const [semanticTags, setSemanticTags] = useState("");
@@ -41,6 +51,7 @@ export default function SearchPanel() {
   const [metadataValue, setMetadataValue] = useState("");
   const [onlyWithAttachments, setOnlyWithAttachments] = useState(false);
   const { tenants, libraries, loading: orgLoading, error: orgError, refresh: refreshOrgOptions } = useOrgOptions();
+  const toast = useToast();
 
   useEffect(() => {
     if (!tenants.length) return;
@@ -57,264 +68,250 @@ export default function SearchPanel() {
     }
   }, [libraries, tenantId, libraryId]);
 
-  const handleSearch = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setStatus("检索中…");
-    try {
-      const response = await searchDocuments(
-        {
-          query,
-          limit: 10,
-          includeNeighbors: true,
-          filters: {
-            tenantId: tenantId || undefined,
-            libraryId: libraryId || undefined,
-            semanticTags: semanticTags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean),
-            envLabels: envLabels
-              .split(",")
-              .map((label) => label.trim())
-              .filter(Boolean),
-            metadataQuery:
-              metadataKey.trim() && metadataValue.trim()
-                ? { [metadataKey.trim()]: metadataValue.trim() }
-                : undefined,
-            hasAttachments: onlyWithAttachments ? true : undefined
-          }
-        },
-        libraryId || "default"
-      );
+  const searchTask = useAsyncTask(
+    async () => {
+      const filters: Record<string, unknown> = { libraryId };
+      if (semanticTags.trim()) filters.semanticTags = semanticTags.split(",").map((t) => t.trim()).filter(Boolean);
+      if (envLabels.trim()) filters.envLabels = envLabels.split(",").map((t) => t.trim()).filter(Boolean);
+      if (metadataKey.trim() && metadataValue.trim()) filters[metadataKey.trim()] = metadataValue.trim();
+      if (onlyWithAttachments) filters.hasAttachments = true;
+      const response = await searchDocuments({ query, limit: 8, filters, includeNeighbors: true }, libraryId);
       setResults(response.results ?? []);
       setPreview(null);
       setRelated([]);
-      setStatus(`命中 ${response.total} 条`);
-    } catch (error) {
-      setStatus((error as Error).message);
+      return response.total ?? response.results?.length ?? 0;
+    },
+    {
+      loadingMessage: "检索中...",
+      successMessage: (total) => `共 ${total} 条结果`,
+      errorMessage: (error) => error.message
     }
+  );
+
+  const previewTask = useAsyncTask(
+    async (chunkId: string) => {
+      const response = await previewChunk(chunkId, libraryId || "default");
+      setPreview(response);
+    },
+    {
+      loadingMessage: "加载预览...",
+      errorMessage: (error) => error.message
+    }
+  );
+
+  const relatedTask = useAsyncTask(
+    async (chunkId: string) => {
+      const response = await relatedChunks(chunkId, 5, libraryId || "default");
+      setRelated(response.related ?? []);
+      return response.related?.length ?? 0;
+    },
+    {
+      loadingMessage: "加载相关段落...",
+      successMessage: (total) => `找到 ${total} 条相关段落`,
+      errorMessage: (error) => error.message
+    }
+  );
+
+  const statusTone = useMemo(() => (searchTask.status.phase === "error" ? "danger" : "info"), [searchTask.status.phase]);
+
+  const handleSearch = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await searchTask.run();
   };
 
   const handlePreview = async (chunkId: string) => {
-    setLoadingChunk(chunkId);
-    setStatus("加载预览中…");
     try {
-      const snapshot = await previewChunk(chunkId, libraryId || "default");
-      setPreview(snapshot);
-      setRelated([]);
-      setStatus("预览就绪");
+      await previewTask.run(chunkId);
     } catch (error) {
-      setStatus((error as Error).message);
-    } finally {
-      setLoadingChunk(null);
+      toast.push({ title: "预览失败", description: (error as Error).message, tone: "danger" });
     }
   };
 
   const handleRelated = async (chunkId: string) => {
-    setRelatedStatus("加载相关段落中…");
     try {
-      const response = await relatedChunks(chunkId, 5, libraryId || "default");
-      setRelated(response.neighbors ?? []);
-      setRelatedStatus(response.neighbors?.length ? `找到 ${response.neighbors.length} 条相关段落` : "未找到相关段落");
+      await relatedTask.run(chunkId);
     } catch (error) {
-      setRelatedStatus((error as Error).message);
+      toast.push({ title: "关联段落失败", description: (error as Error).message, tone: "danger" });
     }
   };
-
-  const copyObjectKey = async (key: string) => {
-    try {
-      await navigator.clipboard.writeText(key);
-      setStatus("对象键已复制");
-    } catch {
-      setStatus("无法复制对象键，请手动选择复制");
-    }
-  };
-
-  const placeholder = useMemo(() => "例如：付款条款、违约责任", []);
 
   return (
-    <section className="card card--tall">
-      <header className="card-header">
-        <div>
-          <p className="eyebrow">混合检索</p>
-          <h2>Search &amp; Preview</h2>
-        </div>
-        {status && <span className="status-pill">{status}</span>}
-      </header>
+    <GlassCard className="space-y-4">
+      <SectionHeader
+        eyebrow="检索与预览"
+        title="语义检索 / 预览 / 关联"
+        status={
+          searchTask.status.message ? (
+            <StatusPill tone={statusTone}>{searchTask.status.message}</StatusPill>
+          ) : null
+        }
+      />
+
       <form onSubmit={handleSearch} className="stacked-form">
-        <label>
-          关键词
-          <input value={query} onChange={(e) => setQuery(e.target.value)} required placeholder={placeholder} />
-        </label>
+        <Field label="查询" hint="输入检索词，支持中文/英文/多关键词">
+          <input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例如：合同违约责任" required />
+        </Field>
         <div className="split">
-          <label>
-            租户
-            <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-              {tenants.length
-                ? tenants.map((tenant) => (
-                    <option key={tenant.tenantId} value={tenant.tenantId}>
-                      {tenant.displayName ?? tenant.tenantId}（{tenant.tenantId}）
-                    </option>
-                  ))
-                : <option value="default">默认租户</option>}
+          <Field label="租户">
+            <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+              {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                <option key={item.tenantId} value={item.tenantId}>
+                  {item.displayName ?? item.tenantId}
+                </option>
+              ))}
             </select>
-          </label>
-          <label>
-            知识库
-            <select value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-              {libraries
+          </Field>
+          <Field label="知识库">
+            <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
+              {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
                 .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
                 .map((lib) => (
                   <option key={lib.libraryId} value={lib.libraryId}>
-                    {lib.displayName ?? lib.libraryId}（{lib.libraryId}）
+                    {lib.displayName ?? lib.libraryId}
                   </option>
                 ))}
             </select>
-          </label>
+          </Field>
+          <Field label="语义标签（逗号分隔）">
+            <input className={inputClass} value={semanticTags} onChange={(e) => setSemanticTags(e.target.value)} placeholder="合规, 财报" />
+          </Field>
+          <Field label="环境标签（逗号分隔）">
+            <input className={inputClass} value={envLabels} onChange={(e) => setEnvLabels(e.target.value)} placeholder="prod, cn" />
+          </Field>
+          <Field label="元数据键/值" hint="可选：如 source=contract">
+            <div className="grid grid-cols-2 gap-2">
+              <input className={inputClass} value={metadataKey} onChange={(e) => setMetadataKey(e.target.value)} placeholder="键" />
+              <input className={inputClass} value={metadataValue} onChange={(e) => setMetadataValue(e.target.value)} placeholder="值" />
+            </div>
+          </Field>
+          <div className="flex items-end gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+                checked={onlyWithAttachments}
+                onChange={(e) => setOnlyWithAttachments(e.target.checked)}
+              />
+              仅含附件
+            </label>
+          </div>
         </div>
-        <div className="split">
-          <label>
-            语义标签筛选（逗号分隔）
-            <input value={semanticTags} onChange={(e) => setSemanticTags(e.target.value)} placeholder="合同, 付款" />
-          </label>
-          <label>
-            环境标签筛选
-            <input value={envLabels} onChange={(e) => setEnvLabels(e.target.value)} placeholder="流程, 系统" />
-          </label>
-        </div>
-        <div className="split">
-          <label>
-            Metadata Key
-            <input value={metadataKey} onChange={(e) => setMetadataKey(e.target.value)} placeholder="如 bizType" />
-          </label>
-          <label>
-            Metadata Value
-            <input value={metadataValue} onChange={(e) => setMetadataValue(e.target.value)} placeholder="如 合同" />
-          </label>
-        </div>
-        <label className="checkbox-inline">
-          <input type="checkbox" checked={onlyWithAttachments} onChange={(event) => setOnlyWithAttachments(event.target.checked)} />
-          仅展示含附件的段落
-        </label>
-        <label>
-          <span className="guide-hint">检索结果按段落返回，可结合语义标签/环境标签筛选。</span>
-        </label>
         <div className="button-row">
-          <button type="submit">检索</button>
-          <button type="button" className="ghost" onClick={refreshOrgOptions}>
-            刷新租户/知识库
-          </button>
+          <Button type="submit">执行检索</Button>
+          <Button type="button" variant="ghost" onClick={refreshOrgOptions}>
+            刷新租户/库
+          </Button>
         </div>
       </form>
-      {orgLoading && <p className="muted-text">同步租户/知识库中…</p>}
-      {orgError && <p className="muted-text">{orgError}</p>}
-      <div className="result-list">
-        {results.map((item) => (
-          <article key={item.chunk.chunkId} className="result-card">
-            <header>
-              <div>
-                <p className="eyebrow">
-                  来自 · {item.document?.title ?? "未知文档"}
-                </p>
-                <h3>{item.chunk.hierPath?.join(" / ") || "未命名段落"}</h3>
-              </div>
-              <span className="badge">score {item.score?.toFixed?.(3) ?? item.score}</span>
-            </header>
-            <div className="doc-meta">
-              <span className="badge subtle">{item.document?.ingestStatus ?? "uploaded"}</span>
-              <span className="meta-muted">库：{item.document?.libraryId ?? libraryId}</span>
-              {item.document?.tags?.length ? (
-                <div className="tag-inline">
-                  {item.document.tags.slice(0, 5).map((tag) => (
-                    <span key={`${item.chunk.chunkId}-${tag}`} className="tag-chip">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className="meta-muted">自动标签生成中…</span>
-              )}
-            </div>
-            <p className="result-snippet">{item.chunk.contentText}</p>
-            {item.chunk.sourceUri && <small className="meta-muted">{item.chunk.sourceUri}</small>}
-            {item.attachments?.length ? (
-              <div className="attachment-chips">
-                {item.attachments.map((att: any) => (
-                  <div key={att.assetId} className="chip">
-                    <span>{att.assetType} · {att.objectKey}</span>
-                    <div className="chip-actions">
-                      <button type="button" onClick={() => copyObjectKey(att.objectKey)}>复制</button>
-                      {buildAttachmentUrl(att.objectKey) ? (
-                        <a href={buildAttachmentUrl(att.objectKey) ?? "#"} target="_blank" rel="noreferrer">
-                          打开
-                        </a>
-                      ) : null}
+
+      <div className="search-grid">
+        <div className="search-left">
+          <div className="result-list space-y-3">
+            {searchTask.status.phase === "loading"
+              ? Array.from({ length: 4 }).map((_, idx) => (
+                  <article key={`skeleton-${idx}`} className="result-card">
+                    <Skeleton width="30%" />
+                    <Skeleton width="60%" style={{ marginTop: "8px" }} />
+                    <Skeleton width="80%" height={12} style={{ marginTop: "6px" }} />
+                  </article>
+                ))
+              : results.map((item) => (
+                  <article
+                    key={item.chunk.chunkId}
+                    className={`result-card${preview?.chunkId === item.chunk.chunkId ? " is-active" : ""}`}
+                    onClick={() => handlePreview(item.chunk.chunkId)}
+                  >
+                    <header className="button-row compact" style={{ justifyContent: "space-between" }}>
+                      <div>
+                        <p className="meta-muted">{item.chunk.hierPath?.join(" / ") ?? "暂无层级"}</p>
+                        <h4>{item.document?.title ?? item.chunk.chunkId}</h4>
+                      </div>
+                      <div className="tag-inline">
+                        {item.document?.tags?.map((tag) => (
+                          <Badge key={`${item.chunk.chunkId}-${tag}`} tone="info">
+                            {tag}
+                          </Badge>
+                        )) ?? null}
+                      </div>
+                    </header>
+                    <p className="meta-muted">{item.chunk.semanticMetadata?.contextSummary ?? item.chunk.contentText?.slice(0, 180)}</p>
+                    <div className="button-row compact" style={{ justifyContent: "space-between" }}>
+                      <small className="meta-muted">{item.document?.libraryId ?? libraryId}</small>
+                      <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleRelated(item.chunk.chunkId); }}>
+                        关联段落
+                      </Button>
                     </div>
-                  </div>
+                  </article>
                 ))}
-              </div>
-            ) : null}
-            {item.chunk?.semanticMetadata && (
-              <div className="semantic-panel">
-                {item.chunk.semanticMetadata.contextSummary && (
-                  <p className="meta-muted">摘要：{item.chunk.semanticMetadata.contextSummary}</p>
-                )}
-                <div className="tag-inline">
-                  {item.chunk.semanticMetadata.semanticTags?.map((tag) => (
-                    <span key={`${item.chunk.chunkId}-semantic-${tag}`} className="tag-chip subtle">
-                      {tag}
-                    </span>
-                  ))}
-                  {item.chunk.semanticMetadata.envLabels?.map((label) => (
-                    <span key={`${item.chunk.chunkId}-env-${label}`} className="tag-chip ghost">
-                      {label}
-                    </span>
-                  ))}
-                </div>
+            {!results.length && searchTask.status.phase !== "loading" && (
+              <p className="placeholder">暂无搜索结果，输入查询后执行。</p>
+            )}
+          </div>
+        </div>
+        <div className="search-right space-y-3">
+          <GlassCard className="space-y-3">
+            <SectionHeader eyebrow="预览" title="上下文 / 附件" />
+            {previewTask.status.phase === "loading" && <p className="status-text">加载中...</p>}
+            {previewTask.status.phase === "loading" && (
+              <div className="space-y-2">
+                <Skeleton width="50%" />
+                <Skeleton width="90%" height={12} />
+                <Skeleton width="80%" height={12} />
               </div>
             )}
-            <div className="button-row">
-              <button
-                type="button"
-                onClick={() => handlePreview(item.chunk.chunkId)}
-                disabled={loadingChunk === item.chunk.chunkId}
-              >
-                {loadingChunk === item.chunk.chunkId ? "加载中…" : "查看预览"}
-              </button>
-              <button type="button" className="ghost" onClick={() => handleRelated(item.chunk.chunkId)}>
-                相关段落
-              </button>
-            </div>
-          </article>
-        ))}
-        {results.length === 0 && <p className="placeholder">尚无结果，输入关键词开始检索。</p>}
+            {preview ? (
+              <div className="glass-card p-4 space-y-2">
+                <h4>{preview.title ?? preview.chunkId}</h4>
+                <p className="meta-muted">
+                  {preview.hierPath?.join(" / ") ?? "-"} · {preview.libraryId ?? libraryId}
+                </p>
+                <p className="text-sm text-slate-800 leading-relaxed">{preview.contentText}</p>
+                {preview.attachments?.length ? (
+                  <div className="attachment-chips">
+                    {preview.attachments.map((att: any) => (
+                      <a key={att.assetId} href={buildAttachmentUrl(att)} className="chip" target="_blank" rel="noreferrer">
+                        <span>{att.assetType}</span>
+                        <span className="meta-muted">{att.objectKey}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              previewTask.status.phase !== "loading" && <p className="placeholder">尚未选择 Chunk</p>
+            )}
+          </GlassCard>
+
+          <GlassCard className="space-y-2">
+            <SectionHeader eyebrow="相关段落" title="Related Chunks" />
+            {relatedTask.status.message && <p className="status-text">{relatedTask.status.message}</p>}
+            {relatedTask.status.phase === "loading"
+              ? Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={`related-skeleton-${idx}`} className="result-card">
+                    <Skeleton width="40%" />
+                    <Skeleton width="75%" height={12} style={{ marginTop: "6px" }} />
+                  </div>
+                ))
+              : related.map((item) => (
+                  <div key={item.chunk.chunkId} className="result-card">
+                    <div className="button-row compact" style={{ justifyContent: "space-between" }}>
+                      <div>
+                        <p className="meta-muted">{item.chunk.hierPath?.join(" / ") ?? "-"}</p>
+                        <strong>{item.document?.title ?? item.chunk.chunkId}</strong>
+                      </div>
+                      <small className="meta-muted">{(item.score ?? 0).toFixed(3)}</small>
+                    </div>
+                    <p className="meta-muted">{item.chunk.contentText?.slice(0, 160)}</p>
+                  </div>
+                ))}
+            {!related.length && relatedTask.status.phase !== "loading" && (
+              <p className="placeholder">暂无相关段落</p>
+            )}
+          </GlassCard>
+        </div>
       </div>
-      {preview && (
-        <div className="preview-panel">
-          <div className="panel-header">
-            <h3>当前预览</h3>
-            <span className="badge subtle">chunk {preview.chunkId ?? "N/A"}</span>
-          </div>
-          <pre>{JSON.stringify(preview, null, 2)}</pre>
-        </div>
-      )}
-      {relatedStatus && <p className="status-text">{relatedStatus}</p>}
-      {related.length > 0 && (
-        <div className="preview-panel">
-          <div className="panel-header">
-            <h3>相关段落</h3>
-          </div>
-          <ul className="related-list">
-            {related.map((item) => (
-              <li key={item.chunk.chunkId}>
-                <strong>{item.chunk.hierPath?.join(" / ")}</strong>
-                <p>{item.chunk.contentText}</p>
-                <small>{item.sourceUri}</small>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
+      {orgLoading && <p className="muted-text">正在同步租户/知识库...</p>}
+      {orgError && <p className="muted-text">{orgError}</p>}
+    </GlassCard>
   );
 }

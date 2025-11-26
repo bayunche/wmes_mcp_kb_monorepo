@@ -1,5 +1,6 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+﻿import { describe, expect, test, beforeEach } from "bun:test";
 import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
 import { handleRequest } from "../routes";
 import { HybridRetriever, ChunkRecord } from "../../../../packages/core/src/retrieval";
 import { VectorClient } from "../../../../packages/core/src/vector";
@@ -22,7 +23,9 @@ import type {
   RawObjectHandle,
   VectorIndex,
   VectorLogRepository,
-  VectorLogInput
+  VectorLogInput,
+  TenantConfigRepository,
+  LibraryConfigRepository
 } from "@kb/data";
 import type { ChunkRepository } from "@kb/core/src/retrieval";
 
@@ -30,9 +33,13 @@ const authHeader = { Authorization: "Bearer dev-token" };
 
 class MemoryDocumentRepository implements DocumentRepository {
   private readonly docs = new Map<string, ReturnType<typeof DocumentSchema.parse>>();
+  private readonly sections = new Map<string, any[]>();
 
-  constructor(initial: ReturnType<typeof DocumentSchema.parse>[] = []) {
+  constructor(initial: ReturnType<typeof DocumentSchema.parse>[] = [], sections?: Record<string, any[]>) {
     initial.forEach((doc) => this.docs.set(doc.docId, doc));
+    if (sections) {
+      Object.entries(sections).forEach(([docId, list]) => this.sections.set(docId, list));
+    }
   }
 
   async upsert(document: ReturnType<typeof DocumentSchema.parse>) {
@@ -68,6 +75,18 @@ class MemoryDocumentRepository implements DocumentRepository {
   async stats(tenantId?: string, libraryId?: string) {
     const documents = await this.count(tenantId, libraryId);
     return { documents, attachments: 0, chunks: 0, pendingJobs: 0 };
+  }
+
+  async updateStatus(docId: string, status: string, errorMessage?: string) {
+    const doc = this.docs.get(docId);
+    if (!doc) return null;
+    const next = { ...doc, ingestStatus: status, errorMessage };
+    this.docs.set(docId, next);
+    return next;
+  }
+
+  async listSections(docId: string) {
+    return this.sections.get(docId) ?? [];
   }
 }
 
@@ -235,6 +254,34 @@ class MemoryVectorLogRepository implements VectorLogRepository {
   }
 }
 
+class MemoryTenantConfigRepository implements TenantConfigRepository {
+  private readonly data = new Map<string, { tenantId: string; displayName?: string }>();
+  async list() {
+    return Array.from(this.data.values());
+  }
+  async upsert(payload: { tenantId: string; displayName?: string }) {
+    this.data.set(payload.tenantId, payload);
+    return payload;
+  }
+  async delete(tenantId: string) {
+    this.data.delete(tenantId);
+  }
+}
+
+class MemoryLibraryConfigRepository implements LibraryConfigRepository {
+  private readonly data = new Map<string, { libraryId: string; displayName?: string; tenantId?: string }>();
+  async list() {
+    return Array.from(this.data.values());
+  }
+  async upsert(payload: { libraryId: string; displayName?: string; tenantId?: string }) {
+    this.data.set(payload.libraryId, payload);
+    return payload;
+  }
+  async delete(libraryId: string) {
+    this.data.delete(libraryId);
+  }
+}
+
 class NoopVectorIndex implements VectorIndex {
   async upsert() {}
   async search() {
@@ -273,7 +320,7 @@ class MemoryChunkRepository implements ChunkRepository {
 function makeDeps() {
   const document = DocumentSchema.parse({
     docId: crypto.randomUUID(),
-    title: "合同示例",
+    title: "Contract Sample",
     ingestStatus: "indexed",
     tenantId: "default",
     libraryId: "default",
@@ -284,8 +331,8 @@ function makeDeps() {
     chunk: ChunkSchema.parse({
       chunkId: crypto.randomUUID(),
       docId: document.docId,
-      hierPath: ["合同", "付款"],
-      contentText: "付款条款在这里",
+      hierPath: ["contract", "payment"],
+      contentText: "Payment terms are described here",
       contentType: "text"
     }),
     document: {
@@ -298,7 +345,7 @@ function makeDeps() {
       tags: document.tags
     },
     neighbors: [],
-    topicLabels: ["付款"],
+    topicLabels: ["payment"],
     createdAt: new Date().toISOString()
   };
 
@@ -306,8 +353,8 @@ function makeDeps() {
     chunk: ChunkSchema.parse({
       chunkId: crypto.randomUUID(),
       docId: document.docId,
-      hierPath: ["合同", "交付"],
-      contentText: "交付条款在这里",
+      hierPath: ["contract", "delivery"],
+      contentText: "Delivery details are here",
       contentType: "text"
     }),
     document: {
@@ -320,11 +367,18 @@ function makeDeps() {
       tags: document.tags
     },
     neighbors: [],
-    topicLabels: ["交付"],
+    topicLabels: ["delivery"],
     createdAt: new Date().toISOString()
   };
 
-  const documents = new MemoryDocumentRepository([document]);
+  const documents = new MemoryDocumentRepository(
+    [document],
+    {
+      [document.docId]: [
+        { sectionId: "sec-1", title: "�½�һ", level: 1, tags: ["tag-1"], keywords: ["kw"] }
+      ]
+    }
+  );
   const attachments = new MemoryAttachmentRepository([
     AttachmentSchema.parse({
       assetId: crypto.randomUUID(),
@@ -345,6 +399,9 @@ function makeDeps() {
   const vectorIndex = new NoopVectorIndex();
   const modelSettings = new MemoryModelSettingsRepository();
   const vectorLogs = new MemoryVectorLogRepository();
+  const tenantConfigs = new MemoryTenantConfigRepository();
+  const libraryConfigs = new MemoryLibraryConfigRepository();
+  const modelsDir = tmpdir();
   return {
     deps: {
       documents,
@@ -356,6 +413,9 @@ function makeDeps() {
       vectorIndex,
       modelSettings,
       vectorLogs,
+      tenantConfigs,
+      libraryConfigs,
+      modelsDir,
       defaultTenantId: "default",
       defaultLibraryId: "default"
     },
@@ -376,6 +436,14 @@ describe("API routes", () => {
     setup = makeDeps();
   });
 
+  test("health route responds ok", async () => {
+    const request = new Request("http://test/health", { method: "GET" });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+  });
+
   test("search route returns attachments and sourceUri", async () => {
     const request = new Request("http://test/search", {
       method: "POST",
@@ -383,7 +451,7 @@ describe("API routes", () => {
         "content-type": "application/json",
         ...authHeader
       },
-      body: JSON.stringify(SearchRequestSchema.parse({ query: "付款", limit: 1, filters: { hasAttachments: true } }))
+      body: JSON.stringify(SearchRequestSchema.parse({ query: "����", limit: 1, filters: { hasAttachments: true } }))
     });
     const response = await handleRequest(request, setup.deps);
     expect(response.status).toBe(200);
@@ -394,7 +462,7 @@ describe("API routes", () => {
 
   test("upload route stores object and enqueues ingestion", async () => {
     const form = new FormData();
-    form.append("title", "上传合同");
+    form.append("title", "�ϴ���ͬ");
     form.append("tenantId", "default");
     form.append("files", new File([new TextEncoder().encode("hello world")], "demo-a.txt", { type: "text/plain" }));
     form.append("files", new File([new TextEncoder().encode("hello again")], "demo-b.txt", { type: "text/plain" }));
@@ -420,7 +488,7 @@ describe("API routes", () => {
         baseUrl: "https://api.test/v1/chat/completions",
         modelName: "gpt-mini",
         modelRole: "metadata",
-        displayName: "元数据模型",
+        displayName: "Metadata Model",
         apiKey: "sk-test1234"
       })
     });
@@ -429,7 +497,7 @@ describe("API routes", () => {
     const putJson = await putResponse.json();
     expect(putJson.setting.hasApiKey).toBe(true);
     expect(putJson.setting.modelRole).toBe("metadata");
-    expect(putJson.setting.displayName).toBe("元数据模型");
+    expect(putJson.setting.displayName).toBe("Metadata Model");
     const getResponse = await handleRequest(new Request("http://test/model-settings?modelRole=metadata", { headers: authHeader }), setup.deps);
     expect(getResponse.status).toBe(200);
     const getJson = await getResponse.json();
@@ -469,7 +537,7 @@ describe("API routes", () => {
   test("documents route respects X-Tenant-Id when listing", async () => {
     const otherDoc = DocumentSchema.parse({
       docId: crypto.randomUUID(),
-      title: "其他租戶合同",
+      title: "��������ͬ",
       ingestStatus: "indexed",
       tenantId: "tenant-b",
       sourceUri: "tenant-b/source.bin"
@@ -576,13 +644,13 @@ describe("API routes", () => {
       new Request(`http://test/chunks/${chunkId}`, {
         method: "PATCH",
         headers: authHeader,
-        body: JSON.stringify({ topicLabels: ["新标签"] })
+        body: JSON.stringify({ topicLabels: ["new-tag"] })
       }),
       setup.deps
     );
     expect(patchRes.status).toBe(200);
     const updated = await patchRes.json();
-    expect(updated.chunk.topicLabels).toContain("新标签");
+    expect(updated.chunk.topicLabels).toContain("new-tag");
   });
 
   test("/mcp/search returns MCP enriched payload", async () => {
@@ -592,7 +660,7 @@ describe("API routes", () => {
         "content-type": "application/json",
         ...authHeader
       },
-      body: JSON.stringify({ query: "付款", limit: 2 })
+      body: JSON.stringify({ query: "����", limit: 2 })
     });
     const response = await handleRequest(request, setup.deps);
     expect(response.status).toBe(200);
@@ -632,4 +700,84 @@ describe("API routes", () => {
     expect(json.chunk.chunkId).toBe(setup.chunkRecord.chunk.chunkId);
     expect(json.attachments).toHaveLength(1);
   });
+
+  test("documents POST creates doc and enqueues ingestion", async () => {
+    const docId = crypto.randomUUID();
+    const payload = {
+      docId,
+      title: "新文档",
+      tenantId: "tenant-x",
+      libraryId: "lib-x"
+    };
+    const request = new Request("http://test/documents", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(201);
+    expect(setup.queue.jobs.some((job) => job.docId === docId)).toBe(true);
+  });
+
+  test("document structure returns sections", async () => {
+    const request = new Request(`http://test/documents/${setup.chunkRecord.chunk.docId}/structure`, {
+      method: "GET"
+    });
+    const response = await handleRequest(request, setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.sections.length).toBeGreaterThan(0);
+  });
+
+  test("tenant config list/upsert/delete works", async () => {
+    const put = await handleRequest(
+      new Request("http://test/config/tenants", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tenantId: "tenant-a", displayName: "Tenant A" })
+      }),
+      setup.deps
+    );
+    expect(put.status).toBe(200);
+    const list = await handleRequest(new Request("http://test/config/tenants"), setup.deps);
+    const listJson = await list.json();
+    expect(listJson.items.some((t: any) => t.tenantId === "tenant-a")).toBe(true);
+    const del = await handleRequest(new Request("http://test/config/tenants/tenant-a", { method: "DELETE" }), setup.deps);
+    expect(del.status).toBe(204);
+  });
+
+  test("library config list/upsert/delete works", async () => {
+    const put = await handleRequest(
+      new Request("http://test/config/libraries", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ libraryId: "lib-a", displayName: "Library A" })
+      }),
+      setup.deps
+    );
+    expect(put.status).toBe(200);
+    const list = await handleRequest(new Request("http://test/config/libraries"), setup.deps);
+    const listJson = await list.json();
+    expect(listJson.items.some((item: any) => item.libraryId === "lib-a")).toBe(true);
+    const del = await handleRequest(new Request("http://test/config/libraries/lib-a", { method: "DELETE" }), setup.deps);
+    expect(del.status).toBe(204);
+  });
+
+  test("/models returns directory info", async () => {
+    const response = await handleRequest(new Request("http://test/models"), setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.dir).toBe(setup.deps.modelsDir);
+    expect(json.items).toBeDefined();
+  });
+
+  test("/model-settings/catalog returns catalog", async () => {
+    const response = await handleRequest(new Request("http://test/model-settings/catalog"), setup.deps);
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(Array.isArray(json.items)).toBe(true);
+  });
 });
+
+
+

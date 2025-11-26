@@ -23,15 +23,34 @@ import {
   ChunkFragment,
   AdaptiveChunkFactory
 } from "../../../packages/core/src/parsing";
+import { generateSemanticMetadataViaModel } from "../../../packages/core/src/semantic-metadata";
 import { SourcePayload, WorkerDependencies, DocumentParseResult } from "./types";
 import { Buffer } from "node:buffer";
 import { promises as fs } from "node:fs";
 import type { VectorClient } from "../../../packages/core/src/vector";
+import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
+
+type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+interface PreSegment {
+  text: string;
+  heading?: { title: string; level: HeadingLevel };
+  page?: number;
+}
+
+interface PathNode {
+  key: string;
+  sectionId: string;
+}
 import { generateTagsViaModel } from "../../../packages/core/src/tagging";
 import { shouldUseOcr } from "../../../packages/core/src/ocr";
 import type { VectorLogInput } from "@kb/data";
 import { preprocessRawText } from "../../../packages/core/src/preprocess";
 import type { SemanticSection } from "../../../packages/core/src/semantic-structure";
+
+function sanitizeString(input: string | undefined | null): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
 
 export async function processIngestionTask(
   task: IngestionTask,
@@ -39,40 +58,58 @@ export async function processIngestionTask(
 ): Promise<KnowledgeBundle> {
   const start = Date.now();
   const source = await deps.fetchSource(task);
+  const stage = createStageTracker(task, deps);
   try {
+    await stage.mark("parsing", "start");
     const { document, elements } = await deps.parseDocument(task, source);
+    await stage.mark("parsing", "success", { elements: elements.length, mime: source.mimeType });
+
+    await stage.mark("preprocess", "start");
     const preprocessTarget = source.rawText ?? collectSegmenterText(elements, source);
     const preprocessResult = preprocessRawText(preprocessTarget);
     source.rawText = preprocessResult.text;
     source.preprocessResult = preprocessResult;
+    await stage.mark("preprocess", "success", { length: preprocessResult.text.length });
+
+    await stage.mark("chunking", "start");
     const fragments = await deps.chunkDocument(document, elements, source);
+    await stage.mark("chunking", "success", { fragments: fragments.length });
     const semanticSections = source.semanticSections ?? [];
-  const enrichedChunks = await deps.extractMetadata(
-    document,
-    fragments.map((fragment) => fragment.chunk),
-    source
-  );
+    await stage.mark("tagging_meta", "start");
+    const enrichedChunks = await deps.extractMetadata(
+      document,
+      fragments.map((fragment) => fragment.chunk),
+      source
+    );
+    await stage.mark("tagging_meta", "success", { chunks: enrichedChunks.length });
     const attachments = await prepareAttachments(document, fragments, source, deps);
-  const embedded = await deps.embedChunks(document, enrichedChunks, source, { fragments });
-  const validatedChunks = embedded.map((item) => ChunkSchema.parse(item.chunk));
-  const embeddings = embedded
-    .map((item) => item.embedding)
-    .filter((item): item is Embedding => Boolean(item))
-    .map((embedding) => EmbeddingSchema.parse(embedding));
+    await stage.mark("embedding", "start");
+    const embeddedResult = await deps.embedChunks(document, enrichedChunks, source, { fragments });
+    const validatedChunks = embeddedResult.entries.map((item) => ChunkSchema.parse(item.chunk));
+    const embeddings = embeddedResult.entries
+      .map((item) => item.embedding)
+      .filter((item): item is Embedding => Boolean(item))
+      .map((embedding) => EmbeddingSchema.parse(embedding));
+    await stage.mark("embedding", "success", {
+      embeddings: embeddings.length,
+      logs: embeddedResult.logs?.length ?? 0
+    });
     const hydratedSections = mergeSectionsWithChunks(semanticSections, validatedChunks);
 
   const heuristicsTags = deriveDocumentTags(document, validatedChunks);
   const remoteTags = await generateRemoteTags(document, validatedChunks, deps);
   const autoTags = mergeTags(heuristicsTags, remoteTags, 12);
-  const documentWithTags = DocumentSchema.parse({
-    ...document,
-    tags: mergeTags(document.tags, autoTags, 12)
-  });
+  const documentWithTags = sanitizeDocument(
+    DocumentSchema.parse({
+      ...document,
+      tags: mergeTags(document.tags, autoTags, 12)
+    })
+  );
 
     const bundle = KnowledgeBundleSchema.parse({
       document: documentWithTags,
-      chunks: validatedChunks,
-      sections: hydratedSections,
+      chunks: validatedChunks.map(sanitizeChunk),
+      sections: hydratedSections.map(sanitizeSection),
       embeddings,
       attachments
     });
@@ -86,7 +123,30 @@ export async function processIngestionTask(
       }
     };
 
+    await stage.mark("persisting", "start", {
+      chunks: validatedChunks.length,
+      embeddings: embeddings.length,
+      attachments: attachments.length
+    });
     await deps.knowledgeWriter.persistBundle(finalizedBundle);
+    if (deps.vectorLogs && embeddedResult.logs?.length && validatedChunks.length) {
+      try {
+        const validIds = new Set(validatedChunks.map((c) => c.chunkId));
+        const filteredLogs =
+          embeddedResult.logs?.filter((log) => !log.chunkId || validIds.has(log.chunkId)) ?? [];
+        if (filteredLogs.length !== embeddedResult.logs.length) {
+          deps.logger.warn?.(
+            `Dropped ${embeddedResult.logs.length - filteredLogs.length} vector logs due to missing chunk reference`
+          );
+        }
+        if (filteredLogs.length) {
+          await deps.vectorLogs.append(filteredLogs);
+        }
+      } catch (logError) {
+        deps.logger.error?.(`Failed to append vector logs: ${(logError as Error).message}`);
+      }
+    }
+    await stage.mark("completed", "success");
     deps.logger.info?.(`Ingestion pipeline completed for ${task.docId}`);
     if (deps.metrics) {
       deps.metrics.counter("kb_ingestion_total", "Total ingestion tasks processed").inc();
@@ -99,9 +159,60 @@ export async function processIngestionTask(
       );
     }
     return finalizedBundle;
+  } catch (error) {
+    const message = (error as Error).message;
+    await stage.mark("failed", "error", { error: message });
+    throw error;
   } finally {
     await source.cleanup?.();
   }
+}
+
+type StageName =
+  | "parsing"
+  | "preprocess"
+  | "chunking"
+  | "tagging_meta"
+  | "embedding"
+  | "persisting"
+  | "completed"
+  | "failed";
+
+type StageStatus = "start" | "success" | "error";
+
+function createStageTracker(task: IngestionTask, deps: WorkerDependencies) {
+  const tenantId = task.tenantId ?? deps.config.DEFAULT_TENANT_ID ?? "default";
+  const libraryId = task.libraryId ?? deps.config.DEFAULT_LIBRARY_ID ?? "default";
+  const timeline: Array<{ stage: StageName; status: StageStatus; at: string; meta?: Record<string, unknown> }> = [];
+
+  const write = async (stage: StageName, status: StageStatus, meta?: Record<string, unknown>) => {
+    const entry = {
+      stage,
+      status,
+      at: new Date().toISOString(),
+      meta
+    };
+    timeline.push(entry);
+    const payload = { stages: timeline, tenantId, libraryId };
+    deps.logger.info?.(
+      `[stage=${stage} status=${status} doc=${task.docId} tenant=${tenantId} library=${libraryId}] ${JSON.stringify(meta ?? {})}`
+    );
+    if (deps.documents?.updateStatusMeta) {
+      try {
+        await deps.documents.updateStatusMeta(task.docId, {
+          statusMeta: payload,
+          ingestStatus: stage === "completed" ? "indexed" : stage === "failed" ? "failed" : undefined,
+          errorMessage: status === "error" ? (meta?.error as string | undefined) : undefined
+        });
+      } catch (error) {
+        deps.logger.error?.(`Failed to update status_meta for ${task.docId}: ${(error as Error).message}`);
+      }
+    }
+  };
+
+  return {
+    mark: (stage: StageName, status: StageStatus, meta?: Record<string, unknown>) => write(stage, status, meta)
+  };
 }
 
 interface WorkerStageOverrides {
@@ -165,7 +276,8 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       };
 
       return {
-        rawText: document?.title ? `${document.title}\n${document.sourceUri ?? ""}` : undefined,
+        // 不预填 rawText，避免解析阶段被占用导致 OCR 失效
+        rawText: undefined,
         metadata,
         attachments: [],
         binary,
@@ -195,38 +307,6 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
         });
 
       let ocrElements: ParsedElement[] = [];
-      if (
-        deps.ocr &&
-        deps.config.OCR_ENABLED &&
-        shouldUseOcr(source.mimeType, source.filename)
-      ) {
-        const buffer = await ensureBinaryBuffer(source);
-        if (buffer) {
-          try {
-            ocrElements = await deps.ocr.extract({
-              buffer,
-              filePath: source.filePath,
-              filename: source.filename,
-              mimeType: source.mimeType,
-              language: deps.config.OCR_LANG
-            });
-            if (ocrElements.length) {
-              source.ocrApplied = true;
-              source.metadata = { ...source.metadata, ocrApplied: true };
-              const combined = ocrElements
-                .map((element) => element.text?.trim())
-                .filter(Boolean)
-                .join("\n\n");
-              if (combined.length) {
-                source.rawText = combined;
-              }
-            }
-          } catch (error) {
-            deps.logger.error?.(`OCR extraction failed: ${(error as Error).message}`);
-          }
-        }
-      }
-
       let elements = await parser.parse({
         rawText: source.rawText,
         buffer: source.binary,
@@ -234,9 +314,116 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
         filename: source.filename,
         metadata: { title: document.title }
       });
-      if (!elements.length && ocrElements.length) {
-        elements = ocrElements;
+      deps.logger.info?.(
+        `Parse result | doc=${document.docId} mime=${source.mimeType ?? "unknown"} file=${source.filename ?? "unknown"} count=${elements.length}`
+      );
+      // 对 PDF 进一步检查：若只有极少内容，触发 OCR 兜底
+      if (
+        elements.length <= 1 &&
+        (source.mimeType?.toLowerCase().includes("pdf") ?? false) &&
+        (!elements[0]?.text || elements[0].text.length < 200)
+      ) {
+        deps.logger.info?.(
+          `Parse content too small, fallback OCR | doc=${document.docId} file=${source.filename ?? "unknown"}`
+        );
+        elements = [];
       }
+      if (!elements.length) {
+        // parser 结果为空时才尝试 OCR；仅 PDF 触发，逐页渲染为图片后调用 OCR
+        if (
+          deps.ocr &&
+          deps.config.OCR_ENABLED &&
+          shouldUseOcr(source.mimeType, source.filename)
+        ) {
+          const buffer = await ensureBinaryBuffer(source);
+          if (buffer) {
+            try {
+              const pdfLabel = source.filename ?? `doc-${document.docId}`;
+              deps.logger.info?.(
+                `OCR fallback start | doc=${document.docId} file=${pdfLabel} mime=${source.mimeType ?? "unknown"}`
+              );
+              const pageImages = await renderPdfPages(buffer, deps.logger, document.docId, pdfLabel);
+              deps.logger.info?.(
+                `OCR render pages | doc=${document.docId} file=${pdfLabel} pages=${pageImages.length}`
+              );
+              for (const [index, pageBuffer] of pageImages.entries()) {
+                const pageNo = index + 1;
+                try {
+                  deps.logger.info?.(
+                    `OCR page start | doc=${document.docId} file=${pdfLabel} page=${pageNo}`
+                  );
+                  const pageResult = await deps.ocr.extract({
+                    buffer: pageBuffer,
+                    filename: `${pdfLabel}.page-${pageNo}.png`,
+                    mimeType: "image/png",
+                    language: deps.config.OCR_LANG
+                  });
+                  pageResult.forEach((item) => {
+                    item.page = item.page ?? pageNo;
+                    item.entities = { ...(item as any).entities, ocr: true } as any;
+                  });
+                  deps.logger.info?.(
+                    `OCR page done | doc=${document.docId} file=${pdfLabel} page=${pageNo} items=${pageResult.length}`
+                  );
+                  ocrElements.push(...pageResult);
+                } catch (pageError) {
+                  deps.logger.error?.(
+                    `OCR page failed | doc=${document.docId} file=${pdfLabel} page=${pageNo}: ${(pageError as Error).message}`
+                  );
+                }
+              }
+              deps.logger.info?.(
+                `OCR fallback finished | doc=${document.docId} file=${pdfLabel} items=${ocrElements.length}`
+              );
+              if (ocrElements.length) {
+                source.ocrApplied = true;
+                source.metadata = { ...source.metadata, ocrApplied: true };
+                const combined = ocrElements
+                  .map((element) => element.text?.trim())
+                  .filter(Boolean)
+                  .join("\n\n");
+                if (combined.length) {
+                  source.rawText = combined;
+                }
+                elements = ocrElements;
+              }
+            } catch (error) {
+              deps.logger.error?.(`OCR extraction failed: ${(error as Error).message}`);
+            }
+          }
+        } else {
+          deps.logger.info?.(
+            `OCR skipped | doc=${document.docId} file=${source.filename ?? "unknown"} reason=${
+              shouldUseOcr(source.mimeType, source.filename) ? "OCR disabled or missing adapter" : "mime not OCR-eligible"
+            }`
+          );
+        }
+      }
+      // 如果仍然没有文本元素且是图片文件，构造图片元素用于后续图片向量化
+      if (
+        (!elements || !elements.length) &&
+        source.binary?.length &&
+        source.mimeType?.toLowerCase().startsWith("image/")
+      ) {
+        elements = [
+          {
+            id: crypto.randomUUID(),
+            type: "image",
+            data: source.binary,
+            mimeType: source.mimeType,
+            text: undefined
+          } as ParsedElement
+        ];
+      }
+        // 仍然无内容，标记失败但不中断整个 worker；由队列适配器决定是否重试
+        if (!elements.length) {
+          const msg = `Document parsing and OCR produced no content | doc=${document.docId} mime=${source.mimeType ?? "unknown"} file=${source.filename ?? "unknown"}`;
+          deps.logger.error?.(msg);
+          return { document, elements };
+        }
+      deps.logger.info?.(
+        `Parse+OCR finalized | doc=${document.docId} file=${source.filename ?? "unknown"} elements=${elements.length}`
+      );
       return { document, elements };
     },
     async chunkDocument(
@@ -244,21 +431,10 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       elements: ParsedElement[],
       source: SourcePayload
     ): Promise<ChunkFragment[]> {
-      const fallback = () => {
-        const fragments = chunkFactory.createChunks(doc, elements);
-        source.semanticSections = [];
-        return fragments;
-      };
-      try {
-        const { fragments, sections } = await buildSemanticFragments(doc, elements, source, deps);
-        source.semanticSections = sections;
-        return fragments;
-      } catch (error) {
-        deps.logger.warn?.(
-          `Semantic segmentation unavailable，fallback to chunk-based splitting: ${(error as Error).message}`
-        );
-        return fallback();
-      }
+      const maxTokens = deps.config.MAX_TOKENS_PER_SEGMENT ?? 1024;
+      const fragments = buildLengthBoundSegments(doc, elements, maxTokens, deps.logger);
+      source.semanticSections = buildSectionsFromFragments(fragments);
+      return fragments;
     },
     async extractMetadata(doc: Document, chunks: Chunk[]): Promise<Chunk[]> {
       const enriched = chunks.map((chunk) => ({
@@ -283,7 +459,8 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       const results: Chunk[] = [];
       const useLocalMetadata = setting.provider === "local";
       if (!useLocalMetadata && !deps.semanticMetadata) {
-        throw new Error("语义元数据模型未注入，无法调用远程 API");
+        deps.logger.warn?.("语义元数据模型未注入，跳过元数据生成");
+        return enriched;
       }
       let limitWarningLogged = false;
       for (const [index, chunk] of enriched.entries()) {
@@ -334,10 +511,11 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
           }
           results.push(applySemanticMetadata(chunk, metadata));
         } catch (error) {
-          deps.logger.error?.(
-            `Semantic metadata generation failed for ${chunk.chunkId}: ${(error as Error).message}`
+          // 单段结构/元数据不稳定时，回退为原 chunk（保留 segmentIndex 等标记，长度切分已满足）
+          deps.logger.warn?.(
+            `Semantic metadata failed, fallback to plain chunk | chunk=${chunk.chunkId}: ${(error as Error).message}`
           );
-          throw error;
+          results.push(chunk);
         }
       }
       return results;
@@ -347,7 +525,7 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       chunks: Chunk[],
       _source: SourcePayload,
       context?: { fragments: ChunkFragment[] }
-    ): Promise<Array<{ chunk: Chunk; embedding: Embedding }>> {
+    ): Promise<{ entries: Array<{ chunk: Chunk; embedding: Embedding }>; logs?: VectorLogInput[] }> {
       const start = Date.now();
       let vectorError: Error | null = null;
       let resolved: Array<{ chunk: Chunk; embedding: Embedding }> = [];
@@ -364,25 +542,12 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       const providerInfo = resolveVectorProvider(deps.config);
       const success = resolved.length > 0 && !vectorError;
       const metadata = vectorError ? { error: vectorError.message } : undefined;
-      if (deps.vectorLogs) {
-        try {
-          if (success) {
-            await deps.vectorLogs.append(
-              buildVectorLogs(resolved, doc, durationMs, providerInfo, "success", metadata)
-            );
-          } else {
-            await deps.vectorLogs.append(
-              buildVectorFailureLogs(chunks, doc, durationMs, providerInfo, metadata)
-            );
-          }
-        } catch (logError) {
-          deps.logger.error?.(`Failed to append vector logs: ${(logError as Error).message}`);
-        }
-      }
       if (!success) {
-        throw vectorError ?? new Error("向量化结果为空，已终止解析");
+        // 返回失败日志，避免在未入库的 chunk 上写 DB
+        return { entries: resolved, logs: buildVectorFailureLogs(chunks, doc, durationMs, providerInfo, metadata) };
       }
-      return resolved;
+      const logs = buildVectorLogs(resolved, doc, durationMs, providerInfo, "success", metadata);
+      return { entries: resolved, logs };
     }
   };
 }
@@ -402,9 +567,369 @@ async function ensureBinaryBuffer(source: SourcePayload) {
   return undefined;
 }
 
+async function renderPdfPages(
+  buffer: Uint8Array,
+  logger: WorkerDependencies["logger"],
+  docId: string,
+  fileLabel: string
+): Promise<Uint8Array[]> {
+  const images: Uint8Array[] = [];
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs") as typeof import("pdfjs-dist/legacy/build/pdf.mjs");
+    // 在 Bun/ESM 环境下优先禁用独立 worker，避免路径解析/加载问题
+    // @ts-ignore
+    pdfjs.GlobalWorkerOptions.workerSrc = undefined;
+    // @ts-ignore
+    pdfjs.GlobalWorkerOptions.workerPort = null;
+    logger?.info?.(`PDF render start | doc=${docId} file=${fileLabel}`);
+    const { createCanvas } = await import("@napi-rs/canvas");
+    const loadingTask = pdfjs.getDocument({ data: buffer, useWorker: false });
+    const pdf: PDFDocumentProxy = await loadingTask.promise;
+    const pageCount = pdf.numPages;
+    const scale = 1.5;
+    logger?.info?.(`PDF render pages | doc=${docId} file=${fileLabel} pages=${pageCount}`);
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      logger?.info?.(`PDF render page start | doc=${docId} file=${fileLabel} page=${pageNum}`);
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const context = canvas.getContext("2d");
+      await page.render({ canvasContext: context as any, viewport }).promise;
+      logger?.info?.(`PDF render page done | doc=${docId} file=${fileLabel} page=${pageNum}`);
+      images.push(canvas.toBuffer("image/png"));
+    }
+    logger?.info?.(`PDF render success | doc=${docId} file=${fileLabel} pages=${images.length}`);
+  } catch (error) {
+    logger?.error?.(
+      `PDF render failed | doc=${docId} file=${fileLabel}: ${(error as Error).message}`
+    );
+    return [];
+  }
+  return images;
+}
+
+function estimateTokens(text: string): number {
+  if (!text || !text.trim()) return 0;
+  // 简单估算：按空白分词计数
+  return text.trim().split(/\s+/).length;
+}
+
+function splitSentences(text: string): string[] {
+  // 尽量在句末标点处分段，避免在公式/代码/列表中间断开
+  return text
+    .split(/(?<=[。！？!?.])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function splitParagraphs(text: string): string[] {
+  // 先处理英文换行连字符，将 "hyphen-\nated" 还原为 "hyphenated"
+  const normalized = text.replace(/-\s*\n\s*/g, "");
+  return normalized
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function isListItem(text: string): boolean {
+  return /^[\-\*\u2022]\s+/.test(text) || /^[0-9]+\.\s+/.test(text);
+}
+
+function sanitizeText(input: string | undefined | null): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
+
+function sanitizeChunk(chunk: Chunk): Chunk {
+  return {
+    ...chunk,
+    sectionTitle: sanitizeString(chunk.sectionTitle),
+    semanticTitle: sanitizeString(chunk.semanticTitle),
+    contentText: sanitizeString(chunk.contentText),
+    contextSummary: sanitizeString(chunk.contextSummary),
+    topicLabels: chunk.topicLabels?.map(sanitizeString),
+    semanticTags: chunk.semanticTags?.map(sanitizeString),
+    topics: chunk.topics?.map(sanitizeString),
+    keywords: chunk.keywords?.map(sanitizeString),
+    parentSectionPath: chunk.parentSectionPath?.map(sanitizeString),
+    hierPath: chunk.hierPath?.map(sanitizeString)
+  };
+}
+
+function sanitizeSection(section: DocumentSection): DocumentSection {
+  return {
+    ...section,
+    title: sanitizeString(section.title),
+    summary: sanitizeString(section.summary),
+    path: section.path?.map(sanitizeString),
+    tags: section.tags?.map(sanitizeString),
+    keywords: section.keywords?.map(sanitizeString)
+  };
+}
+
+function sanitizeDocument(doc: Document): Document {
+  return {
+    ...doc,
+    title: sanitizeString(doc.title),
+    sourceUri: sanitizeString(doc.sourceUri),
+    tags: doc.tags?.map(sanitizeString)
+  };
+}
+
+function buildLengthBoundSegments(
+  doc: Document,
+  elements: ParsedElement[],
+  maxTokens: number,
+  logger?: WorkerDependencies["logger"]
+): ChunkFragment[] {
+  const segments: PreSegment[] = [];
+  // 预处理：合并元素，抽取标题/page 信息
+  for (const el of elements) {
+    const text = sanitizeText(el.text ?? "").trim();
+    const headingTitle =
+      sanitizeText((el.metadata?.heading as string | undefined) ?? undefined) ??
+      sanitizeText((el.metadata?.sectionTitle as string | undefined) ?? undefined);
+    const headingLevel = (el.metadata?.level as number | undefined) ?? undefined;
+    const heading =
+      headingTitle && headingLevel && headingLevel >= 1 && headingLevel <= 6
+        ? { title: headingTitle, level: headingLevel as HeadingLevel }
+        : undefined;
+    const paragraphs = text.length ? splitParagraphs(text) : [];
+    const filteredParas = paragraphs
+      .map((p) => sanitizeText(p))
+      .filter((para) => estimateTokens(para) >= 1);
+    if (filteredParas.length) {
+      filteredParas.forEach((para, idx) =>
+        segments.push({
+          text: para,
+          heading: idx === 0 ? heading : undefined,
+          page: el.page
+        })
+      );
+    } else if (heading) {
+      // 保留标题作为分界，即便当前元素无文本
+      segments.push({
+        text: "",
+        heading,
+        page: el.page
+      });
+    }
+  }
+
+  const result: ChunkFragment[] = [];
+  let segmentIndex = 0;
+  let buffer = "";
+  let bufferHeading: PreSegment["heading"];
+  let bufferPage: number | undefined;
+  const flush = () => {
+    if (!buffer.trim().length) return;
+    const clean = sanitizeText(buffer);
+    const chunkId = crypto.randomUUID();
+    const hierPath = bufferHeading?.title
+      ? [`seg_${segmentIndex}`, bufferHeading.title]
+      : [`seg_${segmentIndex}`];
+    const mergeTag = {
+      segmentIndex,
+      headingTitle: bufferHeading?.title,
+      headingLevel: bufferHeading?.level,
+      page: bufferPage
+    };
+    result.push({
+      chunk: ChunkSchema.parse({
+        chunkId,
+        docId: doc.docId,
+        hierPath,
+        sectionTitle: bufferHeading?.title,
+        semanticTitle: bufferHeading?.title,
+        parentSectionPath: hierPath.slice(0, -1),
+        contentText: clean.trim(),
+        contentType: "text",
+        pageNo: bufferPage,
+        entities: { ...mergeTag }
+      }),
+      source: {
+        id: chunkId,
+        type: "text",
+        text: clean.trim(),
+        metadata: { ...mergeTag }
+      }
+    });
+    segmentIndex += 1;
+    buffer = "";
+    bufferHeading = undefined;
+    bufferPage = undefined;
+  };
+
+  const appendBlock = (block: PreSegment) => {
+    const paragraphs = splitParagraphs(block.text || "");
+    const paraList = paragraphs.length ? paragraphs : [block.text];
+
+    for (const para of paraList) {
+      const listLike = isListItem(para);
+      const paraTokens = estimateTokens(para);
+      // 如果当前段加上整段超长，优先在段尾断开，避免在句中间
+      const tentativePara = buffer ? `${buffer}\n${para}` : para;
+      if (listLike && buffer.trim().length) {
+        // 列表项与前文分开，避免粘连
+        flush();
+      }
+      if (estimateTokens(tentativePara) > maxTokens && estimateTokens(buffer) > 0) {
+        flush();
+      }
+
+      if (paraTokens > maxTokens) {
+        // 段内继续细分为句子/短语
+        const sentences = splitSentences(para);
+        const sentenceList = sentences.length ? sentences : [para];
+        for (const sentence of sentenceList) {
+          const sentenceTokens = estimateTokens(sentence);
+          if (sentenceTokens > maxTokens) {
+            // 极长句，强拆但保留人类可读的分块：尽量按短句/逗号/空格切
+            const phrases = sentence
+              // 先按列表/分号/逗号等自然停顿切，避免打断列表/公式/代码块
+              .split(/(?<=[，,；;])\s+/)
+              .map((p) => p.trim())
+              .filter(Boolean);
+            for (const phrase of phrases.length ? phrases : [sentence]) {
+              // 避免在代码/公式中间断开：若检测到多行代码/公式块，整体作为一段尝试
+              if (/(```|\$\$)/.test(phrase)) {
+                if (estimateTokens(phrase) > maxTokens) {
+                  buffer = buffer ? `${buffer}\n${phrase}` : phrase;
+                  flush();
+                  continue;
+                }
+              }
+              const words = phrase.split(/\s+/);
+              let tmp = "";
+              for (const w of words) {
+                const next = tmp ? `${tmp} ${w}` : w;
+                if (estimateTokens(next) > maxTokens) {
+                  if (tmp) {
+                    buffer = buffer ? `${buffer}\n${tmp}` : tmp;
+                    flush();
+                  }
+                  tmp = w;
+                } else {
+                  tmp = next;
+                }
+              }
+              if (tmp) {
+                buffer = buffer ? `${buffer}\n${tmp}` : tmp;
+              }
+            }
+            continue;
+          }
+
+          const next = buffer ? `${buffer}\n${sentence}` : sentence;
+          if (estimateTokens(next) > maxTokens) {
+            flush();
+            bufferHeading = bufferHeading ?? block.heading;
+            bufferPage = bufferPage ?? block.page;
+            buffer = sentence;
+          } else {
+            bufferHeading = bufferHeading ?? block.heading;
+            bufferPage = bufferPage ?? block.page;
+            buffer = next;
+          }
+        }
+      } else {
+        // 段长在限制内，尽量整体放入，超过则在段尾断开
+        const next = buffer ? `${buffer}\n${para}` : para;
+        if (estimateTokens(next) > maxTokens) {
+          flush();
+        }
+        bufferHeading = bufferHeading ?? block.heading;
+        bufferPage = bufferPage ?? block.page;
+        buffer = buffer ? `${buffer}\n${para}` : para;
+      }
+    }
+  };
+
+  let lastPage: number | undefined;
+  for (const seg of segments) {
+    const isStrongBoundary =
+      (seg.heading && (seg.heading.level === 1 || seg.heading.level === 2)) ||
+      (lastPage !== undefined && seg.page !== undefined && seg.page !== lastPage) ||
+      // 避免在列表/代码/公式块中间断开：检测到块前后文本明显分隔时再切
+      false;
+    if (isStrongBoundary) {
+      flush();
+    }
+    bufferHeading = bufferHeading ?? seg.heading;
+    bufferPage = bufferPage ?? seg.page;
+    const segTokens = estimateTokens(seg.text);
+    if (segTokens >= maxTokens) {
+      // 大段再细分（句子/短语优先，避免打断自然段落的语义）
+      appendBlock({ ...seg });
+      flush();
+      bufferHeading = undefined;
+      bufferPage = undefined;
+    } else {
+      const tentative = buffer ? `${buffer}\n${seg.text}` : seg.text;
+      if (estimateTokens(tentative) > maxTokens) {
+        // 优先在自然段边界切分
+        flush();
+      }
+      bufferHeading = bufferHeading ?? seg.heading;
+      bufferPage = bufferPage ?? seg.page;
+      buffer = buffer ? `${buffer}\n${seg.text}` : seg.text;
+    }
+    lastPage = seg.page;
+  }
+  flush();
+
+  logger?.info?.(`Pre-segmentation done | doc=${doc.docId} segments=${result.length}`);
+  return result;
+}
+
+function buildSectionsFromFragments(fragments: ChunkFragment[]): DocumentSection[] {
+  const sections: DocumentSection[] = [];
+  const pathMap = new Map<string, PathNode>();
+  let order = 0;
+
+  for (const { chunk } of fragments) {
+    const path = chunk.hierPath ?? [];
+    let parentId: string | undefined;
+    let currentPath: string[] = [];
+    const segRoot = path[0] ?? "";
+    const segMatch = segRoot.match(/^seg_(\d+)/);
+    const segTag = segMatch ? segMatch[0] : undefined;
+    const baseTags = segTag ? [segTag] : [];
+    path.forEach((title, idx) => {
+      currentPath.push(title);
+      const key = currentPath.join(">");
+      const existing = pathMap.get(key);
+      if (existing) {
+        parentId = existing.sectionId;
+        return;
+      }
+      const sectionId = crypto.randomUUID();
+      const section: DocumentSection = {
+        sectionId,
+        docId: chunk.docId,
+        parentSectionId: parentId,
+        title,
+        summary: undefined,
+        level: idx + 1,
+        path: [...currentPath],
+        order: order++,
+        tags: [...baseTags],
+        keywords: [],
+        createdAt: new Date().toISOString()
+      };
+      sections.push(section);
+      pathMap.set(key, { key, sectionId });
+      parentId = sectionId;
+    });
+  }
+
+  return sections;
+}
+
 function applySemanticMetadata(chunk: Chunk, metadata: SemanticMetadata): Chunk {
   const mergedTopics = mergeTags(chunk.topicLabels ?? [], metadata.topics ?? [], 12);
   const mergedTags = mergeTags(chunk.semanticTags ?? [], metadata.semanticTags ?? [], 12);
+  const ner = Array.isArray(metadata.entities) ? metadata.entities : Array.isArray(chunk.nerEntities) ? chunk.nerEntities : undefined;
   return {
     ...chunk,
     semanticMetadata: metadata,
@@ -416,7 +941,7 @@ function applySemanticMetadata(chunk: Chunk, metadata: SemanticMetadata): Chunk 
     keywords: metadata.keywords ?? chunk.keywords,
     envLabels: metadata.envLabels ?? chunk.envLabels,
     bizEntities: metadata.bizEntities ?? chunk.bizEntities,
-    nerEntities: metadata.entities ?? chunk.nerEntities,
+    nerEntities: ner,
     parentSectionPath: metadata.parentSectionPath ?? chunk.parentSectionPath
   };
 }
@@ -828,7 +1353,9 @@ export function resolveDependencies(
     modelSettings: overrides.modelSettings,
     vectorLogs: overrides.vectorLogs,
     ocr: overrides.ocr,
-    semanticMetadata: overrides.semanticMetadata
+    semanticMetadata: overrides.semanticMetadata ?? generateSemanticMetadataViaModel,
+    semanticSegmenter: overrides.semanticSegmenter,
+    vectorClient: overrides.vectorClient
   };
 
   const defaults = createDefaultWorkerStages(base);
@@ -898,12 +1425,21 @@ async function generateRemoteTags(
     return [];
   }
   try {
+    const apiKey =
+      setting.apiKey ??
+      (deps.config as any).OPENAI_API_KEY ??
+      process.env.OPENAI_API_KEY ??
+      undefined;
+    const baseUrl =
+      setting.baseUrl ??
+      (deps.config as any).OPENAI_API_URL ??
+      "https://api.openai.com/v1";
     return await generateTagsViaModel(
       {
         provider: setting.provider,
-        baseUrl: setting.baseUrl,
+        baseUrl,
         modelName: setting.modelName,
-        apiKey: setting.apiKey
+        apiKey
       },
       {
         title: document.title,
@@ -915,7 +1451,7 @@ async function generateRemoteTags(
     );
   } catch (error) {
     deps.logger.error?.(
-      `Remote tag generation failed for ${document.docId}: ${(error as Error).message}`
+      `Remote tag generation failed for ${document.docId}: ${(error as Error).message}; provider=${setting?.provider ?? "unknown"}, baseUrl=${setting?.baseUrl ?? (deps.config as any).OPENAI_API_URL ?? "default-openai"}, model=${setting?.modelName ?? "unknown"}, hasKey=${Boolean(setting?.apiKey) || Boolean((deps.config as any).OPENAI_API_KEY)}`
     );
     return [];
   }

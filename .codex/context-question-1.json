@@ -1,37 +1,10 @@
 {
-  "question_id": "Q1",
-  "focus": "Worker pipeline 如何接入真实的多模态解析/切块/嵌入？",
-  "reason_for_investigation": "Phase 6 Step 6.1 要求去除 placeholder，使用 Unstructured/Tika + OCR + bge/CLIP 等模型，将结果写入 Postgres/Qdrant/MinIO。需要确认现状与差距，以便规划实现路径。",
+  "question": "LLM �Z�x�з��cԪ�����Ƿ��_�伴�ã�",
   "evidence": [
-    {
-      "file": "apps/worker/src/pipeline.ts",
-      "lines": "58-120",
-      "quote": "defaultWorkerStages.fetchSource 直接拼接字符串；chunkDocument 按换行拆 Paragraph；embedChunks 返回长度为 4 的向量（以内容长度 + idx 填充），完全不读取文件或模型。",
-      "implication": "当前 Worker 完全无法处理真实文件，也不会区分文本/表格/图片。"
-    },
-    {
-      "file": "packages/data/src/storage/minio.ts",
-      "lines": "1-37",
-      "quote": "MinioStorageClient 只实现 upload，缺乏 download/list/putObjectWithMetadata 等函数，Worker 无法读取 API 上传的原始文件或写入解析产物。",
-      "implication": "即便 API 存储了附件，Worker 也无法获取原始字节进行解析。"
-    },
-    {
-      "file": ".env.example",
-      "lines": "1-20",
-      "quote": "定义 MODELS_DIR、OCR_ENABLED、OCR_LANG 等参数，但仓库中除了 ops/scripts/sync-models.ts 外没人读取这些配置。",
-      "implication": "模型资源存在但未被 Worker/VectorClient 使用，bge/CLIP/OCR 仍是纸面配置。"
-    },
-    {
-      "file": "packages/core/src/vector.ts",
-      "lines": "1-120",
-      "quote": "VectorClient 在没有 TEXT_EMBEDDING_ENDPOINT 时 fallback 到 deterministicVector，未读取 MODELS_DIR 或本地 ONNX 模型。",
-      "implication": "即使 Worker 能解析文本，获得的嵌入仍是伪造的，无法满足 Phase 6。"
-    }
+    "apps/worker/src/worker.ts createSemanticSegmenter ֻ����ע�� modelSettings repo �r�ŏ� role=structure ģ������ sections����t���� undefined ���� pipeline ���ˡ�",
+    "apps/worker/src/pipeline.ts chunkDocument �{�� buildSemanticFragments��ȱʧ semanticSegmenter ��ֱ�� throw �K fallback �� AdaptiveChunkFactory ���L���з֡�",
+    "apps/worker/src/pipeline.ts extractMetadata ��Ҫ model_settings role=metadata��ȱʧ�r warn ���^ LLM Ԫ������provider=local �r�H�����lʽԪ������",
+    "db/migrations/* ���x model_settings ������ db/seeds Ŀ䛟o�A�ã�.env.example Ҳ�oĬ�Jģ�����ã����ք��°l��"
   ],
-  "findings": [
-    "Worker pipeline 需要新增文件获取、MIME 判定、分模态解析、结构化 chunk builder 与真实嵌入 orchestrator，目前没有任何基础设施承载这些步骤。",
-    "MinIO client 只负责上传；必须扩展下载/签名 URL/多租户路径逻辑，或在 Worker 中直接读取对象存储。",
-    "VectorClient 与模型下载脚本互不关联，需要决定是调用远程服务（HTTP 推理）还是在 Bun/Node 中加载 ONNX runtime。"
-  ],
-  "conclusion": "Step 6.1 要求从存储中提取真实文件，根据 MIME 路由到解析器（PDF→文本/表格、PPTX→页面图像+文本、XLSX→表格 JSON、图像→OCR + CLIP），对每种模态生成 chunk + embedding 并通过 knowledgeWriter 持久化。需要同时扩展 MinIO client、VectorClient 以及 Worker stage 结构。"
+  "conclusion": "Ĭ�J�h��δ���� model_settings��LLM �з��cԪ�����������ã���� tenant/library ���� role=structure �c role=metadata ģ������ܝM������"
 }
