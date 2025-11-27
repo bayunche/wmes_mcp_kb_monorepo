@@ -57,8 +57,8 @@ export default function ChunkListPage() {
       return data.total ?? data.items?.length ?? 0;
     },
     {
-      loadingMessage: "加载分块�?..",
-      successMessage: (total) => `�?${total} 个分块`,
+      loadingMessage: "加载分块中...",
+      successMessage: (total) => `共 ${total} 个分块`,
       errorMessage: (err) => err.message
     }
   );
@@ -78,17 +78,19 @@ export default function ChunkListPage() {
   const filtered = useMemo(() => items, [items]);
 
   return (
-    <div className="panel-grid single-column">
-      <GlassCard className="space-y-4">
+    <div className="space-y-4">
+      <GlassCard className="p-6 space-y-2">
         <SectionHeader
           eyebrow="分块列表"
-          title="查看分块、路径与标签"
-          status={
-            loadTask.status.message ? (
-              <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill>
-            ) : undefined
-          }
+          title="查看分块、层级路径与标签"
+          description="按租户/知识库/文档筛选，审阅分块标题、父路径、标签与时间戳，便于治理与定位。"
+          status={loadTask.status.message ? <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill> : undefined}
         />
+        <p className="text-sm text-slate-600">
+          支持快速跳转 Chunk 详情；结合元数据编辑器可进一步补全标签与摘要。
+        </p>
+      </GlassCard>
+      <GlassCard className="space-y-4">
 
         <div className="split gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -110,7 +112,7 @@ export default function ChunkListPage() {
             </select>
             <input
               className={inputClass}
-              placeholder="�?Doc ID 过滤（可选）"
+              placeholder="按 Doc ID 过滤（可选）"
               value={docId}
               onChange={(e) => setDocId(e.target.value)}
             />
@@ -126,7 +128,7 @@ export default function ChunkListPage() {
               <tr>
                 <th>Chunk ID</th>
                 <th>标题/路径</th>
-                <th>所属文�?/th>
+                <th>所属文档</th>
                 <th>标签</th>
                 <th>页码</th>
                 <th>操作</th>
@@ -148,9 +150,9 @@ export default function ChunkListPage() {
                     <tr key={item.chunk.chunkId}>
                       <td className="font-mono text-xs">{item.chunk.chunkId}</td>
                       <td>
-                        <div className="doc-title">{item.chunk.semanticTitle ?? item.chunk.sectionTitle ?? "未命�?}</div>
+                        <div className="doc-title">{item.chunk.semanticTitle ?? item.chunk.sectionTitle ?? "未命名"}</div>
                         <div className="meta-muted">
-                          {item.chunk.hierPath?.join(" / ") || "无层�?} ·{" "}
+                          {item.chunk.hierPath?.join(" / ") || "无层级"} ·{" "}
                           {item.chunk.createdAt ? new Date(item.chunk.createdAt).toLocaleString() : ""}
                         </div>
                       </td>
@@ -175,7 +177,7 @@ export default function ChunkListPage() {
                       <td>{item.chunk.pageNo ?? "-"}</td>
                       <td>
                         <Button asChild variant="ghost">
-                          <Link to={/chunks/}>详情</Link>
+                          <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
                         </Button>
                       </td>
                     </tr>
@@ -194,7 +196,3 @@ export default function ChunkListPage() {
     </div>
   );
 }
-
-
-
-

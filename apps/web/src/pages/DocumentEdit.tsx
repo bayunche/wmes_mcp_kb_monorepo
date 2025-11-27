@@ -57,20 +57,25 @@ export default function DocumentEdit() {
   }
 
   return (
-    <GlassCard>
-      <SectionHeader
-        eyebrow="编辑"
-        title={`文档标签 · ${title}`}
-        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
-      />
-      <form onSubmit={handleSubmit} className="stacked-form">
-        <Field label="标签（用逗号分隔）">
-          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="合同, 采购" />
-        </Field>
-        <div className="button-row">
-          <Button type="submit">保存</Button>
-        </div>
-      </form>
-    </GlassCard>
+    <div className="space-y-4">
+      <GlassCard className="p-6 space-y-2">
+        <SectionHeader
+          eyebrow="编辑"
+          title={`文档标签 · ${title}`}
+          description="维护文档标签，保障检索/过滤的准确性。"
+          status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+        />
+      </GlassCard>
+      <GlassCard>
+        <form onSubmit={handleSubmit} className="stacked-form">
+          <Field label="标签（用逗号分隔）">
+            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="合同, 采购" />
+          </Field>
+          <div className="button-row">
+            <Button type="submit">保存</Button>
+          </div>
+        </form>
+      </GlassCard>
+    </div>
   );
 }

@@ -24,6 +24,11 @@ type SearchResult = {
       contextSummary?: string;
       semanticTags?: string[];
       envLabels?: string[];
+      topics?: string[];
+      keywords?: string[];
+      entities?: Array<{ name: string; type?: string }>;
+      parentSectionPath?: string[];
+      title?: string;
     };
   };
   document?: {
@@ -43,6 +48,7 @@ export default function SearchPanel() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [preview, setPreview] = useState<any | null>(null);
   const [related, setRelated] = useState<any[]>([]);
+  const [modalChunk, setModalChunk] = useState<SearchResult | null>(null);
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
   const [semanticTags, setSemanticTags] = useState("");
@@ -234,12 +240,43 @@ export default function SearchPanel() {
                         )) ?? null}
                       </div>
                     </header>
-                    <p className="meta-muted">{item.chunk.semanticMetadata?.contextSummary ?? item.chunk.contentText?.slice(0, 180)}</p>
+                    <p className="meta-muted">
+                      {item.chunk.semanticMetadata?.contextSummary ?? item.chunk.contentText?.slice(0, 180)}
+                    </p>
+                    <div className="tag-inline mt-1">
+                      {(item.chunk.semanticMetadata?.semanticTags ?? item.chunk.semanticTags ?? []).slice(0, 5).map((tag) => (
+                        <Badge key={`${item.chunk.chunkId}-${tag}`} tone="info">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {(item.chunk.semanticMetadata?.topics ?? item.chunk.topics ?? []).slice(0, 3).map((tag) => (
+                        <Badge key={`${item.chunk.chunkId}-topic-${tag}`} tone="subtle">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
                     <div className="button-row compact" style={{ justifyContent: "space-between" }}>
                       <small className="meta-muted">{item.document?.libraryId ?? libraryId}</small>
-                      <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleRelated(item.chunk.chunkId); }}>
-                        关联段落
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setModalChunk(item);
+                          }}
+                        >
+                          查看详情
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRelated(item.chunk.chunkId);
+                          }}
+                        >
+                          关联段落
+                        </Button>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -261,11 +298,48 @@ export default function SearchPanel() {
             )}
             {preview ? (
               <div className="glass-card p-4 space-y-2">
-                <h4>{preview.title ?? preview.chunkId}</h4>
+                <h4>{preview.semanticMetadata?.title ?? preview.semanticTitle ?? preview.title ?? preview.chunkId}</h4>
                 <p className="meta-muted">
                   {preview.hierPath?.join(" / ") ?? "-"} · {preview.libraryId ?? libraryId}
                 </p>
-                <p className="text-sm text-slate-800 leading-relaxed">{preview.contentText}</p>
+                <p className="text-sm text-slate-800 leading-relaxed">
+                      {preview.semanticMetadata?.contextSummary ?? preview.contentText}
+                    </p>
+                <div className="tag-inline">
+                  {(preview.semanticMetadata?.semanticTags ?? preview.semanticTags ?? []).map((tag: string) => (
+                    <Badge key={`${preview.chunkId}-preview-tag-${tag}`} tone="info">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {(preview.semanticMetadata?.topics ?? preview.topics ?? []).map((tag: string) => (
+                    <Badge key={`${preview.chunkId}-preview-topic-${tag}`} tone="subtle">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+                {preview.semanticMetadata?.keywords?.length ? (
+                  <div className="tag-inline">
+                    {preview.semanticMetadata.keywords.map((kw: string) => (
+                      <Badge key={`${preview.chunkId}-kw-${kw}`} tone="neutral">
+                        {kw}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {preview.semanticMetadata?.entities?.length ? (
+                  <div className="tag-inline">
+                    {preview.semanticMetadata.entities.map((e: any) => (
+                      <Badge key={`${preview.chunkId}-entity-${e.name}`} tone="warning">
+                        {e.name}{e.type ? `(${e.type})` : ""}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                {preview.semanticMetadata?.parentSectionPath?.length ? (
+                  <p className="meta-muted text-xs">
+                    上级路径：{preview.semanticMetadata.parentSectionPath.join(" / ")}
+                  </p>
+                ) : null}
                 {preview.attachments?.length ? (
                   <div className="attachment-chips">
                     {preview.attachments.map((att: any) => (
@@ -312,6 +386,89 @@ export default function SearchPanel() {
       </div>
       {orgLoading && <p className="muted-text">正在同步租户/知识库...</p>}
       {orgError && <p className="muted-text">{orgError}</p>}
+
+      {modalChunk && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setModalChunk(null)}
+        >
+          <div
+            className="max-w-4xl w-full bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 overflow-y-auto max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Chunk 详情</p>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  {modalChunk.chunk.semanticMetadata?.title ??
+                    modalChunk.chunk.semanticMetadata?.contextSummary?.slice(0, 24) ??
+                    modalChunk.chunk.chunkId}
+                </h3>
+                <p className="meta-muted text-sm">
+                  {modalChunk.chunk.hierPath?.join(" / ") ?? "-"} · {modalChunk.document?.title ?? modalChunk.chunk.docId}
+                </p>
+              </div>
+              <Button variant="ghost" onClick={() => setModalChunk(null)}>
+                关闭
+              </Button>
+            </div>
+            <div className="tag-inline">
+              {(modalChunk.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
+                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} tone="info">
+                  {tag}
+                </Badge>
+              ))}
+              {(modalChunk.chunk.semanticMetadata?.topics ?? []).map((tag) => (
+                <Badge key={`${modalChunk.chunk.chunkId}-topic-${tag}`} tone="subtle">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+            {modalChunk.chunk.semanticMetadata?.keywords?.length ? (
+              <div className="tag-inline">
+                {modalChunk.chunk.semanticMetadata.keywords.map((kw) => (
+                  <Badge key={`${modalChunk.chunk.chunkId}-kw-${kw}`} tone="neutral">
+                    {kw}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            {modalChunk.chunk.semanticMetadata?.entities?.length ? (
+              <div className="tag-inline">
+                {modalChunk.chunk.semanticMetadata.entities.map((e) => (
+                  <Badge key={`${modalChunk.chunk.chunkId}-entity-${e.name}`} tone="warning">
+                    {e.name}
+                    {e.type ? `(${e.type})` : ""}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            {modalChunk.chunk.semanticMetadata?.contextSummary ? (
+              <p className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-800 leading-6">
+                {modalChunk.chunk.semanticMetadata.contextSummary}
+              </p>
+            ) : null}
+            <pre className="whitespace-pre-wrap bg-slate-50 rounded-xl p-3 border border-slate-200 text-sm leading-6">
+              {modalChunk.chunk.contentText}
+            </pre>
+            {modalChunk.chunk.semanticMetadata?.parentSectionPath?.length ? (
+              <p className="meta-muted text-xs">
+                上级路径：{modalChunk.chunk.semanticMetadata.parentSectionPath.join(" / ")}
+              </p>
+            ) : null}
+            {modalChunk.attachments?.length ? (
+              <div className="attachment-chips">
+                {modalChunk.attachments.map((att: any) => (
+                  <a key={att.assetId} href={buildAttachmentUrl(att)} className="chip" target="_blank" rel="noreferrer">
+                    <span>{att.assetType}</span>
+                    <span className="meta-muted">{att.objectKey}</span>
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </GlassCard>
   );
 }

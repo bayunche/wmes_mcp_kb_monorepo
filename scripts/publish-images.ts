@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { spawnSync } from "bun";
+import fs from "node:fs";
 
 type PublishOptions = {
   registry: string;
@@ -26,6 +27,19 @@ const services = [
   { name: "worker", dockerfile: "deploy/docker/Dockerfile.worker", image: "kb-worker" },
   { name: "mcp", dockerfile: "deploy/docker/Dockerfile.mcp", image: "kb-mcp" }
 ];
+
+function assertMigrationsPresent() {
+  // 构建前确保关键迁移文件在上下文中，避免镜像缺失导致线上缺表/约束
+  const required = ["0010_model_settings_provider_local.sql"];
+  for (const file of required) {
+    const full = `db/migrations/${file}`;
+    if (!fs.existsSync(full)) {
+      throw new Error(`缺少迁移文件：${full}，请先同步到工作区或重新拉取代码`);
+    }
+  }
+}
+
+assertMigrationsPresent();
 
 for (const service of services) {
   const tag = `${options.registry}/${service.image}:${options.version}`;

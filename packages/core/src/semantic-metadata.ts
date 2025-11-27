@@ -67,7 +67,7 @@ async function requestOpenAi(config: SemanticMetadataModelConfig, prompt: string
       {
         role: "system",
         content:
-          "你是企业知识库的语义摘要与标签生成器。请输出 JSON 对象，包含 title, contextSummary(<=240字符), semanticTags(<=5), topics(<=5), keywords(<=10), envLabels(<=3), bizEntities(<=5), entities(<=5), parentSectionPath。"
+          "你是企业知识库的语义摘要与标签生成器。严格输出 JSON 对象，字段：title, contextSummary(<=240字符), semanticTags(3-5), topics(2-5), keywords(8-12), envLabels(<=3), bizEntities(<=6), entities(<=8，含name/type)，parentSectionPath(数组)。禁止输出除 JSON 以外的文字，缺省字段给空数组/空字符串，绝不返回 null。"
       },
       { role: "user", content: prompt }
     ]
@@ -120,16 +120,16 @@ function buildPrompt(input: SemanticMetadataInput) {
 段落内容:
 ${chunk}
 
-请基于上述信息输出一个 JSON 对象，字段包括:
-- title
-- contextSummary (<=240 字符)
-- semanticTags (<=5)
-- topics (<=5)
-- keywords (<=10)
-- envLabels (<=3)
-- bizEntities (<=5)
-- entities: NER 列表 [{name,type}]
-- parentSectionPath: 路径数组`;
+请仅输出一个 JSON 对象，包含：
+- title: 20 字以内的精确语义标题，避免重复文档标题
+- contextSummary: 240 字以内摘要，覆盖关键信息、数字、时间、约束
+- semanticTags: 3-5 个精炼标签（领域/功能/行为）
+- topics: 2-5 个主题分类（从粗到细）
+- keywords: 8-12 个关键词，覆盖专有名词、时间、数值、地点
+- envLabels: 0-3 个环境/场景标签（如“生产环境”、“测试”、“财报”）
+- bizEntities: 0-6 个业务实体（如产品/部门/客户/项目）
+- entities: 0-8 个 NER 实体，元素形如 {"name":"xxx","type":"person|organization|product|concept|location|other"}
+- parentSectionPath: 路径数组（保留上级层级）`;
 }
 
 function normalizeSemanticResponse(raw: string): SemanticMetadata {

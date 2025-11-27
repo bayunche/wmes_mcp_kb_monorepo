@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-11-27T10:25:00+08:00",
+  "focus": "继续排查 Vite 解析错误（其他页面编码损坏）",
+  "observations": [
+    "ChunkDetailPage 已重写为合法 UTF-8，但 npm run build 失败后提示的 Babel 栈仍可能来源于其它页面。",
+    "快速扫描发现 ChunkListPage.tsx、DocumentDetail.tsx、DocumentsList.tsx 无法 UTF-8 解码，说明仍有非法字节/乱码。"
+  ],
+  "hypotheses": [
+    "当前 Vite 报错可能来自这些未修复文件，Babel 解析遇到非法字符导致堆栈循环。",
+    "修复所有解码失败的页面后，Vite 构建应能继续（前提是安装依赖）。"
+  ],
+  "next_steps": [
+    "逐个重写 ChunkListPage.tsx、DocumentDetail.tsx、DocumentsList.tsx 为合法 UTF-8，恢复中文文案。",
+    "复用已有组件与路由契约，修复可能的 JSX/Link 错误。",
+    "依赖仍缺失（vite 未安装），如无法安装则记录测试阻塞。"
+  ]
+}

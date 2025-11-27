@@ -23,6 +23,7 @@ export interface DocumentRepository {
   upsert(document: Document): Promise<Document>;
   list(tenantId?: string, libraryId?: string): Promise<Document[]>;
   get(docId: string): Promise<Document | null>;
+  listWithStatus?(tenantId?: string, libraryId?: string, limit?: number): Promise<Document[]>;
   updateTags(docId: string, tags: string[]): Promise<Document | null>;
   updateStatus(docId: string, status: Document["ingestStatus"], errorMessage?: string): Promise<void>;
   updateStatusMeta?(

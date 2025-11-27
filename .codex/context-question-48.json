@@ -1,0 +1,12 @@
+{
+  "questionId": "Q48",
+  "focus": "数据库是否缺少 provider=local 约束修复，需要再次迁移吗",
+  "why": "PUT /model-settings 持续 500，提示 model_settings_provider_check 违例，需确认根因并确定修复手段",
+  "analysis": {
+    "current_constraint": "db/migrations/0003_model_settings.sql 将 provider 限定为 openai/ollama；0008_model_settings_local.sql 与 0010_model_settings_provider_local.sql 均以 DROP/ADD 方式将约束扩展为 openai/ollama/local（幂等）。",
+    "runtime_logs": "logs/dev/api.log 在 2025-11-27 02:51/03:07 多次 PUT /model-settings 500，堆栈指向 model_settings_provider_check，说明现库仍命中更严格的约束（缺少 local 或其他当前 provider）。",
+    "schema_alignment": "packages/shared-schemas/src/index.ts 的 ModelProviderSchema 只允许 openai/ollama/local；API 校验同样如此，表明 DB 约束比代码更窄而非更宽。",
+    "migration_runner": "ops/scripts/run-migrations.ts 全量重放 SQL，无迁移表，只要 SQL 幂等即可修复历史库；需要新增一次明确的 DROP/ADD 迁移来覆盖旧实例。"
+  },
+  "conclusion": "报错源于数据库约束未包含 local（或未执行 0008/0010）；应追加一次幂等迁移重新声明 provider 枚举为 openai/ollama/local，并考虑在测试/文档提示执行迁移。"
+}

@@ -107,3 +107,17 @@
 �测试与手动上传用例。 |
 | 2025-11-19T19:47:00+08:00 | 说明 | `bun run web` | 未在 WSL 验证新的本地模型下拉及 provider=local 选择；请在宿主浏览器测试 ModelSettings 页面和 Worker 启动流程。 |
 | 2025-11-20T20:46:05+08:00 | bun --version | `bun --version` | 失败：WSL 调用 Windows bun.exe 权限拒绝，无法执行任何 bun 测试；需在可执行 Bun 的环境复跑 `bun test` 与 Worker OCR/metadata 路径。 |
+| 2025-11-27T10:14:52+08:00 | npm run build | `npm run build --prefix apps/web` | 失败：缺少 Vite 可执行（apps/web/node_modules 为空），受限环境未安装依赖，需先 npm install 后重试。 |
+| 2025-11-27T10:34:31+08:00 | 说明 | N/A | 新增数据库迁移 0010_model_settings_provider_local，未在本地执行（无数据库环境），需在可用环境运行 run-migrations 以更新约束。 |
+| 2025-11-27T11:22:30+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts --filter "constraint violation returns hint to run migrations"` | 失败：当前环境找不到 bun 可执行（/bin/bash: bun: command not found），无法验证新增约束提示单测。 |
+| 2025-11-27T12:10:20+08:00 | 说明 | N/A | 未运行自动化测试；环境缺少 bun，可在宿主执行 `bun test` 与 `bun run scripts/publish-images.ts --registry=kb-local --push=false` 验证迁移校验。 |
+| 2025-11-27T12:31:00+08:00 | 说明 | N/A | 未运行自动化测试；需在具备 docker compose 或安装 psql 的环境重试 `bun run scripts/run-migrations.ts` 验证新检测逻辑。 |
+| 2025-11-27T12:45:20+08:00 | 说明 | N/A | 未运行自动化测试；需在清理重复后，按更新的 0003（非唯一索引）+0011 重放迁移验证。 |
+| 2025-11-27T13:30:30+08:00 | 说明 | N/A | 未运行测试；需在具备 bun/psql 的环境执行 `bun test`，验证 HybridRetriever 新增 BM25 融合与前端 /metadata 页面。 |
+| 2025-11-27T14:01:00+08:00 | 说明 | N/A | 未运行测试；需在具备 bun 的环境下跑 `bun test` 并手动验证 `/search` 和 `/metadata` 页面展示语义元数据。 |
+| 2025-11-27T14:21:20+08:00 | 说明 | N/A | 未运行测试；需在具备 bun/psql 环境下验证 /chunks PATCH 元数据更新及 /metadata 页面编辑保存流程。 |
+| 2025-11-27T14:40:20+08:00 | 说明 | N/A | 未运行测试；需在可用环境验证新的粗粒度分块（空行/章节/连字符重组）和 per-block 语义切分落库情况。 |
+| 2025-11-27T15:10:20+08:00 | 说明 | N/A | 未运行测试；请在可用环境下验证 /model-settings/models 接口提示文案是否正常显示中文。 |
+| 2025-11-27T15:36:40+08:00 | 说明 | N/A | 未运行测试；需在可用环境验证 /ingestion/queue 接口及前端队列进度条显示、stage 进度计算是否符合预期。 |
+| 2025-11-27T16:00:20+08:00 | 说明 | N/A | 未运行测试；需在可用环境验证新的分块逻辑：章节块→LLM 切分→段落长度再细分后落库，确认最终 chunk 数量与组织结构。 |
+| 2025-11-27T16:15:20+08:00 | 说明 | N/A | 未运行测试；需在前端确认搜索结果点击“查看详情”弹窗正常显示 chunk 元数据与内容。 |

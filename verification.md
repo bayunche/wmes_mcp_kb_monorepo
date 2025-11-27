@@ -1,5 +1,14 @@
 ﻿# 验证报告
 
+- **日期**：2025-11-27
+- **范围**：ChunkDetailPage JSX/编码修复
+- **验证步骤**：
+  - 静态审查 `apps/web/src/pages/ChunkDetailPage.tsx` 重写后的 JSX/文案，确认移除乱码、补齐标签与 Link 路径。
+  - 运行 `npm run build --prefix apps/web`（失败：缺少 Vite，可执行未安装）。错误已记录 `.codex/testing.md`。
+- **结果**：静态检查通过；构建未执行成功，因 node_modules 缺失 Vite，需要安装依赖后重跑。
+- **剩余风险**：需在可联网环境执行 `npm install --prefix apps/web` 后重试 Vite build，验证页面可编译与路由可用；未运行时的功能回归待补。
+
+---
 
 - **日期**：2025-11-27
 - **范围**：项目需求文档补充企业级语义治理（LLM 语义切分/元数据/结构树/OCR）
@@ -220,3 +229,16 @@
 - **剩余风险**：
   - OCR 仍依赖外部 paddle 服务可用性，需按 README 启动并在可访问环境内重试 ingestion。
   - metadata 生成被跳过时可能缺少语义标签/摘要，需在可用环境配置至少一条 metadata 模型并回归上传流程。
+
+---
+
+- **日期**：2025-11-27
+- **范围**：model_settings provider 约束修复（新增 0011 迁移 + API 违例提示）
+- **验证步骤**：
+  - 静态审查 db/migrations/0011_model_settings_provider_reset.sql，确认 DROP/ADD 约束包含 openai/ollama/local 且幂等可重复执行。
+  - 审查 apps/api/src/routes.ts，确保 handleSaveModelSettings 捕获 model_settings_provider_check 违例时返回 400 并提示运行迁移。
+  - 新增 apps/api/src/__tests__/api.test.ts 用例模拟 PG check 违例并验证提示文本。
+- **测试情况**：当前环境缺少 bun 可执行（/bin/bash: bun: command not found），无法运行新增单测；已在 `.codex/testing.md` 记录，需在具备 bun 的宿主机执行 `bun test apps/api/src/__tests__/api.test.ts --filter "constraint violation returns hint to run migrations"`。
+- **剩余风险**：
+  - 需在实际数据库上运行 run-migrations 或等效命令以应用 0011 迁移，否则 provider=local 仍可能写入失败。
+  - 未在真实 PG 环境验证约束变化，建议执行一次写入 smoke（PUT /model-settings provider=local）确认 200 响应。

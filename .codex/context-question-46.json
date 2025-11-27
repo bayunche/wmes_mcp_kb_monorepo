@@ -1,0 +1,16 @@
+{
+  "questionId": "Q46",
+  "focus": "ChunkDetailPage JSX 乱码与非法字节如何修复",
+  "why": "Vite/Babel 报 Unexpected token，定位到 ChunkDetailPage.tsx，文件中出现非法 UTF-8 字节、未闭合 h3、缺失引号，必须恢复正确文案与合法 JSX 才能继续开发。",
+  "actions": [
+    "查看 ChunkDetailPage.tsx 131-145 行，确认 h3 未闭合、FieldGroup label 缺引号、NER 文案乱码。",
+    "使用 Python 检查 utf-8 解码错误位置（4724/5010/5171/5306 等），确认存在非法字节与 CRLF。",
+    "比对页面意图（分块标签、实体、摘要等）重新整理应有的中文文案与结构。"
+  ],
+  "evidence": [
+    "Python decode 报错：'utf-8' codec can't decode bytes in position 4724-4725: invalid continuation byte；附近字节 b\"\\x87.../h3>\"。",
+    "源码片段：`<h3 className=\"section-title\">æ ‡ç­¾ä¸Žä¸»é¢?/h3>`、`<FieldGroup label=\"å...³é\" items={record?.chunk.keywords} />` 无引号闭合。",
+    "页面应展示标签/实体/摘要，当前文案均出现 mojibake。"
+  ],
+  "conclusion": "需要重写 ChunkDetailPage.tsx 相关 JSX，移除非法字节，恢复 UTF-8 中文文案（标签与主题、关键词、实体/上下文等），补齐 h3 闭合与 label 引号，保证文件整体 UTF-8 可解析。"
+}

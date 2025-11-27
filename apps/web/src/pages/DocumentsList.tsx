@@ -21,10 +21,10 @@ interface DocItem {
 }
 
 const STATUS_LABELS: Record<string, { label: string; tone: "info" | "success" | "warning" | "danger" }> = {
-  uploaded: { label: "´ıÈë¿â", tone: "warning" },
-  parsed: { label: "½âÎöÍê³É", tone: "info" },
-  indexed: { label: "ÒÑÈë¿â", tone: "success" },
-  failed: { label: "Ê§°Ü", tone: "danger" }
+  uploaded: { label: "å¾…å…¥åº“", tone: "warning" },
+  parsed: { label: "è§£æå®Œæˆ", tone: "info" },
+  indexed: { label: "å·²å…¥åº“", tone: "success" },
+  failed: { label: "å¤±è´¥", tone: "danger" }
 };
 
 const inputClass =
@@ -45,8 +45,8 @@ export default function DocumentsList() {
       return data.items?.length ?? 0;
     },
     {
-      loadingMessage: "¼ÓÔØÎÄµµÁĞ±íÖĞ...",
-      successMessage: (total) => `¹² ${total} ÆªÎÄµµ`,
+      loadingMessage: "åŠ è½½æ–‡æ¡£åˆ—è¡¨ä¸­...",
+      successMessage: (total) => `å…± ${total} ç¯‡æ–‡æ¡£`,
       errorMessage: (error) => error.message
     }
   );
@@ -54,7 +54,7 @@ export default function DocumentsList() {
   useEffect(() => {
     loadTask
       .run()
-      .catch((error) => toast.push({ title: "¼ÓÔØÊ§°Ü", description: (error as Error).message, tone: "danger" }));
+      .catch((error) => toast.push({ title: "åŠ è½½å¤±è´¥", description: (error as Error).message, tone: "danger" }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId, libraryId]);
 
@@ -66,17 +66,19 @@ export default function DocumentsList() {
   const statusTone = loadTask.status.phase === "error" ? "danger" : loadTask.status.phase === "success" ? "success" : "info";
 
   return (
-    <div className="panel-grid single-column">
-      <GlassCard className="space-y-4">
+    <div className="space-y-4">
+      <GlassCard className="p-6 space-y-3">
         <SectionHeader
-          eyebrow="ÎÄµµÁĞ±í"
-          title="¿ìËÙ¶¨Î»ÒÑÈë¿âÎÄµµ"
-          status={
-            loadTask.status.message ? (
-              <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill>
-            ) : undefined
-          }
+          eyebrow="æ–‡æ¡£èµ„äº§"
+          title="æ–‡æ¡£åˆ—è¡¨ä¸çŠ¶æ€"
+          description="æŒ‰ç§Ÿæˆ·/çŸ¥è¯†åº“ç­›é€‰ï¼ŒæŸ¥çœ‹è§£æ/å…¥åº“çŠ¶æ€ä¸æ ‡ç­¾ï¼Œæ”¯æŒè·³è½¬è¯¦æƒ…/ç¼–è¾‘ã€‚"
+          status={loadTask.status.message ? <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill> : undefined}
         />
+        <p className="text-sm text-slate-600">
+          æ”¯æŒçŠ¶æ€è¿‡æ»¤ï¼šå¾…å…¥åº“ / è§£æå®Œæˆ / å·²å…¥åº“ / å¤±è´¥ï¼›æ–¹ä¾¿è¿è¥ä¾§å¿«é€Ÿå®šä½æ–‡æ¡£ã€‚
+        </p>
+      </GlassCard>
+      <GlassCard className="space-y-4">
         <div className="split">
           <div className="flex flex-wrap items-center gap-2">
             <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
@@ -96,7 +98,7 @@ export default function DocumentsList() {
                 ))}
             </select>
             <Button variant="ghost" onClick={loadTask.run}>
-              Ë¢ĞÂ
+              åˆ·æ–°
             </Button>
           </div>
           <div className="pill-switch">
@@ -107,7 +109,7 @@ export default function DocumentsList() {
                 className={`pill-option ${statusFilter === key ? "is-active" : ""}`}
                 onClick={() => setStatusFilter(key)}
               >
-                {STATUS_LABELS[key]?.label ?? "È«²¿"}
+                {STATUS_LABELS[key]?.label ?? "å…¨éƒ¨"}
               </button>
             ))}
           </div>
@@ -118,10 +120,10 @@ export default function DocumentsList() {
             <thead>
               <tr>
                 <th>Doc ID</th>
-                <th>±êÌâ</th>
-                <th>×´Ì¬</th>
-                <th>±êÇ©</th>
-                <th>²Ù×÷</th>
+                <th>æ ‡é¢˜</th>
+                <th>çŠ¶æ€</th>
+                <th>æ ‡ç­¾</th>
+                <th>æ“ä½œ</th>
               </tr>
             </thead>
             <tbody>
@@ -143,7 +145,7 @@ export default function DocumentsList() {
                         <td>
                           <div className="doc-title">{item.title}</div>
                           <div className="meta-muted">
-                            {item.tenantId ?? tenantId} ¡¤ {item.libraryId ?? libraryId}
+                            {item.tenantId ?? tenantId} Â· {item.libraryId ?? libraryId}
                           </div>
                         </td>
                         <td>
@@ -164,7 +166,7 @@ export default function DocumentsList() {
                         </td>
                         <td>
                           <Button asChild variant="ghost">
-                            <Link to={/documents/}>²é¿´</Link>
+                            <Link to={`/documents/${item.docId}`}>æŸ¥çœ‹</Link>
                           </Button>
                         </td>
                       </tr>
@@ -173,7 +175,7 @@ export default function DocumentsList() {
               {!filtered.length && loadTask.status.phase !== "loading" && (
                 <tr>
                   <td colSpan={5} className="placeholder">
-                    ÔİÎŞ¼ÇÂ¼£¬Çëµ÷ÕûÉ¸Ñ¡ºóÔÙÊÔ
+                    æš‚æ— è®°å½•ï¼Œè¯·è°ƒæ•´ç­›é€‰åå†è¯•
                   </td>
                 </tr>
               )}
@@ -184,5 +186,3 @@ export default function DocumentsList() {
     </div>
   );
 }
-
-

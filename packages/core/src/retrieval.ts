@@ -22,6 +22,7 @@ export interface ChunkRecord {
   topicLabels?: string[];
   neighbors?: Chunk[];
   createdAt?: string;
+  bm25Score?: number;
 }
 
 export interface ChunkRepository {
@@ -30,6 +31,21 @@ export interface ChunkRepository {
   listByDocument?(docId: string): Promise<ChunkRecord[]>;
   listByLibrary?(libraryId: string, options?: { docId?: string; limit?: number }): Promise<ChunkRecord[]>;
   updateTopicLabels?(chunkId: string, labels: string[]): Promise<void>;
+  updateMetadata?(
+    chunkId: string,
+    payload: {
+      topicLabels?: string[];
+      semanticTags?: string[];
+      topics?: string[];
+      keywords?: string[];
+      contextSummary?: string;
+      semanticTitle?: string;
+      parentSectionPath?: string[];
+      bizEntities?: string[];
+      envLabels?: string[];
+      nerEntities?: Array<{ name: string; type?: string }>;
+    }
+  ): Promise<void>;
 }
 
 export interface HybridRetrieverDeps {
@@ -126,6 +142,8 @@ export class HybridRetriever {
       normalizeVector(result.vector)
     );
 
+    const bm25Scores = normalizeScores(candidates.map((record) => record.bm25Score ?? 0));
+
     const rerankTexts = candidates.map((record) => record.chunk.contentText ?? "");
     const rerankRaw = rerankTexts.length ? await this.vectorClient.rerank(request.query, rerankTexts) : [];
     const rerankScores = normalizeScores(rerankRaw);
@@ -133,6 +151,7 @@ export class HybridRetriever {
     const scored = candidates.map((record, index) => {
       const similarity = cosineSimilarity(queryVector, chunkVectors[index]);
       const keyword = keywordScore(request.query, record.chunk);
+      const keywordOrBm25 = bm25Scores[index] > 0 ? bm25Scores[index] : keyword;
       const hierarchy = hierarchyScore(record.chunk, request.filters);
       const recency = recencyScore(record);
       const topic = topicScore(record, request.filters);
@@ -140,7 +159,7 @@ export class HybridRetriever {
 
       const hybridScore =
         this.weights.alpha * similarity +
-        this.weights.beta * keyword +
+        this.weights.beta * keywordOrBm25 +
         this.weights.gamma * hierarchy +
         this.weights.delta * recency +
         this.weights.epsilon * topic +

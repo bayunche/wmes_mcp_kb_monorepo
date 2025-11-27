@@ -204,6 +204,26 @@ class MemoryModelSettingsRepository implements ModelSettingsRepository {
   }
 }
 
+class FailingModelSettingsRepository implements ModelSettingsRepository {
+  constructor(private readonly error: Error) {}
+
+  async get(): Promise<ReturnType<typeof ModelSettingSecretSchema.parse> | null> {
+    return null;
+  }
+
+  async list(): Promise<ReturnType<typeof ModelSettingSecretSchema.parse>[]> {
+    return [];
+  }
+
+  async upsert(): Promise<ReturnType<typeof ModelSettingSecretSchema.parse>> {
+    throw this.error;
+  }
+
+  async delete(): Promise<void> {
+    return;
+  }
+}
+
 class MemoryVectorLogRepository implements VectorLogRepository {
   private readonly logs: VectorLog[] = [];
 
@@ -504,6 +524,33 @@ describe("API routes", () => {
     expect(getJson.setting.apiKeyPreview.endsWith("1234")).toBe(true);
     expect(getJson.setting.provider).toBe("openai");
     expect(getJson.setting.modelRole).toBe("metadata");
+  });
+
+  test("model settings constraint violation returns hint to run migrations", async () => {
+    const constraintError = new Error(
+      'new row for relation "model_settings" violates check constraint "model_settings_provider_check"'
+    );
+    (constraintError as any).code = "23514";
+    (constraintError as any).constraint = "model_settings_provider_check";
+    const deps = {
+      ...setup.deps,
+      modelSettings: new FailingModelSettingsRepository(constraintError)
+    };
+    const request = new Request("http://test/model-settings", {
+      method: "PUT",
+      headers: { ...authHeader, "content-type": "application/json" },
+      body: JSON.stringify({
+        provider: "local",
+        baseUrl: "http://localhost:11434",
+        modelName: "nomic-embed-text",
+        modelRole: "embedding"
+      })
+    });
+    const response = await handleRequest(request, deps);
+    expect(response.status).toBe(400);
+    const text = await response.text();
+    expect(text).toContain("model_settings.provider 约束未更新");
+    expect(text).toContain("运行数据库迁移");
   });
 
   test("vector logs endpoint returns filtered records", async () => {

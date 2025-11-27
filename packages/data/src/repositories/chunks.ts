@@ -42,7 +42,9 @@ type ChunkJoinRow = {
   doc_ingest_status: string;
 };
 
-function mapRow(row: ChunkJoinRow): ChunkRecord {
+type ChunkJoinRowWithBm25 = ChunkJoinRow & { bm25_score?: number | null };
+
+function mapRow(row: ChunkJoinRowWithBm25): ChunkRecord {
   const nerEntities = Array.isArray(row.ner_entities) ? row.ner_entities : [];
   const chunk: Chunk = ChunkSchema.parse({
     chunkId: row.chunk_id,
@@ -84,7 +86,8 @@ function mapRow(row: ChunkJoinRow): ChunkRecord {
       tags: row.doc_tags ?? undefined
     },
     neighbors: [],
-    topicLabels: chunk.topicLabels
+    topicLabels: chunk.topicLabels,
+    bm25Score: typeof row.bm25_score === "number" ? row.bm25_score : undefined
   };
 }
 
@@ -129,30 +132,100 @@ export class PgChunkRepository implements ChunkRepository {
       .execute();
   }
 
+  async updateMetadata(
+    chunkId: string,
+    payload: {
+      topicLabels?: string[];
+      semanticTags?: string[];
+      topics?: string[];
+      keywords?: string[];
+      contextSummary?: string;
+      semanticTitle?: string;
+      parentSectionPath?: string[];
+      bizEntities?: string[];
+      envLabels?: string[];
+      nerEntities?: Array<{ name: string; type?: string }>;
+    }
+  ): Promise<void> {
+    const updates: Record<string, unknown> = {};
+    if (payload.topicLabels) updates.topic_labels = payload.topicLabels;
+    if (payload.semanticTags) updates.semantic_tags = payload.semanticTags;
+    if (payload.topics) updates.topics = payload.topics;
+    if (payload.keywords) updates.keywords = payload.keywords;
+    if (payload.contextSummary !== undefined) updates.context_summary = payload.contextSummary;
+    if (payload.semanticTitle !== undefined) updates.semantic_title = payload.semanticTitle;
+    if (payload.parentSectionPath) updates.parent_section_path = payload.parentSectionPath;
+    if (payload.bizEntities) updates.biz_entities = payload.bizEntities;
+    if (payload.envLabels) updates.env_labels = payload.envLabels;
+    if (payload.nerEntities) updates.ner_entities = payload.nerEntities;
+
+    if (!Object.keys(updates).length) {
+      return;
+    }
+
+    await this.db.updateTable("chunks").set(updates).where("chunk_id", "=", chunkId).execute();
+  }
+
   async searchCandidates(request: SearchRequest, queryVector: number[]): Promise<ChunkRecord[]> {
     const limit = request.limit ?? 10;
+    const combined = new Map<
+      string,
+      { row: ChunkJoinRowWithBm25; vectorScore?: number; bm25Score?: number }
+    >();
+
+    // 向量召回
     if (this.vectorIndex) {
-      const hits = await this.vectorIndex.search(queryVector, limit);
+      const hits = await this.vectorIndex.search(queryVector, limit * 2);
       if (hits.length) {
         const chunkIds = hits.map((hit) => hit.chunkId);
         const rows = await this.baseQuery().where("chunks.chunk_id", "in", chunkIds).execute();
         const filteredRows = this.applyFilters(rows, request);
-        const mapped = filteredRows.map(mapRow);
         const scoreMap = new Map(hits.map((hit) => [hit.chunkId, hit.score]));
-        return mapped.sort(
-          (a, b) => (scoreMap.get(b.chunk.chunkId) ?? 0) - (scoreMap.get(a.chunk.chunkId) ?? 0)
-        );
+        filteredRows.forEach((row) => {
+          const score = scoreMap.get(row.chunk_id) ?? 0;
+          combined.set(row.chunk_id, { row, vectorScore: score });
+        });
       }
     }
 
-    // Fallback：使用簡單全文搜尋
-    const rows = await this.baseQuery()
+    // BM25/全文召回
+    const bm25Rows = await this.baseQuery()
+      .select((eb) =>
+        sql<number>`ts_rank_cd(to_tsvector('simple', coalesce(chunks.content_text,'')), plainto_tsquery('simple', ${request.query}))`.as(
+          "bm25_score"
+        )
+      )
       .where((eb) => eb("chunks.content_text", "is not", null))
-      .orderBy("chunks.created_at", "desc")
-      .limit(limit)
+      .orderBy("bm25_score", "desc")
+      .limit(limit * 2)
       .execute();
-    const filtered = this.applyFilters(rows, request);
-    return filtered.map(mapRow);
+    this.applyFilters(bm25Rows, request).forEach((row) => {
+      const existing = combined.get(row.chunk_id);
+      const bm25Score = row.bm25_score ?? 0;
+      if (existing) {
+        combined.set(row.chunk_id, { ...existing, bm25Score });
+      } else {
+        combined.set(row.chunk_id, { row, bm25Score });
+      }
+    });
+
+    if (!combined.size) {
+      return [];
+    }
+
+    const aggregated = Array.from(combined.values()).map((item) => ({
+      record: mapRow(item.row),
+      vectorScore: item.vectorScore ?? 0,
+      bm25Score: item.bm25Score ?? 0
+    }));
+
+    // 简单融合排序：向量得分 + BM25 得分
+    const sorted = aggregated
+      .sort((a, b) => b.vectorScore + b.bm25Score - (a.vectorScore + a.bm25Score))
+      .slice(0, limit * 2)
+      .map((item) => ({ ...item.record, bm25Score: item.bm25Score }));
+
+    return sorted;
   }
 
   private baseQuery() {
@@ -206,7 +279,7 @@ export class PgChunkRepository implements ChunkRepository {
     return rows.map(mapRow);
   }
 
-  private applyFilters(rows: ChunkJoinRow[], request: SearchRequest) {
+  private applyFilters(rows: Array<ChunkJoinRowWithBm25>, request: SearchRequest) {
     return rows.filter((row) => {
       if (request.filters?.tenantId && row.doc_tenant_id !== request.filters.tenantId) {
         return false;

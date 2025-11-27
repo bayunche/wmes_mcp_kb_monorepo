@@ -1,5 +1,4 @@
 ﻿import { useEffect, useMemo, useState, useCallback } from "react";
-import { MetadataEditor } from "../components/MetadataEditor";
 import { fetchLibraryChunks, reindexDocument } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useAsyncTask } from "../hooks/useAsyncTask";
@@ -97,11 +96,11 @@ export default function GovernancePage() {
 
   return (
     <div className="space-y-4">
-      <GlassCard className="space-y-4">
+      <GlassCard className="p-6 space-y-4">
         <SectionHeader
           eyebrow="治理"
           title="Chunk 标签 / 主题 / 附件治理"
-          description="筛选库内 Chunk，补充标签、主题或重新索引"
+          description="筛选库内 Chunk，补充标签、主题或重新索引，保障检索与召回质量。"
           status={
             loadTask.status.message ? (
               <StatusPill tone={loadTask.status.phase === "error" ? "danger" : "info"}>
@@ -110,6 +109,9 @@ export default function GovernancePage() {
             ) : undefined
           }
         />
+        <p className="text-sm text-slate-600">
+          支持按 Doc ID 过滤；可直接触发重新索引，将文档重新进入切分/嵌入流水线。
+        </p>
         <div className="split">
           <Field label="租户">
             <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
@@ -228,11 +230,6 @@ export default function GovernancePage() {
             </tbody>
           </table>
         </div>
-      </GlassCard>
-
-      <GlassCard className="space-y-4">
-        <SectionHeader eyebrow="标签/元数据编辑" title="Metadata Editor" description="选择目标 Chunk 后在右侧编辑" />
-        <MetadataEditor chunks={chunks.map((item) => item.chunk)} tenants={tenants} libraries={libraries} />
       </GlassCard>
 
       {orgLoading && <p className="muted-text">正在同步租户/知识库...</p>}

@@ -10,3 +10,5 @@ logs
 .env
 .env.local
 .DS_Store
+# 确保迁移文件始终进入构建上下文
+!db/migrations/**

@@ -23,7 +23,7 @@ export default function DocumentDetail() {
 
   const load = async () => {
     if (!docId) return;
-    setStatus("加载详情�?..");
+    setStatus("加载详情中...");
     try {
       const response = await listDocuments();
       const target = (response.items ?? []).find((doc: DocSummary) => doc.docId === docId) ?? null;
@@ -36,6 +36,7 @@ export default function DocumentDetail() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
 
   const handleReindex = async () => {
@@ -43,7 +44,7 @@ export default function DocumentDetail() {
     setStatus("重新入队重建索引...");
     try {
       await reindexDocument(docId, document?.tenantId, document?.libraryId);
-      setStatus("任务已入�?);
+      setStatus("任务已入队");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -51,8 +52,8 @@ export default function DocumentDetail() {
 
   const handleDelete = async () => {
     if (!docId) return;
-    if (!confirm("确定删除该文档及其附件吗�?)) return;
-    setStatus("删除�?..");
+    if (!confirm("确定删除该文档及其附件吗？")) return;
+    setStatus("删除中...");
     try {
       await deleteDocument(docId);
       navigate("/documents");
@@ -66,51 +67,56 @@ export default function DocumentDetail() {
   }
 
   return (
-    <GlassCard>
-      <SectionHeader
-        eyebrow="文档详情"
-        title={document?.title ?? docId}
-        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
-      />
-      {document ? (
-        <div className="detail-grid">
-          <div>
-            <strong>Doc ID</strong>
-            <p>{document.docId}</p>
+    <div className="space-y-4">
+      <GlassCard className="p-6 space-y-2">
+        <SectionHeader
+          eyebrow="文档详情"
+          title={document?.title ?? docId}
+          description="查看文档元信息、状态与所属租户/知识库，可进行重建索引或删除。"
+          status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+        />
+      </GlassCard>
+
+      <GlassCard className="space-y-4">
+        {document ? (
+          <div className="grid gap-3 md:grid-cols-2 text-sm">
+            <div className="glass-card p-3">
+              <p className="text-xs text-slate-500">Doc ID</p>
+              <p className="font-medium text-slate-900">{document.docId}</p>
+            </div>
+            <div className="glass-card p-3">
+              <p className="text-xs text-slate-500">标签</p>
+              <p className="text-slate-800">{document.tags?.join(" / ") || "-"}</p>
+            </div>
+            <div className="glass-card p-3">
+              <p className="text-xs text-slate-500">租户</p>
+              <p className="text-slate-800">{document.tenantId ?? "-"}</p>
+            </div>
+            <div className="glass-card p-3">
+              <p className="text-xs text-slate-500">知识库</p>
+              <p className="text-slate-800">{document.libraryId ?? "-"}</p>
+            </div>
+            <div className="glass-card p-3">
+              <p className="text-xs text-slate-500">状态</p>
+              <p className="text-slate-800">{document.ingestStatus ?? "-"}</p>
+            </div>
           </div>
-          <div>
-            <strong>标签</strong>
-            <p>{document.tags?.join(" / ") || "-"}</p>
-          </div>
-          <div>
-            <strong>租户</strong>
-            <p>{document.tenantId ?? "-"}</p>
-          </div>
-          <div>
-            <strong>知识�?/strong>
-            <p>{document.libraryId ?? "-"}</p>
-          </div>
-          <div>
-            <strong>状�?/strong>
-            <p>{document.ingestStatus ?? "-"}</p>
-          </div>
+        ) : (
+          <p className="placeholder">未找到该文档</p>
+        )}
+
+        <div className="button-row">
+          <Button variant="ghost" onClick={handleReindex} disabled={!document}>
+            重新索引
+          </Button>
+          <Button asChild>
+            <Link to={`/documents/${docId}/edit`}>编辑</Link>
+          </Button>
+          <Button variant="ghost" onClick={handleDelete}>
+            删除
+          </Button>
         </div>
-      ) : (
-        <p className="placeholder">未找到该文档</p>
-      )}
-      <div className="button-row">
-        <Button variant="ghost" onClick={handleReindex} disabled={!document}>
-          重建索引
-        </Button>
-                <Button asChild>
-          <Link to={/documents//edit}>编辑</Link>
-        </Button>
-        <Button variant="ghost" onClick={handleDelete}>
-          删除
-        </Button>
-      </div>
-    </GlassCard>
+      </GlassCard>
+    </div>
   );
 }
-
-

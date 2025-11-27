@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchIngestionStatus, fetchStats, listDocuments, reindexDocument } from "../api";
+import { fetchIngestionStatus, fetchIngestionQueue, reindexDocument } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { AsyncPhase, useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
@@ -9,11 +9,13 @@ import { StatusPill } from "./ui/StatusPill";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Skeleton } from "./ui/Skeleton";
+import { ProgressBar } from "./ui/ProgressBar";
 
 type DocSummary = {
   docId: string;
   title: string;
   ingestStatus?: string;
+  progress?: number;
   tenantId?: string;
   libraryId?: string;
   updatedAt?: string;
@@ -60,13 +62,13 @@ export function IngestionStatusPanel({ refreshSignal = 0 }: { refreshSignal?: nu
   const lastLoadKeyRef = useRef<string>("");
 
   const loadData = useCallback(async () => {
-    const [docResp, statsResp] = await Promise.all([
-      listDocuments(tenant || undefined, library || undefined),
-      fetchStats(tenant || undefined, library || undefined)
-    ]);
-    setDocuments(docResp.items ?? []);
-    setPendingJobs(statsResp?.pendingJobs ?? 0);
-    return docResp.items?.length ?? 0;
+    const queueResp = await fetchIngestionQueue({
+      tenantId: tenant || undefined,
+      libraryId: library || undefined
+    });
+    setDocuments(queueResp.items ?? []);
+    setPendingJobs(queueResp.items?.filter((item: DocSummary) => item.ingestStatus !== "indexed").length ?? 0);
+    return queueResp.items?.length ?? 0;
   }, [tenant, library]);
 
   const loadTask = useAsyncTask(loadData, {
@@ -203,6 +205,7 @@ export function IngestionStatusPanel({ refreshSignal = 0 }: { refreshSignal?: nu
               <th>Doc ID</th>
               <th>标题</th>
               <th>状态</th>
+              <th>进度</th>
               <th>标签</th>
               <th>大小</th>
               <th>操作</th>
@@ -234,6 +237,9 @@ export function IngestionStatusPanel({ refreshSignal = 0 }: { refreshSignal?: nu
                       </td>
                       <td>
                         <StatusPill tone={label.tone}>{label.label}</StatusPill>
+                      </td>
+                      <td style={{ minWidth: 140 }}>
+                        <ProgressBar value={doc.progress ?? 0} />
                       </td>
                       <td>
                         <div className="tag-inline">

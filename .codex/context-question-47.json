@@ -1,0 +1,16 @@
+{
+  "questionId": "Q47",
+  "focus": "ChunkDetailPage 文档跳转路径应如何构造",
+  "why": "Link 写成 `to={/documents/}` 导致 JSX 语法错误且无法导航，需要确认正确路由与参数以恢复功能。",
+  "actions": [
+    "检查 App.tsx 路由定义，确认文档详情路径为 /documents/:docId。",
+    "审阅 ChunkRecord 结构（chunk.docId、document.docId 均可用），确定可用于跳转的 docId 来源。",
+    "确认是否需要在 docId 缺失时隐藏按钮或降级为占位。"
+  ],
+  "evidence": [
+    "App.tsx 路由：`<Route path=\"/documents/:docId\" element={<DocumentDetail />} />`。",
+    "ChunkDetailPage 当前代码：`<Link to={/documents/}>查看文档</Link>`，缺少引号与 docId。",
+    "ChunkRecord.chunk.docId 字段可用，页面已有展示 Doc ID 标签。"
+  ],
+  "conclusion": "Link 应构造为 `/documents/${record.chunk.docId}`（或使用 document.docId），并在无 docId 时隐藏/禁用按钮以避免跳转异常。"
+}

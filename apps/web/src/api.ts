@@ -255,14 +255,29 @@ export async function fetchChunk(chunkId: string, options: { tenantId?: string; 
   return response.json();
 }
 
-export async function updateChunkTags(chunkId: string, tags: string[], options: { tenantId?: string; libraryId?: string } = {}) {
+export async function updateChunkMetadata(
+  chunkId: string,
+  payload: {
+    topicLabels?: string[];
+    semanticTags?: string[];
+    topics?: string[];
+    keywords?: string[];
+    contextSummary?: string;
+    semanticTitle?: string;
+    parentSectionPath?: string[];
+    bizEntities?: string[];
+    envLabels?: string[];
+    entities?: Array<{ name: string; type?: string }>;
+  },
+  options: { tenantId?: string; libraryId?: string } = {}
+) {
   const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
   const response = await fetch(`${API_BASE}/chunks/${chunkId}`, {
     method: "PATCH",
     headers: options.tenantId
       ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
       : { ...headers, "x-library-id": libraryId },
-    body: JSON.stringify({ topicLabels: tags })
+    body: JSON.stringify(payload)
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -308,6 +323,22 @@ export async function saveModelSettings(payload: {
     method: "PUT",
     headers: requestHeaders,
     body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchIngestionQueue(params: { tenantId?: string; libraryId?: string; limit?: number } = {}) {
+  const url = new URL(`${API_BASE}/ingestion/queue`);
+  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
+  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
+  if (params.limit) url.searchParams.set("limit", String(params.limit));
+  const response = await fetch(url, {
+    headers: params.tenantId
+      ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+      : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
   });
   if (!response.ok) {
     throw new Error(await response.text());

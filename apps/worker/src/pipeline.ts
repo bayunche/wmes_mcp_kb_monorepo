@@ -41,6 +41,12 @@ interface PathNode {
   key: string;
   sectionId: string;
 }
+
+interface CoarseBlock {
+  title?: string;
+  path: string[];
+  text: string;
+}
 import { generateTagsViaModel } from "../../../packages/core/src/tagging";
 import { shouldUseOcr } from "../../../packages/core/src/ocr";
 import type { VectorLogInput } from "@kb/data";
@@ -431,9 +437,11 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       elements: ParsedElement[],
       source: SourcePayload
     ): Promise<ChunkFragment[]> {
-      const maxTokens = deps.config.MAX_TOKENS_PER_SEGMENT ?? 1024;
-      const fragments = buildLengthBoundSegments(doc, elements, maxTokens, deps.logger);
-      source.semanticSections = buildSectionsFromFragments(fragments);
+      const { fragments, sections } = await buildSemanticFragments(doc, elements, source, deps);
+      source.semanticSections = sections;
+      deps.logger.info?.(
+        `Semantic segmentation done | doc=${doc.docId} coarseBlocks=${sections.length} fragments=${fragments.length}`
+      );
       return fragments;
     },
     async extractMetadata(doc: Document, chunks: Chunk[]): Promise<Chunk[]> {
@@ -565,6 +573,89 @@ async function ensureBinaryBuffer(source: SourcePayload) {
     }
   }
   return undefined;
+}
+
+function buildCoarseBlocks(elements: ParsedElement[], source: SourcePayload): CoarseBlock[] {
+  const raw = source.rawText ?? collectSegmenterText(elements, source);
+  const lines = raw.split(/\r?\n/).map((line) => line.trim());
+  const blocks: CoarseBlock[] = [];
+  let current: string[] = [];
+  let currentTitle = "";
+  const headingRegex = /^(第[一二三四五六七八九十百千]+[章节条]|chapter\s+\d+|chap\.\s*\d+|\d+(\.\d+)+|\d+\s+[A-Z][A-Za-z]+)/i;
+
+  const flushBlock = () => {
+    const paragraphText = reflowParagraphs(current);
+    if (paragraphText.trim().length) {
+      blocks.push({
+        title: currentTitle || undefined,
+        path: currentTitle ? [currentTitle] : [],
+        text: paragraphText
+      });
+    }
+    current = [];
+  };
+
+  for (const line of lines) {
+    if (!line) {
+      // 空行分段
+      if (current.length) {
+        current.push(""); // 保留段落断点
+      }
+      continue;
+    }
+    const isHeading = headingRegex.test(line) || line.length <= 12;
+    if (isHeading) {
+      // 遇到新章节标题，先结束上一块
+      if (current.length) {
+        flushBlock();
+      }
+      currentTitle = line;
+      continue;
+    }
+    current.push(line);
+  }
+
+  if (current.length) {
+    flushBlock();
+  }
+
+  return blocks.length ? blocks : [{ text: reflowParagraphs(lines), path: [] }];
+}
+
+function reflowParagraphs(lines: string[]): string {
+  const paragraphs: string[] = [];
+  let buffer = "";
+
+  const pushBuffer = () => {
+    const trimmed = buffer.trim();
+    if (trimmed.length) {
+      paragraphs.push(trimmed);
+    }
+    buffer = "";
+  };
+
+  for (const line of lines) {
+    if (!line) {
+      pushBuffer();
+      continue;
+    }
+    // 过滤极短行（常见标题/编号），保留为段落边界但不入正文
+    if (line.length <= 6) {
+      pushBuffer();
+      continue;
+    }
+    // 处理英文连字符换行：结尾 "-" 且下一个字母开头则直接连接
+    if (line.endsWith("-")) {
+      buffer += line.slice(0, -1);
+      continue;
+    }
+    if (buffer.length) {
+      buffer += buffer.endsWith("-") ? "" : " ";
+    }
+    buffer += line;
+  }
+  pushBuffer();
+  return paragraphs.join("\n\n");
 }
 
 async function renderPdfPages(
@@ -1040,6 +1131,60 @@ function buildRawObjectKey(tenantId: string, docId: string, mimeType?: string) {
   return `${tenantId}/${docId}/source.${extension}`;
 }
 
+function materializeChunksFromBlueprints(
+  doc: Document,
+  blueprints: Array<{ section: DocumentSection; content: string }>,
+  maxTokens: number
+): ChunkFragment[] {
+  const fragments: ChunkFragment[] = [];
+  blueprints.forEach(({ section, content }) => {
+    const paragraphs = content.split(/\n{2,}/).map((para) => para.trim()).filter(Boolean);
+    let buffer = "";
+    let order = 0;
+    const pushChunk = () => {
+      const text = buffer.trim();
+      if (!text.length) return;
+      const hierPath = [doc.title, ...section.path, section.title];
+      const chunk = ChunkSchema.parse({
+        chunkId: crypto.randomUUID(),
+        docId: doc.docId,
+        hierPath,
+        sectionTitle: section.title,
+        semanticTitle: section.title,
+        contentText: text,
+        contentType: "text",
+        parentSectionId: section.sectionId,
+        parentSectionPath: hierPath.slice(0, -1),
+        entities: section.level ? { semanticLevel: section.level } : undefined,
+        createdAt: new Date().toISOString()
+      });
+      fragments.push({
+        chunk,
+        source: {
+          id: chunk.chunkId,
+          type: "text",
+          text,
+          metadata: { semanticSectionId: section.sectionId, order: section.order * 1000 + order }
+        }
+      });
+      order += 1;
+      buffer = "";
+    };
+
+    paragraphs.forEach((para) => {
+      const tentative = buffer ? `${buffer}\n${para}` : para;
+      if (estimateTokens(tentative) > maxTokens) {
+        pushChunk();
+        buffer = para;
+      } else {
+        buffer = tentative;
+      }
+    });
+    pushChunk();
+  });
+  return fragments;
+}
+
 
 async function buildSemanticFragments(
   doc: Document,
@@ -1050,21 +1195,51 @@ async function buildSemanticFragments(
   if (!deps.semanticSegmenter) {
     throw new Error("语义切分模型未配置，无法继续解析");
   }
-  const text = collectSegmenterText(elements, source);
-  if (!text.trim().length) {
+  const blocks = buildCoarseBlocks(elements, source);
+  if (!blocks.length) {
     throw new Error("文档内容为空，无法进行语义切分");
   }
-  const sections = await deps.semanticSegmenter({ document: doc, text });
-  if (!sections.length) {
+
+  const allSections: DocumentSection[] = [];
+  const allBlueprints: Array<{ section: DocumentSection; content: string }> = [];
+
+  for (const block of blocks) {
+    const sections = await deps.semanticSegmenter({
+      document: doc,
+      text: block.text,
+      parentPath: block.path,
+      title: block.title
+    });
+    if (!sections.length) {
+      continue;
+    }
+    const { blueprints, sections: normalized } = normalizeSemanticSections(
+      doc,
+      sections,
+      block.path
+    );
+    allBlueprints.push(...blueprints);
+    allSections.push(...normalized);
+  }
+
+  const fragments = materializeChunksFromBlueprints(
+    doc,
+    allBlueprints,
+    deps.config.MAX_TOKENS_PER_SEGMENT ?? 900
+  );
+
+  if (!fragments.length || !allSections.length) {
     throw new Error("语义切分返回空结果");
   }
-  return normalizeSemanticSections(doc, sections);
+
+  return { fragments, sections: allSections };
 }
 
 function normalizeSemanticSections(
   doc: Document,
-  sections: SemanticSection[]
-): { fragments: ChunkFragment[]; sections: DocumentSection[] } {
+  sections: SemanticSection[],
+  parentPath: string[] = []
+): { blueprints: Array<{ section: DocumentSection; content: string }>; sections: DocumentSection[] } {
   const blueprints: Array<{ section: DocumentSection; content: string }> = [];
   const keyMap = new Map<string, DocumentSection>();
 
@@ -1083,14 +1258,14 @@ function normalizeSemanticSections(
       parentSectionId: undefined,
       title,
       summary: section.content?.slice(0, 240) ?? undefined,
-      level: section.level ?? Math.max(normalizedPath.length + 1, 1),
-      path: normalizedPath,
+      level: section.level ?? Math.max(parentPath.length + normalizedPath.length + 1, 1),
+      path: [...parentPath, ...normalizedPath],
       order: index,
       tags: [],
       keywords: [],
       createdAt: new Date().toISOString()
     };
-    const key = [...normalizedPath, title].join(">");
+    const key = [...parentPath, ...normalizedPath, title].join(">");
     blueprints.push({ section: documentSection, content });
     keyMap.set(key, documentSection);
   });
@@ -1109,33 +1284,8 @@ function normalizeSemanticSections(
     }
   });
 
-  const fragments = blueprints.map(({ section, content }) => {
-    const hierPath = [doc.title, ...section.path, section.title];
-    const chunk = ChunkSchema.parse({
-      chunkId: crypto.randomUUID(),
-      docId: doc.docId,
-      hierPath,
-      sectionTitle: section.title,
-      semanticTitle: section.title,
-      contentText: content,
-      contentType: "text",
-      parentSectionId: section.sectionId,
-      parentSectionPath: hierPath.slice(0, -1),
-      entities: section.level ? { semanticLevel: section.level } : undefined
-    });
-    return {
-      chunk,
-      source: {
-        id: chunk.chunkId,
-        type: "text",
-        text: content,
-        metadata: { semanticSectionId: section.sectionId, order: section.order }
-      }
-    };
-  });
-
   return {
-    fragments,
+    blueprints,
     sections: blueprints.map((item) => item.section)
   };
 }
@@ -1405,6 +1555,34 @@ const STOP_WORDS = new Set([
   "数据"
 ]);
 
+class Semaphore {
+  private queue: Array<() => void> = [];
+  private count: number;
+  constructor(private readonly limit: number) {
+    this.count = limit;
+  }
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.count > 0) {
+      this.count -= 1;
+      try {
+        return await fn();
+      } finally {
+        this.count += 1;
+        const next = this.queue.shift();
+        next?.();
+      }
+    }
+    await new Promise<void>((resolve) => this.queue.push(resolve));
+    return this.run(fn);
+  }
+}
+
+const tagSemaphore = new Semaphore(3);
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function generateRemoteTags(
   document: Document,
   chunks: Chunk[],
@@ -1424,37 +1602,56 @@ async function generateRemoteTags(
   if (!snippets.length) {
     return [];
   }
-  try {
-    const apiKey =
-      setting.apiKey ??
-      (deps.config as any).OPENAI_API_KEY ??
-      process.env.OPENAI_API_KEY ??
-      undefined;
-    const baseUrl =
-      setting.baseUrl ??
-      (deps.config as any).OPENAI_API_URL ??
-      "https://api.openai.com/v1";
-    return await generateTagsViaModel(
-      {
-        provider: setting.provider,
-        baseUrl,
-        modelName: setting.modelName,
-        apiKey
-      },
-      {
-        title: document.title,
-        tags: document.tags,
-        snippets,
-        language: document.language,
-        limit: 8
+  const apiKey =
+    setting.apiKey ??
+    (deps.config as any).OPENAI_API_KEY ??
+    process.env.OPENAI_API_KEY ??
+    undefined;
+  const baseUrl =
+    setting.baseUrl ??
+    (deps.config as any).OPENAI_API_URL ??
+    "https://api.openai.com/v1";
+
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await tagSemaphore.run(async () =>
+        generateTagsViaModel(
+          {
+            provider: setting.provider,
+            baseUrl,
+            modelName: setting.modelName,
+            apiKey
+          },
+          {
+            title: document.title,
+            tags: document.tags,
+            snippets,
+            language: document.language,
+            limit: 8
+          }
+        )
+      );
+    } catch (error) {
+      lastError = error as Error;
+      const isLast = attempt === 3;
+      const waitMs = 1000 * Math.pow(2, attempt - 1);
+      deps.logger.warn?.(
+        `Remote tag generation failed (attempt ${attempt}/3) for ${document.docId}: ${lastError.message}; provider=${setting?.provider ?? "unknown"}, baseUrl=${baseUrl}, model=${setting?.modelName ?? "unknown"}, will ${
+          isLast ? "give up" : `retry in ${waitMs}ms`
+        }`
+      );
+      if (isLast) {
+        break;
       }
-    );
-  } catch (error) {
-    deps.logger.error?.(
-      `Remote tag generation failed for ${document.docId}: ${(error as Error).message}; provider=${setting?.provider ?? "unknown"}, baseUrl=${setting?.baseUrl ?? (deps.config as any).OPENAI_API_URL ?? "default-openai"}, model=${setting?.modelName ?? "unknown"}, hasKey=${Boolean(setting?.apiKey) || Boolean((deps.config as any).OPENAI_API_KEY)}`
-    );
-    return [];
+      await delay(waitMs);
+    }
   }
+
+  deps.logger.error?.(
+    `Remote tag generation failed after retries for ${document.docId}: ${lastError?.message ?? "unknown error"}; provider=${setting?.provider ?? "unknown"}, baseUrl=${baseUrl}, model=${setting?.modelName ?? "unknown"}, hasKey=${Boolean(setting?.apiKey) || Boolean((deps.config as any).OPENAI_API_KEY)}`
+  );
+  throw lastError ?? new Error("Remote tag generation failed after retries");
 }
 
 async function loadModelSetting(

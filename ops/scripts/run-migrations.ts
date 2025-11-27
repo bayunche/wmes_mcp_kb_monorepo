@@ -30,6 +30,21 @@ function detectHostPsql(): PsqlInvoker | null {
   }
 }
 
+function detectDockerCompose(service: string): PsqlInvoker | null {
+  try {
+    execFileSync("docker", ["compose", "version"], { stdio: "ignore" });
+    return { command: "docker", args: ["compose", "exec", "-T", service, "psql"], label: "docker compose exec" };
+  } catch {
+    // fallthrough
+  }
+  try {
+    execFileSync("docker-compose", ["--version"], { stdio: "ignore" });
+    return { command: "docker-compose", args: ["exec", "-T", service, "psql"], label: "docker-compose exec" };
+  } catch {
+    return null;
+  }
+}
+
 function resolvePsqlInvoker(): PsqlInvoker {
   const custom = process.env.PSQL_COMMAND;
   if (custom) {
@@ -46,11 +61,18 @@ function resolvePsqlInvoker(): PsqlInvoker {
   }
 
   const service = process.env.PSQL_DOCKER_SERVICE ?? "db";
-  console.warn(
-    `psql not available in PATH, falling back to 'docker compose exec -T ${service} psql'. ` +
-      "Override via PSQL_COMMAND or install the PostgreSQL client if preferred."
+  const compose = detectDockerCompose(service);
+  if (compose) {
+    console.warn(
+      `psql not available in PATH, falling back to '${compose.label} -T ${service} psql'. ` +
+        "如需自定义请设置 PSQL_COMMAND，或安装 PostgreSQL 客户端。"
+    );
+    return compose;
+  }
+
+  throw new Error(
+    "未找到 psql，也未检测到 docker compose/docker-compose。请安装 PostgreSQL 客户端，或设置 PSQL_COMMAND= \"docker compose exec -T db psql\"（或对应容器名）。"
   );
-  return parseCommand(`docker compose exec -T ${service} psql`)!;
 }
 
 function getMigrationFiles() {

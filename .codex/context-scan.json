@@ -1,31 +1,28 @@
 {
-  "timestamp": "2025-11-27T00:26:31",
+  "timestamp": "2025-11-28T15:35:00+08:00",
   "module_locations": [
-    "apps/api/src",
-    "apps/worker/src",
-    "apps/mcp/src",
-    "apps/web/src",
-    "packages/core",
-    "packages/data",
-    "packages/shared-schemas",
-    "scripts",
-    "ops/scripts",
-    "docs/ingestion.md",
-    "docs/retrieval.md",
-    "项目需求.md"
+    "apps/web/src/App.tsx (整体导航和布局，需重构为企业级玻璃风 UI)",
+    "apps/web/src/components/SearchPanel.tsx (chunk 卡片、元数据详情弹窗、检索结果)",
+    "apps/web/src/components/MetadataEditor.tsx (元数据编辑与详情弹窗，metadata PATCH)",
+    "apps/web/src/components/IngestionStatusPanel.tsx + components/ui/ProgressBar.tsx (/ingestion/queue 进度表格)",
+    "apps/api/src/routes.ts (/ingestion/queue、chunks PATCH 元数据、模型错误文案)",
+    "apps/worker/src/pipeline.ts (预分段/章节 → 语义分块 → 小 chunk 生成，tagging 重试与并发限制)",
+    "packages/core/src/retrieval.ts + packages/data/src/repositories/chunks.ts (HybridRetriever 向量+BM25+rereank，可更新元数据)",
+    "packages/data/src/repositories/documents.ts (listWithStatus 支撑队列进度)"
   ],
   "current_state": {
-    "pipeline": "架构齐备：上传 -> 解析/OCR -> LLM 语义切分 -> 元数据 -> 向量化 -> 入库 -> 混合检索/MCP，但现状未完成端到端可运行校验，环境与依赖未配置。",
-    "services": "API/Worker/MCP/Web 均有入口与脚本 deploy-local.sh/docker compose，需准备 Postgres+pgvector/Qdrant/MinIO/Redis/RabbitMQ 和本地模型。",
-    "models": "要求本地嵌入与 rerank 模型（Xenova/bge-*），需同步 MODELS_DIR 或通过 scripts/sync-models.ts 下载。",
-    "tests": "仓库包含 Vitest 单测与 scripts/test-matrix.ts 冒烟，但多次记录在当前环境因 Bun/依赖/容器缺失无法运行。",
-    "docs": "README 与 项目需求.md 定义了全链路需求与验收，需按文档落地。"
+    "frontend": "App.tsx 已有玻璃风导航但层次仍偏简单；SearchPanel/MetadataEditor 支持 chunk 元数据查看与编辑，仍需统一企业化布局、卡片+表格组合、响应式。",
+    "pipeline": "worker 先按章/节/空行/短行预分块，处理英文连字符，再用 semanticSegmenter 细分，最终 materializeChunksFromBlueprints 生成小 chunk 并写入元数据层级；tagging 并发 3、失败重试 3 次，否则抛错。",
+    "retrieval": "HybridRetriever 已融合向量+BM25，保留 rerank 可选；preview/mcp 返回 chunk 内容与元数据。",
+    "api": "/ingestion/queue 返回 status_meta 供前端进度面板；chunks PATCH 支持 metadata 全量字段；模型列表中文提示已修正。",
+    "issues_seen": "Vite 报 ProgressBar 路径缺失已补充新组件；日志仍见大 chunk 需确认是否由预分段参数或 token 限制导致。"
   },
-  "tech_stack": "Bun+TypeScript，Postgres/pgvector、Qdrant、MinIO、Redis、RabbitMQ；LLM 切分/metadata 依赖配置的 provider，embedding 强制本地模型。",
-  "tests": "目标需跑通 bun test（API/MCP/Worker）与 scripts/test-matrix.ts 冒烟；现有记录显示测试在 WSL 因 bun.exe 权限或缺依赖失败。",
+  "tech_stack": "前端 React + Vite + Tailwind，路由 react-router-dom；后端 Node/Bun + Fastify/Fetch API；数据层 Kysely + Postgres；Worker 使用 OpenAI/本地 LLM 生成元数据与 chunk。",
+  "tests": "前端暂无自动化测试；后端主要依赖 make test/pytest；当前任务尚未运行测试。",
   "observations": [
-    "必须准备 .env/.env.docker，运行迁移、初始化存储与模型；当前未确认任何服务可正常启动。",
-    "需评估 shrimp-task-manager 是否可用；此前命令缺失，需要自行规划。",
-    "已有大量未提交修改，需谨慎避免回退用户变更。"
+    "前端需重构为企业级知识治理控制台，使用玻璃态 Tailwind UI，突出导航/数据表格/卡片与元数据弹窗。",
+    "需确保 chunk 切分展示与元数据预览在 UI 可见；队列进度单独页面表格+进度条。",
+    "大 chunk 问题若仍存在需调低 token 阈值或调整章节蓝图拆分；后续改动需与 pipeline 结合验证。",
+    "需保持中文文案与元数据字段一致，避免乱码。"
   ]
 }

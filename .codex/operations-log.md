@@ -2078,3 +2078,56 @@
 需�
 �置 metadata 角色模型的提示 |
 | 2025-11-20T20:46:00+08:00 | shell | `bun --version` | 失败：bun.exe 权限拒绝，无法执行测试 |
+| 2025-11-27T10:02:30+08:00 | shell | sed/nl/python 检查 ChunkDetailPage | 定位 h3 未闭合、label 缺引号，python 解码发现非法 UTF-8 字节（4724 等）。 |
+| 2025-11-27T10:07:06+08:00 | apply_patch | 更新 .codex/context-* 与 sequential-thinking | 记录 ChunkDetailPage 乱码问题、关键疑问与充分性检查。 |
+| 2025-11-27T10:07:20+08:00 | shell | shrimp plan_task "Fix ChunkDetailPage Vite parse error" | 失败：命令不存在（shrimp 未安装）。 |
+| 2025-11-27T10:10:30+08:00 | shell | cat > apps/web/src/pages/ChunkDetailPage.tsx | 重写页面 JSX/文案，移除非法字节，修复 Link 路径与标签展示。 |
+| 2025-11-27T10:14:52+08:00 | npm run build | npm run build --prefix apps/web | 失败：缺少 Vite/node_modules 未安装，需 npm install 后重试。 |
+| 2025-11-27T10:15:10+08:00 | apply_patch | 更新 verification.md 与 .codex/testing.md | 记录构建失败原因与后续验证风险。 |
+| 2025-11-27T10:19:00+08:00 | shell | python 扫描 apps/web/src/pages UTF-8 | 发现 ChunkListPage/DocumentDetail/DocumentsList 存在非法字节。 |
+| 2025-11-27T10:19:30+08:00 | apply_patch | .codex/sequential-thinking-chunk-pages.json | 记录继续排查 Vite 解析错误的思考与后续步骤。 |
+| 2025-11-27T10:20:10+08:00 | shell | cat > ChunkListPage.tsx | 重写分块列表页面，恢复中文文案、合法 JSX 与详情跳转路径。 |
+| 2025-11-27T10:20:40+08:00 | shell | cat > DocumentDetail.tsx | 重写文档详情页，修复提示/按钮文案与编辑、删除、重索引逻辑。 |
+| 2025-11-27T10:21:10+08:00 | shell | cat > DocumentsList.tsx | 重写文档列表页，修复 Link 路径、文案与过滤控件。 |
+| 2025-11-27T10:21:30+08:00 | shell | python 复查 UTF-8 | apps/web/src/pages 下文件均可正常 UTF-8 解码。 |
+| 2025-11-27T10:22:15+08:00 | apply_patch | packages/core/src/tagging.ts | 修复 buildPrompt 中的乱码分隔符与默认值，提示语改为“仅输出 JSON {"tags":[...]}”。 |
+| 2025-11-27T10:34:31+08:00 | apply_patch | db/migrations/0010_model_settings_provider_local.sql | 新增幂等迁移，重新声明 model_settings.provider 约束允许 openai/ollama/local，修复保存模型配置时报 provider_check 失败。 |
+| 2025-11-27T10:56:45+08:00 | shell | docker compose exec -T db psql -c "\\d+ model_settings" | 失败：当前环境无 Docker 权限（/var/run/docker.sock permission denied），无法在容器内查看约束。 |
+| 2025-11-27T11:20:00+08:00 | sequential-thinking | 问题规划 | 梳理 provider 约束故障修复方案：新增迁移 + 捕获 PG 违例提示。
+| 2025-11-27T11:20:10+08:00 | apply_patch | .codex/context-scan.json | 重写结构化扫描，明确 provider check、路由依赖、迁移流程。
+| 2025-11-27T11:20:15+08:00 | apply_patch | .codex/context-questions.json/.codex/context-question-48.json/.codex/context-sufficiency.json | 更新高优先级疑问与充分性检查，锁定 provider 约束违例问题。
+| 2025-11-27T11:21:00+08:00 | apply_patch | db/migrations/0011_model_settings_provider_reset.sql | 新增平静移 0011，重新 DROP/ADD provider check（openai/ollama/local），避免无法写入 local 格式。
+| 2025-11-27T11:21:30+08:00 | apply_patch | apps/api/src/routes.ts | 提供 model_settings_provider_check 请求时的运行提示，触发时返回 400 并指向迁移。
+| 2025-11-27T11:22:00+08:00 | apply_patch | apps/api/src/__tests__/api.test.ts | 新增 provider 约束失败模拟库及返回运行迁移提示的单测。
+| 2025-11-27T11:22:30+08:00 | bun test | `bun test apps/api/src/__tests__/api.test.ts --filter "constraint violation returns hint to run migrations"` | 失败：本机无 bun 可执行（/bin/bash: bun: command not found），无法跑新单测。
+| 2025-11-27T12:10:00+08:00 | apply_patch | scripts/publish-images.ts | 构建前新增迁移文件存在性校验，避免镜像缺少 0010 迁移。 |
+| 2025-11-27T12:09:40+08:00 | apply_patch | .dockerignore | 显式放行 db/migrations 到 docker 构建上下文，防止被忽略。 |
+| 2025-11-27T12:30:40+08:00 | apply_patch | ops/scripts/run-migrations.ts | 增加 docker compose/docker-compose 检测与错误提示，避免因未安装 compose 导致 psql 调用失败。 |
+| 2025-11-27T12:45:00+08:00 | apply_patch | db/migrations/0003_model_settings.sql | 将早期唯一索引改为普通索引，避免重放迁移时因多角色数据触发唯一冲突；唯一约束由 0004 的 idx_model_settings_scope_role 提供。 |
+| 2025-11-27T13:30:00+08:00 | apply_patch | packages/core/src/retrieval.ts | HybridRetriever 增加 bm25Score 支持，按向量+BM25 融合并保留可选 rerank。 |
+| 2025-11-27T13:30:10+08:00 | apply_patch | packages/data/src/repositories/chunks.ts | searchCandidates 增加 BM25（ts_rank/plainto_tsquery）召回并与向量结果合并，返回 bm25Score 供融合。 |
+| 2025-11-27T13:25:00+08:00 | apply_patch | apps/web/src/App.tsx | 新增 /metadata 路由与导航入口。 |
+| 2025-11-27T13:24:40+08:00 | apply_patch | apps/web/src/components/MetadataEditor.tsx | 重写元数据编辑组件，支持租户/库/文档选择、Chunk 标签编辑/保存、重建索引/删除。 |
+| 2025-11-27T13:24:20+08:00 | apply_patch | apps/web/src/pages/MetadataEditorPage.tsx | 新增独立元数据编辑页面并挂载组件。 |
+| 2025-11-27T14:00:00+08:00 | apply_patch | packages/core/src/semantic-metadata.ts | 优化提示词：明确字段数量上限、要求仅输出 JSON，强化关键词/实体/父路径生成。 |
+| 2025-11-27T14:00:20+08:00 | apply_patch | apps/web/src/components/SearchPanel.tsx | 搜索结果/预览展示语义摘要、标签、主题、关键词、实体与父路径。 |
+| 2025-11-27T14:00:40+08:00 | apply_patch | apps/web/src/components/MetadataEditor.tsx | 元数据编辑列表展示语义标题、摘要、标签/主题/关键词和父路径，便于人工审阅。 |
+| 2025-11-27T14:20:00+08:00 | apply_patch | packages/core/src/retrieval.ts / packages/data/src/repositories/chunks.ts | 为 ChunkRepository 增加 updateMetadata，API 更新 chunk 时可写语义标签/主题/关键词/摘要/父路径等。 |
+| 2025-11-27T14:20:20+08:00 | apply_patch | apps/api/src/routes.ts | /chunks PATCH 支持元数据字段（semanticTags/topics/keywords/contextSummary/semanticTitle/parentSectionPath/bizEntities/envLabels/entities），继续校验租户权限。 |
+| 2025-11-27T14:20:40+08:00 | apply_patch | apps/web/src/api.ts | 新增 updateChunkMetadata 调用，替代仅支持标签的接口。 |
+| 2025-11-27T14:21:00+08:00 | apply_patch | apps/web/src/components/MetadataEditor.tsx | 元数据编辑器支持查看/编辑语义标题、摘要、语义标签、主题、关键词、父路径并提交到后端。 |
+| 2025-11-27T14:40:00+08:00 | apply_patch | apps/worker/src/pipeline.ts | 增加粗粒度分块：按章节/短行/空行提取段落、处理英文连字符，先形成章节块再逐块调用 semanticSegmenter，保留父路径。 |
+| 2025-11-27T15:10:00+08:00 | apply_patch | apps/api/src/routes.ts | 修复中文提示乱码，改为“OpenAI/Ollama 模型列表请求失败/需要提供 API Key”。 |
+| 2025-11-27T15:35:00+08:00 | apply_patch | packages/data/src/repositories/documents.ts / types.ts | 新增 listWithStatus 以便获取含 status_meta 的文档队列。 |
+| 2025-11-27T15:35:20+08:00 | apply_patch | apps/api/src/routes.ts | 新增 GET /ingestion/queue，返回进度值（基于 stage timeline），供前端队列表使用。 |
+| 2025-11-27T15:35:40+08:00 | apply_patch | apps/web/src/api.ts | 增加 fetchIngestionQueue API 调用。 |
+| 2025-11-27T15:36:00+08:00 | apply_patch | apps/web/src/components/IngestionStatusPanel.tsx | 队列表格改用 /ingestion/queue，新增进度条显示任务进度。 |
+| 2025-11-27T15:36:20+08:00 | apply_patch | apps/web/src/components/ui/ProgressBar.tsx | 新增进度条组件。 |
+| 2025-11-27T16:00:00+08:00 | apply_patch | apps/worker/src/pipeline.ts | 语义切分结果改为章节蓝图 + 段落重组：按章节块调用 LLM，后续再按段落/长度切分为小 chunk，路径与父章节保留。 |
+| 2025-11-27T16:15:00+08:00 | apply_patch | apps/web/src/components/SearchPanel.tsx | 搜索结果卡片新增“查看详情”弹窗，展示 chunk 内容与语义元数据（标签/主题/关键词/实体/摘要/父路径/附件）。 |
+| 2025-11-28T15:25:00+08:00 | sequential-thinking | 任务规划 | 针对前端企业化重构与元数据可视化需求进行初步思考。 |
+| 2025-11-28T15:35:00+08:00 | apply_patch | .codex/context-scan.json | 重写结构化扫描，聚焦前端重构、Hybrid 检索与元数据展示的现状。 |
+| 2025-11-28T15:35:10+08:00 | apply_patch | .codex/context-question-49.json | 新增高优先级疑问：前端企业级布局与元数据展示缺口。 |
+| 2025-11-28T15:35:20+08:00 | apply_patch | .codex/context-sufficiency.json | 更新充分性检查，覆盖 UI 重构的接口/技术/风险/验证计划。 |
+| 2025-11-28T15:50:00+08:00 | apply_patch | apps/web/src/App.tsx | 重构全局布局为玻璃态企业级控制台：分组导航、英雄区卡片、按钮入口与路由容器。 |
+| 2025-11-28T16:20:00+08:00 | apply_patch | apps/web/src/pages/* | 前端所有页面增加玻璃态企业级布局（顶部 Hero/描述），确保检索、入库、治理、诊断、MCP 等页面样式统一。 |

@@ -1,44 +1,27 @@
 {
-  "timestamp": "2025-11-27T00:26:52",
+  "timestamp": "2025-11-27T11:20:00+08:00",
   "known": [
-    "架构与需求齐备（API/Worker/MCP/Web，语义切分+元数据+混合检索+OCR），但全链路未验证可运行。",
-    "必须使用本地嵌入模型（Xenova/bge-*），模型目录需通过 sync-models 脚本或手动下载准备。",
-    "测试目标包括 bun test 与 scripts/test-matrix.ts 冒烟；历史因 Bun/依赖缺失导致失败。"
+    "迁移 0008/0010 已设计将 provider check 扩展到 openai/ollama/local，但旧库若未跑到这些版本会保留旧约束。",
+    "ModelProviderSchema/前端/脚本都只允许 openai、ollama、local；写入 local 时若数据库未更新会直接 500。",
+    "run-migrations.ts 每次全量重放 SQL，需要迁移幂等以修复历史数据库。",
+    "logs/dev/api.log 多次记录 PUT /model-settings 500，指向 model_settings_provider_check 违例。"
   ],
   "questions": [
     {
-      "id": "Q1",
-      "question": "选择哪种启动路径最可行（Docker Compose vs 本地 Bun），当前主机是否具备 Postgres/Qdrant/MinIO/Redis/RabbitMQ？",
+      "id": "Q48",
+      "question": "当前数据库中 model_settings_provider_check 是否仍缺少 local？需要新增一次幂等迁移强制修复吗？",
       "priority": "high",
       "blocking": true
     },
     {
-      "id": "Q2",
-      "question": "如何自动化获取并配置本地模型（text/rerank/image/ocr）以满足强制本地 embedding/rerank 要求？",
-      "priority": "high",
-      "blocking": true
-    },
-    {
-      "id": "Q3",
-      "question": "LLM 语义切分/元数据的 provider 与 prompt 是否已有默认配置？若无，是否需要提供本地/远程模型及示例配置？",
-      "priority": "high",
-      "blocking": true
-    },
-    {
-      "id": "Q4",
-      "question": "迁移与存储初始化（run-migrations/bootstrap-storage）在当前环境能否成功执行，依赖工具是否齐备（psql、MinIO mc 等）？",
-      "priority": "medium",
-      "blocking": true
-    },
-    {
-      "id": "Q5",
-      "question": "测试矩阵的最小闭环是什么（单测范围、冒烟脚本、端到端），哪些必须先打通才能算“可直接运行”？",
+      "id": "Q49",
+      "question": "是否应直接移除 provider check 或扩展为更宽松的枚举（以避免未来新增 provider 再次 500）？",
       "priority": "medium",
       "blocking": false
     },
     {
-      "id": "Q6",
-      "question": "已有大量未提交改动，哪些可能影响本次执行（如配置/脚本/测试）？需要避开或合并哪些冲突？",
+      "id": "Q50",
+      "question": "需要补哪类验证（脚本/测试）来确保迁移执行后不再出现约束不一致的 500？",
       "priority": "medium",
       "blocking": false
     }

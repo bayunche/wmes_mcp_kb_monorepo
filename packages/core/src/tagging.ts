@@ -121,12 +121,12 @@ function buildPrompt(input: TagModelInput, limit: number): string {
     .map((snippet, index) => `${index + 1}. ${snippet}`)
     .join("\n");
   const knownTags = input.tags?.length
-    ? input.tags.map((t) => sanitizeText(t)).join("�?)
-    : "�?;
+    ? input.tags.map((t) => sanitizeText(t)).join("，")
+    : "无";
   const language = input.language ?? "zh";
   return `语言: ${language}\n标题: ${sanitizeText(
     input.title
-  )}\n已有标签: ${knownTags}\n正文片段:\n${snippets}\n\n请重新总结 ${limit} 个标签，越短越好，按重要性排序，仅输�?JSON {"tags":[...]}.`;
+  )}\n已有标签: ${knownTags}\n正文片段:\n${snippets}\n\n请重新总结 ${limit} 个标签，越短越好，按重要性排序，仅输出 JSON {"tags":[...]}.`;
 }
 
 function parseTags(raw: string): string[] {

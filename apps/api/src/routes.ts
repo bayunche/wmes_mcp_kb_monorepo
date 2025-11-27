@@ -91,6 +91,20 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     });
   }
 
+  if (request.method === "GET" && url.pathname === "/ingestion/queue") {
+    if (!deps.documents.listWithStatus) {
+      return new Response("Document repository does not support queue listing", { status: 501 });
+    }
+    const tenantParam = url.searchParams.get("tenantId") ?? undefined;
+    const libraryParam = url.searchParams.get("libraryId") ?? undefined;
+    const limit = Math.min(Number(url.searchParams.get("limit") ?? "50") || 50, 200);
+    const tenantId = resolveTenant(request, deps.defaultTenantId, tenantParam ?? undefined);
+    const libraryId = resolveLibrary(request, deps.defaultLibraryId, libraryParam ?? undefined);
+    const docs = await deps.documents.listWithStatus(tenantId, libraryId, limit);
+    const items = docs.map((doc) => buildQueueItem(doc));
+    return json({ items, tenantId, libraryId, total: items.length });
+  }
+
   if (request.method === "GET" && url.pathname === "/documents") {
     const tenantParam = url.searchParams.get("tenantId") ?? undefined;
     const libraryParam = url.searchParams.get("libraryId") ?? undefined;
@@ -580,7 +594,7 @@ async function handleGetDocumentStructure(request: Request, deps: ApiRoutesDeps,
 }
 
 async function handleUpdateChunk(request: Request, deps: ApiRoutesDeps, chunkId: string) {
-  if (!deps.chunks.updateTopicLabels) {
+  if (!deps.chunks.updateTopicLabels && !deps.chunks.updateMetadata) {
     return new Response("Chunk repository does not support updates", { status: 501 });
   }
   const record = await deps.chunks.get(chunkId);
@@ -592,15 +606,74 @@ async function handleUpdateChunk(request: Request, deps: ApiRoutesDeps, chunkId:
     return new Response("Forbidden", { status: 403 });
   }
   const body = await request.json().catch(() => ({}));
-  const tags = Array.isArray(body.topicLabels)
-    ? body.topicLabels.map((tag) => String(tag).trim()).filter(Boolean)
+  const topicLabels = Array.isArray(body.topicLabels)
+    ? body.topicLabels.map((tag: unknown) => String(tag).trim()).filter(Boolean)
     : undefined;
-  if (!tags || !tags.length) {
-    return new Response("topicLabels must be an array of strings", { status: 400 });
+  const semanticTags = Array.isArray(body.semanticTags)
+    ? body.semanticTags.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const topics = Array.isArray(body.topics)
+    ? body.topics.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const keywords = Array.isArray(body.keywords)
+    ? body.keywords.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const parentSectionPath = Array.isArray(body.parentSectionPath)
+    ? body.parentSectionPath.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const bizEntities = Array.isArray(body.bizEntities)
+    ? body.bizEntities.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const envLabels = Array.isArray(body.envLabels)
+    ? body.envLabels.map((tag: unknown) => String(tag).trim()).filter(Boolean)
+    : undefined;
+  const nerEntities = Array.isArray(body.entities)
+    ? body.entities
+        .map((e: { name?: string; type?: string }) => ({
+          name: String(e?.name ?? "").trim(),
+          type: e?.type ? String(e.type).trim() : undefined
+        }))
+        .filter((e) => e.name.length > 0)
+    : undefined;
+  const semanticTitle =
+    typeof body.semanticTitle === "string" ? body.semanticTitle.trim() : undefined;
+  const contextSummary =
+    typeof body.contextSummary === "string" ? body.contextSummary.trim() : undefined;
+
+  if (
+    !topicLabels &&
+    !semanticTags &&
+    !topics &&
+    !keywords &&
+    !parentSectionPath &&
+    !bizEntities &&
+    !envLabels &&
+    !nerEntities &&
+    semanticTitle === undefined &&
+    contextSummary === undefined
+  ) {
+    return new Response("No updatable fields provided", { status: 400 });
   }
-  await deps.chunks.updateTopicLabels(chunkId, tags);
+
+  if (topicLabels?.length && deps.chunks.updateTopicLabels) {
+    await deps.chunks.updateTopicLabels(chunkId, topicLabels);
+  }
+  if (deps.chunks.updateMetadata) {
+    await deps.chunks.updateMetadata(chunkId, {
+      topicLabels,
+      semanticTags,
+      topics,
+      keywords,
+      contextSummary,
+      semanticTitle,
+      parentSectionPath,
+      bizEntities,
+      envLabels,
+      nerEntities
+    });
+  }
   const updated = await deps.chunks.get(chunkId);
-  return json(updated ?? { chunkId, topicLabels: tags });
+  return json(updated ?? { chunkId, topicLabels: topicLabels ?? [] });
 }
 
 async function handleGetModelSettings(request: Request, deps: ApiRoutesDeps): Promise<Response> {
@@ -692,18 +765,26 @@ async function handleSaveModelSettings(request: Request, deps: ApiRoutesDeps): P
       return new Response(message, { status: 502 });
     }
   }
-  const saved = await deps.modelSettings.upsert({
-    tenantId,
-    libraryId,
-    provider: parsed.provider,
-    baseUrl: parsed.baseUrl,
-    modelName: parsed.modelName,
-    options: parsed.options,
-    apiKey: normalizedApiKey,
-    modelRole,
-    displayName
-  });
-  return json({ setting: sanitizeModelSetting(saved) });
+  try {
+    const saved = await deps.modelSettings.upsert({
+      tenantId,
+      libraryId,
+      provider: parsed.provider,
+      baseUrl: parsed.baseUrl,
+      modelName: parsed.modelName,
+      options: parsed.options,
+      apiKey: normalizedApiKey,
+      modelRole,
+      displayName
+    });
+    return json({ setting: sanitizeModelSetting(saved) });
+  } catch (error) {
+    const mapped = mapModelSettingsError(error);
+    if (mapped) {
+      return mapped;
+    }
+    throw error;
+  }
 }
 
 async function handleUpsertTenant(request: Request, deps: ApiRoutesDeps): Promise<Response> {
@@ -754,6 +835,20 @@ function sanitizeModelSetting(setting: ModelSettingSecret) {
   };
 }
 
+function mapModelSettingsError(error: unknown): Response | null {
+  const typed = error as { code?: string; constraint?: string; message?: string };
+  const isCheckViolation =
+    typed?.constraint === "model_settings_provider_check" ||
+    (typeof typed?.message === "string" && typed.message.includes("model_settings_provider_check")) ||
+    typed?.code === "23514";
+  if (isCheckViolation) {
+    const hint =
+      "model_settings.provider 约束未更新，无法保存 provider。请先运行数据库迁移（例如 bun run scripts/run-migrations.ts 或 make db:migrate）后重试。";
+    return new Response(hint, { status: 400 });
+  }
+  return null;
+}
+
 function maskKey(apiKey?: string) {
   if (!apiKey) {
     return undefined;
@@ -793,7 +888,7 @@ async function validateOcrEndpoint(baseUrl: string, apiKey?: string) {
 async function fetchRemoteModels(input: RemoteModelRequest) {
   if (input.provider === "openai") {
     if (!input.apiKey) {
-      throw new Error("OpenAI 妯″瀷鍒楄〃闇€瑕佹彁渚?API Key");
+      throw new Error("OpenAI 模型列表需要提供 API Key");
     }
     const response = await fetch(buildOpenAiModelsUrl(input.baseUrl), {
       headers: {
@@ -802,7 +897,7 @@ async function fetchRemoteModels(input: RemoteModelRequest) {
       }
     });
     if (!response.ok) {
-      throw new Error(`OpenAI 妯″瀷鍒楄〃璇锋眰澶辫触 (${response.status})`);
+      throw new Error(`OpenAI 模型列表请求失败 (${response.status})`);
     }
     const payload = await response.json();
     const list = Array.isArray(payload?.data) ? payload.data : [];
@@ -814,7 +909,7 @@ async function fetchRemoteModels(input: RemoteModelRequest) {
   if (input.provider === "ollama") {
     const response = await fetch(buildOllamaModelsUrl(input.baseUrl));
     if (!response.ok) {
-      throw new Error(`Ollama 妯″瀷鍒楄〃璇锋眰澶辫触 (${response.status})`);
+      throw new Error(`Ollama 模型列表请求失败 (${response.status})`);
     }
     const payload = await response.json();
     const list = Array.isArray(payload?.models) ? payload.models : [];
@@ -936,6 +1031,42 @@ function guessExtension(file: File) {
 
 function buildRawObjectKey(tenantId: string, docId: string, extension: string) {
   return `${tenantId}/${docId}/source.${extension}`;
+}
+
+function buildQueueItem(doc: any) {
+  const stageOrder: Record<string, number> = {
+    parsing: 1,
+    preprocess: 2,
+    chunking: 3,
+    tagging_meta: 4,
+    embedding: 5,
+    persisting: 6,
+    completed: 7
+  };
+  const stages: Array<{ stage: string; status: string; at: string }> = doc.statusMeta?.stages ?? [];
+  const maxStage = stages.reduce((max, curr) => Math.max(max, stageOrder[curr.stage] ?? 0), 0);
+  const ingestStatus = doc.ingestStatus ?? "uploaded";
+  const progress =
+    ingestStatus === "indexed"
+      ? 1
+      : ingestStatus === "failed"
+      ? 0
+      : maxStage > 0
+      ? Math.min(maxStage / 7, 1)
+      : 0.1;
+
+  return {
+    docId: doc.docId,
+    title: doc.title,
+    ingestStatus,
+    progress,
+    tenantId: doc.tenantId,
+    libraryId: doc.libraryId,
+    tags: doc.tags ?? [],
+    sizeBytes: doc.sizeBytes ?? null,
+    errorMessage: doc.errorMessage ?? null,
+    updatedAt: doc.updatedAt ?? null
+  };
 }
 
 function buildPreviewPrefix(tenantId: string, docId: string) {

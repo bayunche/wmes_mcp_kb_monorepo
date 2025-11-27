@@ -74,16 +74,13 @@ export default function ChunkDetailPage() {
   }, [record]);
 
   return (
-    <div className="panel-grid single-column">
-      <GlassCard className="space-y-4">
+    <div className="space-y-4">
+      <GlassCard className="p-6 space-y-2">
         <SectionHeader
           eyebrow="分块详情"
           title={record?.chunk.semanticTitle ?? record?.chunk.sectionTitle ?? chunkId ?? "Chunk"}
-          status={
-            loadTask.status.message ? (
-              <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill>
-            ) : undefined
-          }
+          description="审阅分块正文、标签、主题、实体与层级路径，便于治理与调试检索效果。"
+          status={loadTask.status.message ? <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill> : undefined}
         />
 
         <div className="flex flex-wrap gap-3 items-center text-sm text-slate-600">
@@ -95,15 +92,13 @@ export default function ChunkDetailPage() {
           )}
           {record?.chunk.pageNo !== undefined && <span>页码：{record.chunk.pageNo}</span>}
           {record?.chunk.createdAt && <span>生成时间：{new Date(record.chunk.createdAt).toLocaleString()}</span>}
-          {record?.chunk.hierPath?.length && (
-            <span>路径：{record.chunk.hierPath?.join(" / ")}</span>
-          )}
+          {record?.chunk.hierPath?.length ? <span>路径：{record.chunk.hierPath.join(" / ")}</span> : null}
           <div className="ml-auto flex gap-2">
-            {record?.chunk.docId && (
+            {record?.chunk.docId ? (
               <Button asChild variant="ghost">
-              <Link to={/documents/}>查看文档</Link>
-            </Button>
-            )}
+                <Link to={`/documents/${record.chunk.docId}`}>查看文档</Link>
+              </Button>
+            ) : null}
             <Button variant="ghost" onClick={loadTask.run}>
               重新加载
             </Button>
@@ -123,27 +118,29 @@ export default function ChunkDetailPage() {
         )}
       </GlassCard>
 
-      <div className="panel-grid grid-cols-1 lg:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <GlassCard className="space-y-3">
-          <h3 className="section-title">标签与主�?/h3>
+          <h3 className="section-title">标签与主题</h3>
           <FieldGroup label="Topic 标签" items={record?.chunk.topicLabels} />
           <FieldGroup label="语义标签" items={record?.chunk.semanticTags} />
           <FieldGroup label="环境标签" items={record?.chunk.envLabels} />
-          <FieldGroup label="关键�? items={record?.chunk.keywords} />
+          <FieldGroup label="关键词" items={record?.chunk.keywords} />
         </GlassCard>
 
         <GlassCard className="space-y-3">
-          <h3 className="section-title">实体 / 上下�?/h3>
+          <h3 className="section-title">实体 / 上下文</h3>
           <FieldGroup
             label="NER 实体"
-            items={nerEntities?.map((ner) => `${ner.name}${ner.type ? `�?{ner.type}）` : ""}`)}
+            items={nerEntities?.map((ner) => `${ner.name}${ner.type ? `（${ner.type}）` : ""}`)}
           />
           <FieldGroup label="业务实体" items={record?.chunk.bizEntities} />
           <FieldGroup label="上级路径" items={record?.chunk.parentSectionPath} />
           {record?.chunk.contextSummary && (
             <div className="text-sm text-slate-700">
               <div className="text-xs uppercase tracking-[0.08em] text-slate-500 mb-1">摘要</div>
-              <p className="bg-white/60 rounded-xl p-3 border border-slate-200 leading-6">{record.chunk.contextSummary}</p>
+              <p className="bg-white/60 rounded-xl p-3 border border-slate-200 leading-6">
+                {record.chunk.contextSummary}
+              </p>
             </div>
           )}
         </GlassCard>
@@ -174,6 +171,3 @@ function FieldGroup({ label, items }: { label: string; items?: (string | undefin
     </div>
   );
 }
-
-
-

@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-11-27T10:24:00+08:00",
+  "focus": "API 保存模型配置时报 provider check 约束违反",
+  "observation": [
+    "运行 PUT /model-settings 返回 Postgres 500，提示违反 model_settings_provider_check。",
+    "现有迁移 0008_model_settings_local.sql 已将 provider check 扩展为 openai/ollama/local，但旧库若未执行迁移仍只有 openai/ollama。",
+    "ModelProvider 枚举与 UI/后端均仅发送 openai/ollama/local，说明错误源自数据库约束未更新。"
+  ],
+  "options": [
+    "方案A：指导用户手动执行迁移 0008；但部分环境可能遗漏，继续易复现。",
+    "方案B：新增一次性迁移（例如 0010）再次 drop/re-add 约束，确保历史数据库也被修复；保持幂等。",
+    "方案C：后端捕获约束错误改为 400 提示，需要继续执行迁移，仍不能写入。"
+  ],
+  "decision": "采用方案B，新建迁移重新声明 provider check（包含 local），幂等执行，确保老库更新；同时可在日志/测试记录提示需运行迁移。"
+}

@@ -97,6 +97,18 @@ export class PgDocumentRepository implements DocumentRepository {
     return rows.map(mapRow);
   }
 
+  async listWithStatus(tenantId?: string, libraryId?: string, limit = 200): Promise<Document[]> {
+    let query = this.db.selectFrom("documents").selectAll().orderBy("updated_at", "desc").limit(limit);
+    if (tenantId) {
+      query = query.where("tenant_id", "=", tenantId);
+    }
+    if (libraryId) {
+      query = query.where("library_id", "=", libraryId);
+    }
+    const rows = await query.execute();
+    return rows.map(mapRow);
+  }
+
   async get(docId: string): Promise<Document | null> {
     const row = await this.db.selectFrom("documents").selectAll().where("doc_id", "=", docId).executeTakeFirst();
     return row ? mapRow(row) : null;
