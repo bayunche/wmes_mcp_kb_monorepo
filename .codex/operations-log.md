@@ -2131,3 +2131,4 @@
 | 2025-11-28T15:35:20+08:00 | apply_patch | .codex/context-sufficiency.json | 更新充分性检查，覆盖 UI 重构的接口/技术/风险/验证计划。 |
 | 2025-11-28T15:50:00+08:00 | apply_patch | apps/web/src/App.tsx | 重构全局布局为玻璃态企业级控制台：分组导航、英雄区卡片、按钮入口与路由容器。 |
 | 2025-11-28T16:20:00+08:00 | apply_patch | apps/web/src/pages/* | 前端所有页面增加玻璃态企业级布局（顶部 Hero/描述），确保检索、入库、治理、诊断、MCP 等页面样式统一。 |
+| 2025-11-28T16:40:00+08:00 | apply_patch | 功能拆解.md | 同步最新代码与数据流：新增 coarse→LLM 章节切分、小 chunk 生成、Hybrid 向量+BM25+可选 rerank、队列进度接口、chunk 元数据 PATCH、前端玻璃态页面。 |
