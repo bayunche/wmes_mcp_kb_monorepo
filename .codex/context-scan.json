@@ -1,29 +1,31 @@
 {
+  "timestamp": "2025-11-27T00:26:31",
   "module_locations": [
-    "apps/worker/src/pipeline.ts",
-    "apps/worker/src/worker.ts",
-    "packages/core/src/semantic-structure.ts",
-    "packages/core/src/semantic-metadata.ts",
-    "packages/core/src/ocr.ts",
-    "apps/api/src/routes.ts",
-    "packages/shared-schemas/src/index.ts",
+    "apps/api/src",
+    "apps/worker/src",
+    "apps/mcp/src",
+    "apps/web/src",
+    "packages/core",
+    "packages/data",
+    "packages/shared-schemas",
+    "scripts",
+    "ops/scripts",
     "docs/ingestion.md",
-    "docs/retrieval.md"
+    "docs/retrieval.md",
+    "é¡¹ç›®éœ€æ±‚.md"
   ],
   "current_state": {
-    "semantic_segmentation": "Worker Ê¹ÓÃ generateStructureViaModel ®” model_settings ÅäÖÃÁË role=structure •r†¢ÓÃ£¬Éú³É title/level/path/content µÄ sections KÅc chunks ºÏã£»È±ÉÙÔO¶¨•r»ØÍËé AdaptiveChunkFactory °´éL¶ÈÇĞ·Ö¡£",
-    "chunk_metadata": "extractMetadata Ê¹ÓÃ generateSemanticMetadataViaModel (role=metadata) Éú³É title/summary/semanticTags/topics/keywords/envLabels/bizEntities/entities/parentSectionPath£¬KÂäìµ½ chunk.semanticMetadata£»provider=local •r×ö†¢°lÊ½ÕªÒª£¬ŸoÔO¶¨•rÌøß^¡£",
-    "structure_tree": "normalizeSemanticSections ®aÉú document_sections£¬chunk.parentSectionPath Åc sectionId ½‰¶¨£»GET /documents/:id/structure ·µ»ØÕZÁxŒÓ¼‰¡£",
-    "retrieval": "HybridRetriever (packages/core/src/retrieval.ts) ¹© /search ¼° MCP kb.search/related/preview£¬Ö§³Ö semanticTags/envLabels/attachment filters£¬·µ»Ø chunk+document+attachments¡£",
-    "ocr": "shouldUseOcr ¸²Éw pdf/image/doc/ppt/xls£»HttpOcrAdapter/LocalOcrAdapter ÓÉ OCR_* ­h¾³×ƒÁ¿òŒ„Ó£¬ÌáÈ¡ÎÄ±¾áá×ßÍ¬Ò»ÇĞ·ÖÁ÷³Ì¡£",
-    "pipeline_flow": "upload -> queue -> preprocessRawText -> semanticSegmenter -> metadata -> embed -> persist (documents/chunks/sections/embeddings/attachments)¡£"
+    "pipeline": "æ¶æ„é½å¤‡ï¼šä¸Šä¼  -> è§£æ/OCR -> LLM è¯­ä¹‰åˆ‡åˆ† -> å…ƒæ•°æ® -> å‘é‡åŒ– -> å…¥åº“ -> æ··åˆæ£€ç´¢/MCPï¼Œä½†ç°çŠ¶æœªå®Œæˆç«¯åˆ°ç«¯å¯è¿è¡Œæ ¡éªŒï¼Œç¯å¢ƒä¸ä¾èµ–æœªé…ç½®ã€‚",
+    "services": "API/Worker/MCP/Web å‡æœ‰å…¥å£ä¸è„šæœ¬ deploy-local.sh/docker composeï¼Œéœ€å‡†å¤‡ Postgres+pgvector/Qdrant/MinIO/Redis/RabbitMQ å’Œæœ¬åœ°æ¨¡å‹ã€‚",
+    "models": "è¦æ±‚æœ¬åœ°åµŒå…¥ä¸ rerank æ¨¡å‹ï¼ˆXenova/bge-*ï¼‰ï¼Œéœ€åŒæ­¥ MODELS_DIR æˆ–é€šè¿‡ scripts/sync-models.ts ä¸‹è½½ã€‚",
+    "tests": "ä»“åº“åŒ…å« Vitest å•æµ‹ä¸ scripts/test-matrix.ts å†’çƒŸï¼Œä½†å¤šæ¬¡è®°å½•åœ¨å½“å‰ç¯å¢ƒå›  Bun/ä¾èµ–/å®¹å™¨ç¼ºå¤±æ— æ³•è¿è¡Œã€‚",
+    "docs": "README ä¸ é¡¹ç›®éœ€æ±‚.md å®šä¹‰äº†å…¨é“¾è·¯éœ€æ±‚ä¸éªŒæ”¶ï¼Œéœ€æŒ‰æ–‡æ¡£è½åœ°ã€‚"
   },
-  "tech_stack": "Bun + TypeScript£¬pgvector/Qdrant/MinIO/RabbitMQ£»LLM provider openai/ollama ½› model_settings ÅäÖÃ£¬Ä¬ÕJ†¢ÓÃ Xenova ±¾µØÄ£ĞÍ£»OCR Ö§³Ö±¾µØÃüÁî»ò HTTP¡£",
-  "tests": "apps/api/src/__tests__/api.test.ts ¸²Éw /mcp/search|related|preview£»Î´ÒŠŒ£éTµÄÕZÁxÇĞ·Ö/Ôª”µ“ş e2e œyÔ‡¡£",
+  "tech_stack": "Bun+TypeScriptï¼ŒPostgres/pgvectorã€Qdrantã€MinIOã€Redisã€RabbitMQï¼›LLM åˆ‡åˆ†/metadata ä¾èµ–é…ç½®çš„ providerï¼Œembedding å¼ºåˆ¶æœ¬åœ°æ¨¡å‹ã€‚",
+  "tests": "ç›®æ ‡éœ€è·‘é€š bun testï¼ˆAPI/MCP/Workerï¼‰ä¸ scripts/test-matrix.ts å†’çƒŸï¼›ç°æœ‰è®°å½•æ˜¾ç¤ºæµ‹è¯•åœ¨ WSL å›  bun.exe æƒé™æˆ–ç¼ºä¾èµ–å¤±è´¥ã€‚",
   "observations": [
-    "LLM ÇĞ·Ö/Ôª”µ“şÒÀÙ‡ model_settings role=structure/metadata£»ÌÈÈ±Ê§„tƒH°´éL¶ÈÇĞ·ÖÇÒŸoÕZÁx˜Ë×¢¡£",
-    "SEMANTIC_METADATA_LIMIT ¿ØÖÆ LLM Õ{ÓÃ”µ£¬Ä¬ÕJ²»ÏŞÖÆ¡£",
-    "OCR_ENABLED=false »òÎ´ÅäÖÃ adapter •r²»×ö OCR¡£",
-    "›]ÓĞ model_settings ·N×Ó£¬Ğè½› /model-settings API »òÖ±½ÓŒ‘ìÅäÖÃ¡£"
+    "å¿…é¡»å‡†å¤‡ .env/.env.dockerï¼Œè¿è¡Œè¿ç§»ã€åˆå§‹åŒ–å­˜å‚¨ä¸æ¨¡å‹ï¼›å½“å‰æœªç¡®è®¤ä»»ä½•æœåŠ¡å¯æ­£å¸¸å¯åŠ¨ã€‚",
+    "éœ€è¯„ä¼° shrimp-task-manager æ˜¯å¦å¯ç”¨ï¼›æ­¤å‰å‘½ä»¤ç¼ºå¤±ï¼Œéœ€è¦è‡ªè¡Œè§„åˆ’ã€‚",
+    "å·²æœ‰å¤§é‡æœªæäº¤ä¿®æ”¹ï¼Œéœ€è°¨æ…é¿å…å›é€€ç”¨æˆ·å˜æ›´ã€‚"
   ]
 }

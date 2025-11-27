@@ -1,27 +1,44 @@
 {
-  "timestamp": "2025-11-20T20:43:47+08:00",
+  "timestamp": "2025-11-27T00:26:52",
   "known": [
-    "HttpOcrAdapter 通过 OCR_API_URL 向 /ocr POST multipart，默认 60s 超时，可附加 Authorization",
-    "Worker 在 OCR_ENABLED 且 OCR_MODE=http 时注入 HttpOcrAdapter，auto 模式也会优先命令/HTTP",
-    "extractMetadata 在缺少 metadata 角色配置时直接抛错终止 ingestion，无回退",
-    "paddle 目录提供 FastAPI /ocr 服务与 docker-compose，并在 README 记录 .env 示例"
+    "架构与需求齐备（API/Worker/MCP/Web，语义切分+元数据+混合检索+OCR），但全链路未验证可运行。",
+    "必须使用本地嵌入模型（Xenova/bge-*），模型目录需通过 sync-models 脚本或手动下载准备。",
+    "测试目标包括 bun test 与 scripts/test-matrix.ts 冒烟；历史因 Bun/依赖缺失导致失败。"
   ],
   "questions": [
     {
       "id": "Q1",
-      "question": "当前环境的 OCR_API_URL/OCR_MODE 配置以及实际可用的 paddle OCR 端点是什么？需如何对接 compose 服务以消除连接失败？",
+      "question": "选择哪种启动路径最可行（Docker Compose vs 本地 Bun），当前主机是否具备 Postgres/Qdrant/MinIO/Redis/RabbitMQ？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q2",
-      "question": "metadata 角色的模型应如何默认配置（local/remote）？是否需要在启动时自动写入默认记录或提供走 skip 的降级路径？",
+      "question": "如何自动化获取并配置本地模型（text/rerank/image/ocr）以满足强制本地 embedding/rerank 要求？",
       "priority": "high",
       "blocking": true
     },
     {
       "id": "Q3",
-      "question": "OCR 或 metadata 缺失时当前降级策略是否足够？是否需要增加健康检查/重试/日志以避免 ingestion 提前终止？",
+      "question": "LLM 语义切分/元数据的 provider 与 prompt 是否已有默认配置？若无，是否需要提供本地/远程模型及示例配置？",
+      "priority": "high",
+      "blocking": true
+    },
+    {
+      "id": "Q4",
+      "question": "迁移与存储初始化（run-migrations/bootstrap-storage）在当前环境能否成功执行，依赖工具是否齐备（psql、MinIO mc 等）？",
+      "priority": "medium",
+      "blocking": true
+    },
+    {
+      "id": "Q5",
+      "question": "测试矩阵的最小闭环是什么（单测范围、冒烟脚本、端到端），哪些必须先打通才能算“可直接运行”？",
+      "priority": "medium",
+      "blocking": false
+    },
+    {
+      "id": "Q6",
+      "question": "已有大量未提交改动，哪些可能影响本次执行（如配置/脚本/测试）？需要避开或合并哪些冲突？",
       "priority": "medium",
       "blocking": false
     }
