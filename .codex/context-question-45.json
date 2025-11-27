@@ -1,0 +1,17 @@
+{
+  "questionId": "Q1",
+  "focus": "运行路径与依赖可用性（Docker/Bun、本地服务）",
+  "why": "需要选择最稳妥的启动方式并确认基础依赖存在，以实现可运行知识库。",
+  "actions": [
+    "检查 bun/docker/psql 可用性，决定采用 Docker Compose 全栈启动。",
+    "审阅 .env.docker 默认值，确认服务端口与凭证，准备 MODELS_DIR 和本地模型下载。",
+    "评估是否需要额外安装 MinIO mc、RabbitMQ CLI 等用于初始化脚本。"
+  ],
+  "evidence": [
+    "`bun --version` -> 1.3.1（可用）",
+    "`docker compose version` -> v2.39.2-desktop.1（可用）",
+    "`psql --version` -> 12.22（客户端可用）",
+    "`.env.docker` 定义 db/vectordb/object/redis/queue/kb-api/kb-worker/mcp-server 配置，MODELS_DIR=/app/models/weights"
+  ],
+  "conclusion": "环境具备 bun 与 docker compose，优先采用 Docker Compose 路径；需在镜像构建或启动时下载/挂载模型。"
+}

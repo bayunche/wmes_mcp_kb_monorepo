@@ -32,7 +32,11 @@ function mapChunkToRow(chunk: Chunk, libraryId: string) {
     semantic_metadata: chunk.semanticMetadata ?? null,
     env_labels: chunk.envLabels ?? chunk.semanticMetadata?.envLabels ?? null,
     biz_entities: chunk.bizEntities ?? chunk.semanticMetadata?.bizEntities ?? null,
-    ner_entities: chunk.nerEntities ?? chunk.semanticMetadata?.entities ?? null,
+    ner_entities: Array.isArray(chunk.nerEntities)
+      ? chunk.nerEntities
+      : Array.isArray(chunk.semanticMetadata?.entities)
+        ? chunk.semanticMetadata?.entities
+        : [],
     parent_section_id: chunk.parentSectionId ?? null,
     parent_section_path: chunk.parentSectionPath ?? chunk.semanticMetadata?.parentSectionPath ?? null,
     context_summary: chunk.contextSummary ?? chunk.semanticMetadata?.contextSummary ?? null,

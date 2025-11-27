@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { SemanticMetadataSchema, type SemanticMetadata, ModelProvider } from "@kb/shared-schemas";
 
 export interface SemanticMetadataModelConfig {
@@ -21,6 +22,11 @@ export interface SemanticMetadataInput {
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+function sanitizeText(input: string | undefined | null): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
+
 export async function generateSemanticMetadataViaModel(
   config: SemanticMetadataModelConfig,
   input: SemanticMetadataInput,
@@ -29,57 +35,46 @@ export async function generateSemanticMetadataViaModel(
   const prompt = buildPrompt(input);
   const raw =
     config.provider === "openai"
-      ? await requestOpenAi(config, prompt, fetchImpl)
+      ? await requestOpenAi(config, prompt)
       : await requestOllama(config, prompt, fetchImpl);
   try {
-    return SemanticMetadataSchema.parse(raw);
+    const parsed = SemanticMetadataSchema.parse(raw);
+    return sanitizeMetadata(parsed);
   } catch {
-    return SemanticMetadataSchema.parse({
+    const fallback = SemanticMetadataSchema.parse({
       title: input.sectionTitle ?? input.hierPath.at(-1),
       contextSummary: summarize(input.chunkText),
-      semanticTags: input.tags?.slice(0, 5),
-      topics: input.tags?.slice(0, 3),
+      semanticTags: input.tags?.slice(0, 5)?.map(sanitizeText),
+      topics: input.tags?.slice(0, 3)?.map(sanitizeText),
       keywords: extractKeywords(input.chunkText),
-      envLabels: input.envLabels?.slice(0, 3),
+      envLabels: input.envLabels?.slice(0, 3)?.map(sanitizeText),
       parentSectionPath: input.parentPath
     });
+    return sanitizeMetadata(fallback);
   }
 }
 
-async function requestOpenAi(
-  config: SemanticMetadataModelConfig,
-  prompt: string,
-  fetchImpl: FetchLike
-) {
-  const headers: Record<string, string> = {
-    "content-type": "application/json"
-  };
-  if (config.apiKey) {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-  }
-  const response = await fetchImpl(config.baseUrl, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      model: config.modelName,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是企业知识库的语义摘要助手。根据段落生成 JSON 对象，字段包括 contextSummary(<=240字)、semanticTags(最多5个)、envLabels(最多3个)、bizEntities(最多5个)。"
-        },
-        { role: "user", content: prompt }
-      ]
-    })
+async function requestOpenAi(config: SemanticMetadataModelConfig, prompt: string) {
+  const client = new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: config.baseUrl
   });
-  if (!response.ok) {
-    throw new Error(`Semantic metadata request failed (${response.status})`);
-  }
-  const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const completion = await client.chat.completions.create({
+    model: config.modelName,
+    temperature: 0,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "你是企业知识库的语义摘要与标签生成器。请输出 JSON 对象，包含 title, contextSummary(<=240字符), semanticTags(<=5), topics(<=5), keywords(<=10), envLabels(<=3), bizEntities(<=5), entities(<=5), parentSectionPath。"
+      },
+      { role: "user", content: prompt }
+    ]
+  });
   const content =
-    payload.choices?.[0]?.message?.content ?? JSON.stringify({ contextSummary: summarize(prompt) });
+    (completion.choices?.[0]?.message?.content as string | null | undefined) ??
+    JSON.stringify({ contextSummary: summarize(prompt) });
   return normalizeSemanticResponse(content);
 }
 
@@ -99,7 +94,7 @@ async function requestOllama(
     headers,
     body: JSON.stringify({
       model: config.modelName,
-      prompt: `${prompt}\n\n仅输出 JSON 结构。`,
+      prompt: `${prompt}\n\n请仅输出 JSON 对象 {"title":...,"contextSummary":...,"semanticTags":[],...}`,
       stream: false
     })
   });
@@ -112,43 +107,40 @@ async function requestOllama(
 }
 
 function buildPrompt(input: SemanticMetadataInput) {
-  const tags = input.tags?.length ? input.tags.join("，") : "无";
-  const env = input.envLabels?.length ? input.envLabels.join("，") : "未知";
-  return `文档标题: ${input.title}
-章节路径: ${input.hierPath.join(" > ")}
-段落所属章节: ${input.sectionTitle ?? "未知"}
-父章节: ${input.parentSectionTitle ?? "顶层"}
+  const tags = input.tags?.length ? input.tags.map(sanitizeText).join("，") : "无";
+  const env = input.envLabels?.length ? input.envLabels.map(sanitizeText).join("，") : "未知";
+  const chunk = sanitizeText(input.chunkText).slice(0, 2000);
+  return `文档标题: ${sanitizeText(input.title)}
+层级路径: ${input.hierPath.map(sanitizeText).join(" > ")}
+当前段标题: ${sanitizeText(input.sectionTitle ?? "未知")}
+父段标题: ${sanitizeText(input.parentSectionTitle ?? "顶层")}
 已有标签: ${tags}
 环境标签: ${env}
 语言: ${input.language ?? "zh"}
 段落内容:
-${input.chunkText.slice(0, 2000)}
+${chunk}
 
-请基于以上信息输出一个 JSON 对象，包含字段:
-- title: 段落标题
-- contextSummary: 段落摘要 (<=240 字)
-- semanticTags: 标签数组 (<=5)
-- topics: 主题分类数组 (<=5)
-- keywords: 关键词数组 (<=10)
-- envLabels: 环境标签 (<=3)
-- bizEntities: 业务实体 (<=5)
-- entities: NER 实体数组 [{name,type}]
-- parentSectionPath: 父章节路径数组
-`;
+请基于上述信息输出一个 JSON 对象，字段包括:
+- title
+- contextSummary (<=240 字符)
+- semanticTags (<=5)
+- topics (<=5)
+- keywords (<=10)
+- envLabels (<=3)
+- bizEntities (<=5)
+- entities: NER 列表 [{name,type}]
+- parentSectionPath: 路径数组`;
 }
 
 function normalizeSemanticResponse(raw: string): SemanticMetadata {
   const content = extractJson(raw);
   const parsed = typeof content === "string" ? safeParseJson(content) : content;
-  return SemanticMetadataSchema.parse(parsed);
+  return sanitizeMetadata(SemanticMetadataSchema.parse(parsed));
 }
 
 function extractJson(payload: string): string {
   const fenced = payload.match(/```(?:json)?([\s\S]*?)```/i);
-  if (fenced) {
-    return fenced[1].trim();
-  }
-  return payload.trim();
+  return fenced ? fenced[1].trim() : payload.trim();
 }
 
 function safeParseJson(raw: string) {
@@ -160,11 +152,11 @@ function safeParseJson(raw: string) {
 }
 
 function summarize(text: string) {
-  return text.replace(/\s+/g, " ").slice(0, 240);
+  return sanitizeText(text).replace(/\s+/g, " ").slice(0, 240);
 }
 
 function extractKeywords(text: string) {
-  const tokens = text
+  const tokens = sanitizeText(text)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
@@ -181,4 +173,22 @@ function extractKeywords(text: string) {
     }
   }
   return keywords;
+}
+
+function sanitizeMetadata(meta: SemanticMetadata): SemanticMetadata {
+  return {
+    ...meta,
+    title: sanitizeText(meta.title),
+    contextSummary: sanitizeText(meta.contextSummary),
+    semanticTags: meta.semanticTags?.map(sanitizeText),
+    topics: meta.topics?.map(sanitizeText),
+    keywords: meta.keywords?.map(sanitizeText),
+    envLabels: meta.envLabels?.map(sanitizeText),
+    bizEntities: meta.bizEntities?.map(sanitizeText),
+    entities: meta.entities?.map((e) => ({
+      name: sanitizeText((e as any).name),
+      type: sanitizeText((e as any).type)
+    })),
+    parentSectionPath: meta.parentSectionPath?.map(sanitizeText)
+  };
 }

@@ -59,6 +59,7 @@ export const DocumentSchema = z.object({
   libraryId: LibraryIdSchema.default("default"),
   tags: z.array(z.string()).optional(),
   errorMessage: z.string().optional(),
+  statusMeta: z.unknown().optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional()
 });

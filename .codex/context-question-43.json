@@ -1,0 +1,8 @@
+{
+  "timestamp": "2025-11-24T11:47:53+08:00",
+  "question": "模型配置保存/加载体验的主要痛点是什么？（如 provider/role 受限、本地模型选择繁琐、API Key 状态不清晰）",
+  "why": "明确需要优化的交互或逻辑，避免盲目修改 UI。",
+  "evidence_needed": [
+    "ModelSettingsPage 状态流转、saveModelSettings 请求体、local preset 应用逻辑"
+  ]
+}

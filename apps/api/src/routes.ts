@@ -1,4 +1,4 @@
-import { Buffer } from "node:buffer";
+﻿import { Buffer } from "node:buffer";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -74,6 +74,21 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
 
   if (request.method === "GET" && url.pathname === "/health") {
     return Response.json({ ok: true });
+  }
+
+  const ingestionStatusMatch = url.pathname.match(/^\/ingestion\/([^/]+)\/status$/);
+  if (request.method === "GET" && ingestionStatusMatch) {
+    const docId = ingestionStatusMatch[1];
+    const doc = await deps.documents.get(docId);
+    if (!doc) {
+      return new Response("Not Found", { status: 404 });
+    }
+    return json({
+      docId,
+      ingestStatus: doc.ingestStatus,
+      errorMessage: doc.errorMessage ?? null,
+      statusMeta: (doc as any).statusMeta ?? null
+    });
   }
 
   if (request.method === "GET" && url.pathname === "/documents") {
@@ -605,6 +620,59 @@ async function handleGetModelSettings(request: Request, deps: ApiRoutesDeps): Pr
   return json({ setting: setting ? sanitizeModelSetting(setting) : null });
 }
 
+async function validateOcrEndpointInline(baseUrl: string, apiKey?: string) {
+  if (!baseUrl || !baseUrl.trim()) {
+    throw new Error("OCR 服务 URL 不能为空");
+  }
+  // 1x1 纯色 PNG（base64: iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=）
+  const tinyPngBytes = Uint8Array.from([
+    0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x08,0x02,0x00,0x00,0x00,0x90,0x77,0x53,0xde,
+    0x00,0x00,0x00,0x0a,0x49,0x44,0x41,0x54,0x08,0xd7,0x63,0x00,0x01,0x00,0x00,0x05,0x00,0x01,0x0d,0x0a,0x2d,0xb4,0x00,0x00,0x00,0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82
+  ]);
+  const attempts = [
+    () => {
+      const form = new FormData();
+      form.append("file", new Blob([tinyPngBytes], { type: "image/png" }), "ping.png");
+      return form;
+    }
+  ];
+  const errors: string[] = [];
+  for (const build of attempts) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(baseUrl, {
+        method: "POST",
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+        body: build(),
+        signal: controller.signal
+      });
+      if (response.ok) {
+        return;
+      }
+      const text = await response.text().catch(() => "");
+      errors.push(text || `HTTP ${response.status}`);
+    } catch (error) {
+      errors.push((error as Error).message);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  // 如果 /ocr 失败，尝试同源的 /health 作为兜底连通性检测
+  try {
+    const healthUrl = new URL(baseUrl);
+    healthUrl.pathname = "/health";
+    const res = await fetch(healthUrl.toString(), { method: "GET" });
+    if (res.ok) {
+      return;
+    }
+    errors.push(`健康检查失败 ${res.status}`);
+  } catch (error) {
+    errors.push((error as Error).message);
+  }
+  throw new Error(errors.filter(Boolean).join(" | ") || "OCR 服务不可用");
+}
+
 async function handleSaveModelSettings(request: Request, deps: ApiRoutesDeps): Promise<Response> {
   if (!deps.modelSettings) {
     return new Response("Model settings repository not configured", { status: 501 });
@@ -616,6 +684,14 @@ async function handleSaveModelSettings(request: Request, deps: ApiRoutesDeps): P
   const normalizedApiKey = parsed.apiKey?.trim() ? parsed.apiKey.trim() : undefined;
   const modelRole = parsed.modelRole ?? "tagging";
   const displayName = parsed.displayName?.trim() ? parsed.displayName.trim() : undefined;
+  if (modelRole === "ocr") {
+    try {
+      await validateOcrEndpointInline(parsed.baseUrl, normalizedApiKey);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "OCR endpoint validation failed";
+      return new Response(message, { status: 502 });
+    }
+  }
   const saved = await deps.modelSettings.upsert({
     tenantId,
     libraryId,
@@ -689,10 +765,35 @@ function maskKey(apiKey?: string) {
   return `${"*".repeat(Math.max(apiKey.length - 4, 0))}${suffix}`;
 }
 
+async function validateOcrEndpoint(baseUrl: string, apiKey?: string) {
+  if (!baseUrl || !baseUrl.Trim()) {
+    throw new Error("OCR 服务 URL 不能为空");
+  }
+  const form = new FormData();
+  form.Append("file", new Blob(["ping"]), "ping.txt");
+  form.Append("language", "chi_sim");
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(baseUrl, {
+      method: "POST",
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      body: form,
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `OCR 服务不可用 (${response.status})`);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchRemoteModels(input: RemoteModelRequest) {
   if (input.provider === "openai") {
     if (!input.apiKey) {
-      throw new Error("OpenAI 模型列表需要提供 API Key");
+      throw new Error("OpenAI 妯″瀷鍒楄〃闇€瑕佹彁渚?API Key");
     }
     const response = await fetch(buildOpenAiModelsUrl(input.baseUrl), {
       headers: {
@@ -701,7 +802,7 @@ async function fetchRemoteModels(input: RemoteModelRequest) {
       }
     });
     if (!response.ok) {
-      throw new Error(`OpenAI 模型列表请求失败 (${response.status})`);
+      throw new Error(`OpenAI 妯″瀷鍒楄〃璇锋眰澶辫触 (${response.status})`);
     }
     const payload = await response.json();
     const list = Array.isArray(payload?.data) ? payload.data : [];
@@ -713,7 +814,7 @@ async function fetchRemoteModels(input: RemoteModelRequest) {
   if (input.provider === "ollama") {
     const response = await fetch(buildOllamaModelsUrl(input.baseUrl));
     if (!response.ok) {
-      throw new Error(`Ollama 模型列表请求失败 (${response.status})`);
+      throw new Error(`Ollama 妯″瀷鍒楄〃璇锋眰澶辫触 (${response.status})`);
     }
     const payload = await response.json();
     const list = Array.isArray(payload?.models) ? payload.models : [];
@@ -726,11 +827,17 @@ async function fetchRemoteModels(input: RemoteModelRequest) {
 }
 
 function buildOpenAiModelsUrl(baseUrl: string): string {
-  const target = new URL(baseUrl);
-  target.pathname = "/v1/models";
-  target.search = "";
-  target.hash = "";
-  return target.toString();
+  try {
+    const target = new URL(baseUrl);
+    // 若用户提供的已是完整 /v1/models 或其他路径，不强行改写，仅替换为官方列表接口
+    target.pathname = "/v1/models";
+    target.search = "";
+    target.hash = "";
+    return target.toString();
+  } catch {
+    // 非法 URL 原样返回，调用方会收到请求错误
+    return baseUrl;
+  }
 }
 
 function buildOllamaModelsUrl(baseUrl: string): string {
@@ -954,3 +1061,4 @@ async function handleMcpPreview(request: Request, deps: ApiRoutesDeps) {
   const result = await tool.handle(payload, ctx);
   return json(result);
 }
+

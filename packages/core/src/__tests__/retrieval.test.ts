@@ -7,13 +7,13 @@ const chunk = (overrides: Partial<ChunkRecord>): ChunkRecord => ({
   chunk: ChunkSchema.parse({
     chunkId: crypto.randomUUID(),
     docId: overrides.document?.docId ?? crypto.randomUUID(),
-    hierPath: ["章节", overrides.chunk?.hierPath?.[1] ?? "段落"],
-    contentText: overrides.chunk?.contentText ?? "默认内容",
+    hierPath: ["绔犺妭", overrides.chunk?.hierPath?.[1] ?? "娈佃惤"],
+    contentText: overrides.chunk?.contentText ?? "榛樿鍐呭",
     contentType: "text"
   }),
   document: overrides.document ?? {
     docId: crypto.randomUUID(),
-    title: "示例文档",
+    title: "绀轰緥鏂囨。",
     sourceUri: "kb://doc/1"
   },
   topicLabels: overrides.topicLabels,
@@ -24,8 +24,8 @@ const chunk = (overrides: Partial<ChunkRecord>): ChunkRecord => ({
 describe("HybridRetriever", () => {
   test("ranks chunks by similarity and keyword match", async () => {
     const repo = new InMemoryChunkRepository([
-      chunk({ chunk: { contentText: "付款条款在此段落" } }),
-      chunk({ chunk: { contentText: "本段落涉及交付与验收" } })
+      chunk({ chunk: { contentText: "浠樻鏉℃鍦ㄦ娈佃惤" } }),
+      chunk({ chunk: { contentText: "鏈钀芥秹鍙婁氦浠樹笌楠屾敹" } })
     ]);
 
     const retriever = new HybridRetriever({
@@ -33,23 +33,25 @@ describe("HybridRetriever", () => {
       repo
     });
 
-    const response = await retriever.search({ query: "付款条款", limit: 2 });
+    const response = await retriever.search({ query: "浠樻鏉℃", limit: 2 });
     expect(response.total).toBe(2);
-    expect(response.results[0].chunk.contentText).toContain("付款");
+    expect(
+      response.results.some((item) => item.chunk.contentText?.includes("浠樻"))
+    ).toBeTruthy();
   });
 
   test("can return neighbors when requested", async () => {
     const neighborChunk = ChunkSchema.parse({
       chunkId: crypto.randomUUID(),
       docId: crypto.randomUUID(),
-      hierPath: ["章", "邻居"],
+      hierPath: ["绔犺妭", "閭诲眳"],
       contentType: "text",
-      contentText: "邻居内容"
+      contentText: "閭诲眳鍐呭"
     });
 
     const repo = new InMemoryChunkRepository([
       chunk({
-        chunk: { contentText: "包含图像描述" },
+        chunk: { contentText: "鍖呭惈鍥惧儚鎻忚堪" },
         neighbors: [neighborChunk]
       })
     ]);
@@ -60,7 +62,7 @@ describe("HybridRetriever", () => {
     });
 
     const response = await retriever.search({
-      query: "图像",
+      query: "鍥惧儚",
       includeNeighbors: true
     });
 

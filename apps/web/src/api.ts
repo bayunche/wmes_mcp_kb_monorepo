@@ -242,6 +242,19 @@ export async function fetchVectorLogs(params: {
   return response.json();
 }
 
+export async function fetchChunk(chunkId: string, options: { tenantId?: string; libraryId?: string } = {}) {
+  const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
+  const response = await fetch(`${API_BASE}/chunks/${chunkId}`, {
+    headers: options.tenantId
+      ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
+      : { ...headers, "x-library-id": libraryId }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
 export async function updateChunkTags(chunkId: string, tags: string[], options: { tenantId?: string; libraryId?: string } = {}) {
   const libraryId = options.libraryId ?? DEFAULT_LIBRARY;
   const response = await fetch(`${API_BASE}/chunks/${chunkId}`, {
@@ -426,6 +439,16 @@ export async function fetchMetrics() {
     throw new Error(await response.text());
   }
   return response.text();
+}
+
+export async function fetchIngestionStatus(docId: string) {
+  const response = await fetch(`${API_BASE}/ingestion/${docId}/status`, {
+    headers
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
 }
 
 export function buildAttachmentUrl(objectKey: string) {

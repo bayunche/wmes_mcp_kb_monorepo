@@ -8,6 +8,11 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(execCallback);
 
+function sanitizeText(input: string): string {
+  if (!input) return "";
+  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+}
+
 export interface OcrRequest {
   buffer?: Uint8Array;
   filePath?: string;
@@ -25,6 +30,7 @@ export interface HttpOcrAdapterOptions {
   apiKey?: string;
   timeoutMs?: number;
   language?: string;
+  encoding?: string;
 }
 
 export class HttpOcrAdapter implements OcrAdapter {
@@ -42,7 +48,8 @@ export class HttpOcrAdapter implements OcrAdapter {
     form.append("response_format", "json");
     form.append("language", input.language ?? this.options.language ?? "chi_sim");
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs ?? 60000);
+    const timeoutMs = this.options.timeoutMs ?? 60000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(this.options.endpoint, {
         method: "POST",
@@ -53,10 +60,21 @@ export class HttpOcrAdapter implements OcrAdapter {
         signal: controller.signal
       });
       if (!response.ok) {
-        throw new Error(`OCR request failed (${response.status})`);
+        const body = await response.text().catch(() => "");
+        const tail = body ? `: ${body}` : "";
+        throw new Error(`OCR request failed (${response.status})${tail}`);
       }
       const payload = await response.json();
       return normalizeOcrPayload(payload);
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        throw new Error(
+          `OCR request to ${this.options.endpoint} timed out after ${timeoutMs}ms`
+        );
+      }
+      throw new Error(
+        `OCR request to ${this.options.endpoint} failed: ${(error as Error).message}`
+      );
     } finally {
       clearTimeout(timeout);
     }
@@ -68,6 +86,7 @@ export interface LocalOcrAdapterOptions {
   timeoutMs?: number;
   language?: string;
   workdir?: string;
+  encoding?: BufferEncoding;
 }
 
 export class LocalOcrAdapter implements OcrAdapter {
@@ -81,7 +100,8 @@ export class LocalOcrAdapter implements OcrAdapter {
     try {
       const { stdout } = await execAsync(command, {
         cwd: this.options.workdir,
-        timeout: this.options.timeoutMs ?? 60000
+        timeout: this.options.timeoutMs ?? 60000,
+        encoding: this.options.encoding ?? "utf8"
       });
       const payload = deserializePayload(stdout.trim());
       return normalizeOcrPayload(payload);
@@ -107,6 +127,32 @@ export class LocalOcrAdapter implements OcrAdapter {
 function normalizeOcrPayload(payload: unknown): ParsedElement[] {
   if (!payload) {
     return [];
+  }
+  // Paddle server.py 返回 {"text": "...", "lines": [...]}
+  if (typeof payload === "object" && (payload as { text?: string; lines?: unknown[] }).text) {
+    const body = payload as { text?: string; lines?: unknown[] };
+    const lines = Array.isArray(body.lines) ? body.lines.filter((v) => typeof v === "string") as string[] : [];
+    if (lines.length) {
+      return lines.map((line, idx) => ({
+        id: crypto.randomUUID(),
+        type: "text",
+        text: sanitizeText(line),
+        metadata: { lineIndex: idx, ocr: true }
+      }));
+    }
+    if (typeof body.text === "string" && body.text.trim().length) {
+      return [
+        {
+          id: crypto.randomUUID(),
+          type: "text",
+          text: sanitizeText(body.text).trim(),
+          metadata: { ocr: true }
+        }
+      ];
+    }
+  }
+  if (Array.isArray(payload) && payload.some(isPaddleArrayLike)) {
+    return payload.flatMap((item, index) => mapPaddleArray(item, index));
   }
   if (Array.isArray(payload)) {
     return payload.flatMap((item, index) => mapToElement(item, index));
@@ -141,11 +187,12 @@ function mapToElement(item: unknown, index: number): ParsedElement[] {
   if (!text || !text.trim().length) {
     return [];
   }
+  const clean = sanitizeText(text);
   return [
     {
       id: (record.id as string) ?? crypto.randomUUID(),
       type: (record.type as ParsedElement["type"]) ?? "text",
-      text: text.trim(),
+      text: clean.trim(),
       page: typeof record.page === "number" ? record.page : undefined,
       bbox: Array.isArray(record.bbox) ? (record.bbox as number[]) : undefined,
       metadata: {
@@ -157,23 +204,41 @@ function mapToElement(item: unknown, index: number): ParsedElement[] {
   ];
 }
 
+function isPaddleArrayLike(item: unknown): boolean {
+  if (!Array.isArray(item) || item.length < 2) return false;
+  const meta = item[1];
+  return Array.isArray(meta) && typeof meta[0] === "string";
+}
+
+function mapPaddleArray(item: unknown, index: number): ParsedElement[] {
+  if (!Array.isArray(item) || item.length < 2) return [];
+  const meta = item[1];
+  if (!Array.isArray(meta) || typeof meta[0] !== "string") return [];
+  const text = sanitizeText(meta[0] as string);
+  const confidence = typeof meta[1] === "number" ? meta[1] : undefined;
+  const bbox =
+    Array.isArray(item[0]) && Array.isArray(item[0][0])
+      ? (item[0] as number[][]).flat()
+      : undefined;
+  return [
+    {
+      id: crypto.randomUUID(),
+      type: "text",
+      text: text.trim(),
+      bbox,
+      metadata: {
+        ...(confidence !== undefined ? { confidence } : {}),
+        ocr: true
+      }
+    }
+  ];
+}
+
 export function shouldUseOcr(mimeType?: string | null, filename?: string | null) {
   const normalized = mimeType?.toLowerCase();
   if (normalized) {
-    if (normalized.includes("pdf") || normalized.startsWith("image/")) {
-      return true;
-    }
-    if (
-      normalized.includes("application/msword") ||
-      normalized.includes("application/vnd.ms-powerpoint") ||
-      normalized.includes("application/vnd.ms-excel")
-    ) {
-      return true;
-    }
-  }
-  if (!normalized || normalized === "application/octet-stream") {
-    const lower = filename?.toLowerCase() ?? "";
-    if (/\.(doc|ppt|xls|dot|pps)$/.test(lower)) {
+    // 仅对 PDF 启用 OCR；图片文件走图像嵌入，Office 文档走解析器
+    if (normalized.includes("pdf")) {
       return true;
     }
   }

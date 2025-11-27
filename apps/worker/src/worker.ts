@@ -63,7 +63,7 @@ export async function startWorker(options: StartWorkerOptions = {}): Promise<Que
       modelCacheDir: config.MODELS_DIR
     });
   const vectorLogs = options.vectorLogs ?? dataLayer.vectorLogs;
-  const ocr = options.ocr ?? createOcrAdapter(config);
+  const ocr = options.ocr ?? (await createOcrAdapter(config, modelSettings, options.logger ?? console));
   const semanticMetadata = options.semanticMetadata ?? generateSemanticMetadataViaModel;
   const semanticSegmenter =
     options.semanticSegmenter ??
@@ -112,20 +112,46 @@ function createParserFromConfig(config: AppConfig) {
   return parsers.length === 1 ? parsers[0] : new CompositeParser(parsers);
 }
 
-function createOcrAdapter(config: AppConfig) {
+async function createOcrAdapter(
+  config: AppConfig,
+  modelSettings?: ModelSettingsRepository,
+  logger?: WorkerLogger
+) {
   if (!config.OCR_ENABLED) {
     return undefined;
+  }
+  // 优先使用模型配置中的 OCR 端点（默认租户/库）
+  let endpoint = config.OCR_API_URL;
+  let apiKey = config.OCR_API_KEY;
+  if (modelSettings) {
+    try {
+      const ocrSetting =
+        (await modelSettings.get(
+          config.DEFAULT_TENANT_ID,
+          config.DEFAULT_LIBRARY_ID,
+          "ocr"
+        )) ?? null;
+      if (ocrSetting?.baseUrl) {
+        endpoint = ocrSetting.baseUrl;
+      }
+      if (ocrSetting?.apiKey) {
+        apiKey = ocrSetting.apiKey;
+      }
+    } catch (error) {
+      logger?.warn?.(`读取 OCR 模型配置失败: ${(error as Error).message}`);
+    }
   }
   if (config.OCR_MODE === "local" && config.OCR_LOCAL_COMMAND) {
     return new LocalOcrAdapter({
       command: config.OCR_LOCAL_COMMAND,
-      language: config.OCR_LANG
+      language: config.OCR_LANG,
+      encoding: "utf8"
     });
   }
-  if (config.OCR_MODE === "http" && config.OCR_API_URL) {
+  if ((config.OCR_MODE === "http" && endpoint) || endpoint) {
     return new HttpOcrAdapter({
-      endpoint: config.OCR_API_URL,
-      apiKey: config.OCR_API_KEY,
+      endpoint: endpoint!,
+      apiKey: apiKey ?? undefined,
       language: config.OCR_LANG
     });
   }

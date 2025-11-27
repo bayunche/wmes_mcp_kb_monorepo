@@ -282,7 +282,14 @@ function parseDocxEntries(zip: AdmZip, input: ParserInput): ParsedElement[] {
     return [];
   }
   const paragraphs = splitParagraphs(content);
-  return paragraphs.map((paragraph, index) => ({
+  const pieces =
+    paragraphs.length > 1
+      ? paragraphs
+      : content
+          .split(/\n+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+  return pieces.map((paragraph, index) => ({
     id: randomUUID(),
     type: "text",
     text: paragraph,

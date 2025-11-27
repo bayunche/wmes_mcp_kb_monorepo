@@ -1,5 +1,15 @@
 ﻿# 验证报告
 
+
+- **日期**：2025-11-27
+- **范围**：项目需求文档补充企业级语义治理（LLM 语义切分/元数据/结构树/OCR）
+- **验证步骤**：
+  - 手动审阅《项目需求.md》0/3/5/12/15 章，确认新增目标、流程总结、功能列表、验收用例与可用性清单均覆盖 LLM 语义切分、chunk 元数据字段（title/tags/topic/summary/keywords/NER/parentSectionPath）、结构树与 OCR 入口。
+  - 交叉检查用户需求描述（LLM 按语义边界、MCP/API 检索、PDF/图片 OCR 后入流）已写入相应章节且与原有表述不冲突。
+- **结果**：纯文档更新，未执行自动化测试。
+- **剩余风险**：需在具备 Bun/Docker 环境按既有脚本复跑以确保文档与实现保持一致；若后续代码改动未同步需求文档，需再次更新。
+
+---
 - **日期**：2025-11-20
 - **范围**：ModelSettingsPage 本地模型配置修复（ROLE_TO_MODEL_KIND、provider=local 类型放开、UI 提示）
 - **验证步骤**：
@@ -197,3 +207,16 @@
   - 确认 `/models`、`/models/install` API 通过 `packages/tooling/src/models.ts` 提供的 manifest 工作，并在前端 `ModelSettingsPage` 新增管理面板。
   - 前端 `IngestionStatusPanel` / `DocumentsList` 显示 errorMessage，ModelSettings 页面可查看/下载模型。
 - **测试情况**：由于 WSL 仍无法运行 Bun，未能执行 `bun test` 或 `bun run web`。需要在宿主机验证上传失败时的提示、本地模型列表展示与模型下载按钮。 |
+
+---
+
+- **日期**：2025-11-20
+- **范围**：OCR 连接错误提示增强，metadata 缺省降级为 warning，README 增补 metadata 配置指引。
+- **验证步骤**：
+  - 静态检查 `packages/core/src/ocr.ts`，确认 HTTP 适配器在超时/连接失败时带上端点与超时时间。
+  - 静态检查 `apps/worker/src/pipeline.ts`，确认缺少 model_settings 或达到 SEMANTIC_METADATA_LIMIT 时仅记录 warning 并继续流水线。
+  - 更新 README Web 控制台章节，提示需为 metadata 角色写入模型配置。
+- **测试情况**：当前 WSL 仍无法执行 Windows 版 bun.exe（`bun --version` 权限拒绝），未能运行 `bun test` 或启动 Worker/MCP 进行实际 OCR/ingestion 验证；已在 `.codex/testing.md` 记录失败原因。
+- **剩余风险**：
+  - OCR 仍依赖外部 paddle 服务可用性，需按 README 启动并在可访问环境内重试 ingestion。
+  - metadata 生成被跳过时可能缺少语义标签/摘要，需在可用环境配置至少一条 metadata 模型并回归上传流程。

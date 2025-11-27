@@ -1,0 +1,12 @@
+{
+  "questionId": "Q41",
+  "focus": "OCR 服务连接失败时，如何按仓库内 paddle docker 服务对接并确保 HttpOcrAdapter 可通",
+  "why": "日志提示 Unable to connect，需明确 worker 期望的 HTTP 契约、端口与环境变量，并对照内置 paddle 示例确认启动方式",
+  "analysis": {
+    "http_adapter_contract": "packages/core/src/ocr.ts:22-83 使用 fetch POST multipart，字段 file/response_format=json/language=based on OCR_LANG，支持 Authorization Bearer，默认 60s 超时，endpoint 取 OCR_API_URL",
+    "worker_injection": "apps/worker/src/worker.ts:65-99 createOcrAdapter 在 OCR_MODE=http 且 OCR_API_URL 设置时注入 HttpOcrAdapter；auto 模式也会尝试 HTTP",
+    "paddle_compose": "paddle/docker-compose.yml 暴露 paddleocr 服务端口 8000，并设置容器名 paddleocr_win；服务运行 FastAPI /ocr（server.py）且自带 /health",
+    "paddle_api_shape": "paddle/server.py:1-50 定义 POST /ocr 返回 {\"result\":[{\"text\":...,\"score\":...,\"box\":...}]}; README.md 332-416 行给出启动、curl 验证与 .env 配置示例 (OCR_MODE=http, OCR_API_URL=http://localhost:8000/ocr, OCR_LANG=chi_sim)"
+  },
+  "conclusion": "要消除连接失败，应先运行 `cd paddle && docker compose up -d --build` 启动服务、用 curl /health 与 /ocr 验证，再在 .env 设定 OCR_ENABLED=true、OCR_MODE=http、OCR_API_URL 指向 http://localhost:8000/ocr（或同网络下 http://paddleocr:8000/ocr），必要时填 OCR_API_KEY；重启 worker 后 HttpOcrAdapter 即可与 paddle 服务对接"
+}

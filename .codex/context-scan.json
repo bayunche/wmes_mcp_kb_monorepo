@@ -1,41 +1,31 @@
 {
-  "timestamp": "2025-11-20T02:05:00+08:00",
-  "workspace": "/mnt/d/code/mcp知识库/wmes_mcp_kb_monorepo",
-  "focus": "核实 Worker/VectorClient 默认走本地模型且无需 .env 配置，同时确认 Web 配置页为所有模型角色提供本地模型选项，并确保需要 LLM 的 API 功能仅限语义切割/标签/元数据",
-  "locations": {
-    "worker": [
-      "apps/worker/src/worker.ts（startWorker 初始化 VectorClient、resolveLocalVectorModelOverrides）",
-      "apps/worker/src/pipeline.ts（语义元数据与标签生成阶段对 model_settings 的依赖）"
-    ],
-    "tooling": [
-      "packages/tooling/src/models.ts（resolveLocalModelId 通过 MODELS_DIR 扫描本地模型）"
-    ],
-    "core": [
-      "packages/core/src/vector.ts（enableLocalModels 与本地 pipeline 实现）",
-      "packages/core/src/semantic-metadata.ts、semantic-structure.ts、tagging.ts（只有这些流程调用远程 API）"
-    ],
-    "frontend": [
-      "apps/web/src/pages/ModelSettingsPage.tsx（六个模型角色及本地模型快捷选择）",
-      "apps/web/src/api.ts（saveModelSettings provider/role 参数）"
-    ],
-    "schemas/api": [
-      "packages/shared-schemas/src/index.ts（ModelProvider=local/openai/ollama）",
-      "apps/api/src/routes.ts（/model-settings、/models 暴露给前端）"
-    ]
-  },
+  "timestamp": "2025-11-27T00:26:31",
+  "module_locations": [
+    "apps/api/src",
+    "apps/worker/src",
+    "apps/mcp/src",
+    "apps/web/src",
+    "packages/core",
+    "packages/data",
+    "packages/shared-schemas",
+    "scripts",
+    "ops/scripts",
+    "docs/ingestion.md",
+    "docs/retrieval.md",
+    "项目需求.md"
+  ],
   "current_state": {
-    "vector_local": "startWorker 始终以 enableLocalModels=true 实例化 VectorClient，并优先从 model_settings 或 MODELS_DIR 扫描到本地 embedding/rerank/图像模型；即使 .env 未提供 LOCAL_*_MODEL_ID，resolveLocalModelId 也会自动寻找现有权重（apps/worker/src/worker.ts:32-120,195-205; packages/tooling/src/models.ts:200-260）",
-    "frontend_control": "ModelSettingsPage 提供 embedding/tagging/metadata/ocr/rerank/structure 六个角色的 provider/local 选择，并可通过 ROLE_TO_MODEL_KIND 将 MODELS_DIR/<role>/ 文件一键写入配置（apps/web/src/pages/ModelSettingsPage.tsx:46-120,612-690）",
-    "api_scope": "Worker 内只有 semanticSegmenter、generateRemoteTags、generateSemanticMetadataViaModel 等功能会根据 model_settings 调用远程 API，满足“API 仅在语义切割/标签/元数据生成时调用”要求（apps/worker/src/pipeline.ts:235-339,871-925; packages/core/src/tagging.ts、semantic-metadata.ts、semantic-structure.ts）",
-    "model_settings": "后端 schema/路由全面支持 provider=local，Web 保存的本地模型配置可直接被 Worker 加载为覆盖值（packages/shared-schemas/src/index.ts:78-110; apps/api/src/routes.ts:592-635）"
+    "pipeline": "架构齐备：上传 -> 解析/OCR -> LLM 语义切分 -> 元数据 -> 向量化 -> 入库 -> 混合检索/MCP，但现状未完成端到端可运行校验，环境与依赖未配置。",
+    "services": "API/Worker/MCP/Web 均有入口与脚本 deploy-local.sh/docker compose，需准备 Postgres+pgvector/Qdrant/MinIO/Redis/RabbitMQ 和本地模型。",
+    "models": "要求本地嵌入与 rerank 模型（Xenova/bge-*），需同步 MODELS_DIR 或通过 scripts/sync-models.ts 下载。",
+    "tests": "仓库包含 Vitest 单测与 scripts/test-matrix.ts 冒烟，但多次记录在当前环境因 Bun/依赖/容器缺失无法运行。",
+    "docs": "README 与 项目需求.md 定义了全链路需求与验收，需按文档落地。"
   },
-  "tests": {
-    "pending": "需在具备 Bun CLI 的环境运行 `bun test` 与前端构建以验证类型/依赖；当前 WSL 运行 bun.exe 仍因权限失败",
-    "notes": "本次为静态检查，尚未能跑自动化测试"
-  },
-  "observation_report": [
-    "VectorClient 不再依赖 .env 切换本地模式，startWorker 强制开启 enableLocalModels 并根据 model_settings/MODELS_DIR 自动定位模型文件",
-    "ModelSettingsPage 的按角色配置与本地快捷选择覆盖六类模型，可通过 provider=local + local://filename 完成所有功能的本地化设置",
-    "语义切割、元数据、标签生成仍走 generateStructureViaModel / generateSemanticMetadataViaModel / generateTagsViaModel，且均由 model_settings 控制调用的 API"
+  "tech_stack": "Bun+TypeScript，Postgres/pgvector、Qdrant、MinIO、Redis、RabbitMQ；LLM 切分/metadata 依赖配置的 provider，embedding 强制本地模型。",
+  "tests": "目标需跑通 bun test（API/MCP/Worker）与 scripts/test-matrix.ts 冒烟；现有记录显示测试在 WSL 因 bun.exe 权限或缺依赖失败。",
+  "observations": [
+    "必须准备 .env/.env.docker，运行迁移、初始化存储与模型；当前未确认任何服务可正常启动。",
+    "需评估 shrimp-task-manager 是否可用；此前命令缺失，需要自行规划。",
+    "已有大量未提交修改，需谨慎避免回退用户变更。"
   ]
 }
