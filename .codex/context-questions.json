@@ -1,27 +1,26 @@
 {
-  "timestamp": "2025-11-27T11:20:00+08:00",
+  "timestamp": "2025-11-28T10:20:30+08:00",
   "known": [
-    "迁移 0008/0010 已设计将 provider check 扩展到 openai/ollama/local，但旧库若未跑到这些版本会保留旧约束。",
-    "ModelProviderSchema/前端/脚本都只允许 openai、ollama、local；写入 local 时若数据库未更新会直接 500。",
-    "run-migrations.ts 每次全量重放 SQL，需要迁移幂等以修复历史数据库。",
-    "logs/dev/api.log 多次记录 PUT /model-settings 500，指向 model_settings_provider_check 违例。"
+    "buildSemanticFragments 在 fragments/sections 为空时抛出错误，当前日志显示文本非空但 semanticSegmenter 返回空导致失败。",
+    "semanticSegmenter 依赖 model_settings 中 role=structure 的配置；缺失配置返回 [] 且不抛异常，仅在 worker.ts 记录 warn/error。",
+    "generateStructureViaModel 调用 OpenAI/Ollama，若响应异常通常会 fallback，但请求失败或未配置时仍会返回空数组。"
   ],
   "questions": [
     {
-      "id": "Q48",
-      "question": "当前数据库中 model_settings_provider_check 是否仍缺少 local？需要新增一次幂等迁移强制修复吗？",
+      "id": "Q54",
+      "question": "tenant=zj-jijia/library=default 是否已有 role=structure 的 model_settings 配置并启用？",
       "priority": "high",
       "blocking": true
     },
     {
-      "id": "Q49",
-      "question": "是否应直接移除 provider check 或扩展为更宽松的枚举（以避免未来新增 provider 再次 500）？",
-      "priority": "medium",
-      "blocking": false
+      "id": "Q55",
+      "question": "语义切分模型端点是否可访问且返回合法 JSON？worker 日志是否有 Semantic segmentation request failed？",
+      "priority": "high",
+      "blocking": true
     },
     {
-      "id": "Q50",
-      "question": "需要补哪类验证（脚本/测试）来确保迁移执行后不再出现约束不一致的 500？",
+      "id": "Q56",
+      "question": "若缺少配置/请求失败，是否需要提供 coarse chunk fallback 以避免整条入库失败？",
       "priority": "medium",
       "blocking": false
     }

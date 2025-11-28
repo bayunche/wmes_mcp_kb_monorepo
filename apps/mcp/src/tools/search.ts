@@ -3,7 +3,11 @@ import { McpSearchHandler } from "../types";
 import { DbMcpRepository } from "../repository/db";
 import { SearchResponseSchema } from "@kb/shared-schemas";
 
-export function createSearchTool(retriever: HybridRetriever, repo: DbMcpRepository): McpSearchHandler {
+export function createSearchTool(
+  retriever: HybridRetriever,
+  repo: DbMcpRepository,
+  resolveOverrides?: (input: any, ctx: any) => Promise<unknown>
+): McpSearchHandler {
   return {
     name: "kb.search",
     async handle(input, ctx) {
@@ -15,7 +19,8 @@ export function createSearchTool(retriever: HybridRetriever, repo: DbMcpReposito
           libraryId: input.filters?.libraryId ?? ctx.libraryId
         }
       };
-      const result = await retriever.search(request);
+      const overrides = resolveOverrides ? await resolveOverrides(request, ctx) : undefined;
+      const result = await retriever.search(request, overrides as any);
       const chunkIds = result.results.map((item) => item.chunk.chunkId);
       const attachmentMap = await repo.attachmentsForChunks(chunkIds);
       const payload = {
@@ -25,7 +30,9 @@ export function createSearchTool(retriever: HybridRetriever, repo: DbMcpReposito
           ...item,
           attachments: attachmentMap.get(item.chunk.chunkId) ?? [],
           sourceUri: `kb://chunk/${item.chunk.chunkId}`
-        }))
+        })),
+        queryRewrite: result.queryRewrite,
+        semanticRerankApplied: result.semanticRerankApplied
       };
       return SearchResponseSchema.parse(payload);
     }

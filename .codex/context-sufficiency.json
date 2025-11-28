@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-28T15:35:00+08:00",
+  "timestamp": "2025-11-28T10:20:45+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "前端需覆盖搜索、队列、元数据编辑、入库等页面，支持 chunk 卡片点击弹窗显示内容+元数据，表格/卡片可切换，响应式布局；API 端已有 /ingestion/queue、chunks PATCH、search/preview 等接口可用。",
-    "tech_choices": "使用 Tailwind 玻璃态（backdrop-blur + 半透明白），沿用现有组件库；布局采用顶部导航 + 侧边栏 + 主内容区包含卡片/表格。",
-    "risks_identified": "重构 App.tsx 可能导致路由/样式回归；需要确保弹窗状态不冲突、导入路径正确（如 ProgressBar）；大 chunk 问题若未验证，可能仍存在切分粒度不够。",
-    "verification_plan": "手动在浏览器跑 dev 服务器验证导航、弹窗与表格响应式；检查 Vite 构建无导入错误；如无法跑完整测试，在 verification.md 记录风险。"
+    "interface_contract": "ingestion chunking 需要 semanticSegmenter 返回 sections→blueprints→chunks；返回空即抛错，需保证 role=structure 模型可用或提供 fallback。",
+    "tech_choices": "语义切分依赖 model_settings role=structure 配置，调用 generateStructureViaModel（OpenAI/Ollama）并按 12000 字符截断。",
+    "risks_identified": "租户缺少 structure 配置或请求失败会直接中断 chunking；日志仅在请求异常时提示，缺配置无提示；无 coarse fallback 导致整体失败。",
+    "verification_plan": "检查 model_settings 表/seed 是否为 tenant=zj-jijia 写入 structure；确认 LLM 端点连通；重试单条 ingest 观察 chunking 阶段日志是否生成 fragments>0。"
   }
 }

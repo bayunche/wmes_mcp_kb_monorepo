@@ -11,7 +11,15 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createHash } from "node:crypto";
 
-export type ModelRoleKind = "text" | "rerank" | "image" | "ocr" | "metadata" | "structure";
+export type ModelRoleKind =
+  | "text"
+  | "rerank"
+  | "image"
+  | "ocr"
+  | "metadata"
+  | "structure"
+  | "query_rewrite"
+  | "semantic_rerank";
 
 const ROLE_DIR_MAP: Record<ModelRoleKind, string> = {
   text: "text",
@@ -19,7 +27,9 @@ const ROLE_DIR_MAP: Record<ModelRoleKind, string> = {
   image: "image",
   ocr: "ocr",
   metadata: "metadata",
-  structure: "structure"
+  structure: "structure",
+  query_rewrite: "query_rewrite",
+  semantic_rerank: "semantic_rerank"
 };
 
 export interface ModelArtifact {

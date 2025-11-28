@@ -1,28 +1,25 @@
 {
-  "timestamp": "2025-11-28T15:35:00+08:00",
+  "timestamp": "2025-11-28T10:28:00+08:00",
   "module_locations": [
-    "apps/web/src/App.tsx (整体导航和布局，需重构为企业级玻璃风 UI)",
-    "apps/web/src/components/SearchPanel.tsx (chunk 卡片、元数据详情弹窗、检索结果)",
-    "apps/web/src/components/MetadataEditor.tsx (元数据编辑与详情弹窗，metadata PATCH)",
-    "apps/web/src/components/IngestionStatusPanel.tsx + components/ui/ProgressBar.tsx (/ingestion/queue 进度表格)",
-    "apps/api/src/routes.ts (/ingestion/queue、chunks PATCH 元数据、模型错误文案)",
-    "apps/worker/src/pipeline.ts (预分段/章节 → 语义分块 → 小 chunk 生成，tagging 重试与并发限制)",
-    "packages/core/src/retrieval.ts + packages/data/src/repositories/chunks.ts (HybridRetriever 向量+BM25+rereank，可更新元数据)",
-    "packages/data/src/repositories/documents.ts (listWithStatus 支撑队列进度)"
+    "apps/worker/src/pipeline.ts（buildSemanticFragments 在无语义切分返回时抛错）",
+    "apps/worker/src/worker.ts（createSemanticSegmenter 从 model_settings 读取 role=structure，缺失则返回空）",
+    "packages/core/src/semantic-structure.ts（generateStructureViaModel 处理 OpenAI/Ollama 响应与 fallback）",
+    "apps/web/src/components/UploadForm.tsx（上传入口，当前未检查模型配置）",
+    "apps/web/src/pages/IngestionDashboard.tsx（上传页容器）",
+    "apps/web/src/pages/ModelSettingsPage.tsx（租户/库创建 + 模型配置表单）",
+    "apps/web/src/api.ts（uploadDocuments 与 fetchModelSettings 用于前端校验配置）"
   ],
   "current_state": {
-    "frontend": "App.tsx 已有玻璃风导航但层次仍偏简单；SearchPanel/MetadataEditor 支持 chunk 元数据查看与编辑，仍需统一企业化布局、卡片+表格组合、响应式。",
-    "pipeline": "worker 先按章/节/空行/短行预分块，处理英文连字符，再用 semanticSegmenter 细分，最终 materializeChunksFromBlueprints 生成小 chunk 并写入元数据层级；tagging 并发 3、失败重试 3 次，否则抛错。",
-    "retrieval": "HybridRetriever 已融合向量+BM25，保留 rerank 可选；preview/mcp 返回 chunk 内容与元数据。",
-    "api": "/ingestion/queue 返回 status_meta 供前端进度面板；chunks PATCH 支持 metadata 全量字段；模型列表中文提示已修正。",
-    "issues_seen": "Vite 报 ProgressBar 路径缺失已补充新组件；日志仍见大 chunk 需确认是否由预分段参数或 token 限制导致。"
+    "ingestion_pipeline": "语义切分依赖 semanticSegmenter 返回 sections，role=structure 未配置时返回空并导致 chunking 报错。",
+    "frontend_upload": "UploadForm 仅校验文件选择/租户库选择，未在提交前检查语义切分或其他模型配置。",
+    "tenant_creation": "ModelSettingsPage 通过 prompt 创建租户/库，成功后未提醒补齐模型配置。",
+    "config_fetch": "useOrgOptions 仅加载租户/库列表，未暴露模型配置状态；fetchModelSettings 可按 role=structure 查询当前配置。"
   },
-  "tech_stack": "前端 React + Vite + Tailwind，路由 react-router-dom；后端 Node/Bun + Fastify/Fetch API；数据层 Kysely + Postgres；Worker 使用 OpenAI/本地 LLM 生成元数据与 chunk。",
-  "tests": "前端暂无自动化测试；后端主要依赖 make test/pytest；当前任务尚未运行测试。",
+  "tech_stack": "Bun + React/Vite 前端，API Fetch 调用；后端 ingestion 使用 TypeScript worker 与 LLM 语义切分。",
+  "tests": "无针对 UploadForm/模型配置提醒的自动化测试，需手工自测或补充。",
   "observations": [
-    "前端需重构为企业级知识治理控制台，使用玻璃态 Tailwind UI，突出导航/数据表格/卡片与元数据弹窗。",
-    "需确保 chunk 切分展示与元数据预览在 UI 可见；队列进度单独页面表格+进度条。",
-    "大 chunk 问题若仍存在需调低 token 阈值或调整章节蓝图拆分；后续改动需与 pipeline 结合验证。",
-    "需保持中文文案与元数据字段一致，避免乱码。"
+    "结构切分缺失是当前 chunking 报错的直接原因，新租户默认无该配置。",
+    "前端可在 upload 提交前调用 GET /model-settings?modelRole=structure 检查是否存在配置。",
+    "需在租户创建成功时即提醒配置模型，否则上传被阻断。"
   ]
 }

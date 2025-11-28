@@ -38,6 +38,7 @@ import { createSearchTool } from "../../mcp/src/tools/search";
 import { createRelatedTool } from "../../mcp/src/tools/related";
 import { createPreviewTool } from "../../mcp/src/tools/preview";
 import type { McpToolContext } from "../../mcp/src/types";
+import { OpenAIQueryTransformer, OpenAISemanticReranker } from "../../../packages/core/src/semantic-ranking";
 import { loadModelCatalog } from "./modelCatalog";
 import {
   modelManifest,
@@ -306,7 +307,8 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     const tenantId = resolveTenant(request, deps.defaultTenantId, parsed.filters?.tenantId);
     const libraryId = resolveLibrary(request, deps.defaultLibraryId, parsed.filters?.libraryId);
     const searchFilters = { ...parsed.filters, tenantId, libraryId };
-    const result = await deps.retriever.search({ ...parsed, filters: searchFilters });
+    const overrides = await resolveRetrievalOverrides(deps, tenantId, libraryId);
+    const result = await deps.retriever.search({ ...parsed, filters: searchFilters }, overrides);
     const chunkIds = result.results.map((item) => item.chunk.chunkId);
     const attachments = chunkIds.length ? await deps.attachments.listByChunkIds(chunkIds) : [];
     const attachmentMap = groupAttachments(attachments);
@@ -362,7 +364,9 @@ export async function handleRequest(request: Request, deps: ApiRoutesDeps): Prom
     const payload = SearchResponseSchema.parse({
       query: result.query,
       total: filteredResults.length,
-      results: filteredResults
+      results: filteredResults,
+      queryRewrite: result.queryRewrite,
+      semanticRerankApplied: result.semanticRerankApplied
     });
     return json(payload);
   }
@@ -1153,6 +1157,75 @@ function json(payload: unknown, status = 200) {
   });
 }
 
+const DEFAULT_SEMANTIC_WEIGHT = 0.35;
+
+async function resolveRetrievalOverrides(
+  deps: ApiRoutesDeps,
+  tenantId: string,
+  libraryId: string
+): Promise<{
+  queryTransformer?: ReturnType<typeof createQueryTransformer>;
+  semanticReranker?: ReturnType<typeof createSemanticReranker>;
+  semanticWeight?: number;
+}> {
+  if (!deps.modelSettings) {
+    return {};
+  }
+  const [rewriteSetting, semanticSetting] = await Promise.all([
+    deps.modelSettings.get(tenantId, libraryId, "query_rewrite").catch(() => null),
+    deps.modelSettings.get(tenantId, libraryId, "semantic_rerank").catch(() => null)
+  ]);
+  const overrides: {
+    queryTransformer?: ReturnType<typeof createQueryTransformer>;
+    semanticReranker?: ReturnType<typeof createSemanticReranker>;
+    semanticWeight?: number;
+  } = {};
+  const transformer = createQueryTransformer(rewriteSetting);
+  if (transformer) {
+    overrides.queryTransformer = transformer;
+  }
+  const reranker = createSemanticReranker(semanticSetting);
+  if (reranker) {
+    overrides.semanticReranker = reranker;
+    const weight =
+      typeof semanticSetting?.options?.semanticWeight === "number"
+        ? semanticSetting.options.semanticWeight
+        : DEFAULT_SEMANTIC_WEIGHT;
+    overrides.semanticWeight = Math.max(0, Math.min(1, weight));
+  }
+  return overrides;
+}
+
+function createQueryTransformer(setting: ModelSettingSecret | null | undefined) {
+  if (!setting) return null;
+  if (setting.provider === "openai" && !setting.apiKey) {
+    return null;
+  }
+  if (setting.provider === "local") {
+    return null;
+  }
+  return new OpenAIQueryTransformer({
+    apiKey: setting.apiKey,
+    baseUrl: setting.baseUrl,
+    modelName: setting.modelName
+  });
+}
+
+function createSemanticReranker(setting: ModelSettingSecret | null | undefined) {
+  if (!setting) return null;
+  if (setting.provider === "local") {
+    return null;
+  }
+  if (setting.provider === "openai" && !setting.apiKey) {
+    return null;
+  }
+  return new OpenAISemanticReranker({
+    apiKey: setting.apiKey,
+    baseUrl: setting.baseUrl,
+    modelName: setting.modelName
+  });
+}
+
 async function handleMcpSearch(request: Request, deps: ApiRoutesDeps) {
   const body = await request.json();
   const parsed = SearchRequestSchema.parse(body);
@@ -1160,7 +1233,9 @@ async function handleMcpSearch(request: Request, deps: ApiRoutesDeps) {
   const libraryId = resolveLibrary(request, deps.defaultLibraryId, parsed.filters?.libraryId);
   const repo = new DbMcpRepository(deps.chunks, deps.attachments);
   const ctx: McpToolContext = { requestId: crypto.randomUUID(), tenantId, libraryId };
-  const tool = createSearchTool(deps.retriever, repo);
+  const tool = createSearchTool(deps.retriever, repo, async () =>
+    resolveRetrievalOverrides(deps, tenantId, libraryId)
+  );
   const result = await tool.handle({ ...parsed, filters: { ...parsed.filters, libraryId } }, ctx);
   return json(result);
 }

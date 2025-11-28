@@ -3,6 +3,21 @@
 | 时间 | 工�
 � | 参数/命令 | 摘要 |
 | --- | --- | --- | --- |
+| 2025-11-28T11:59:57+08:00 | apply_patch | docker-compose.yml | �\960\u589e kb-web \u670d\u52a1\uff0c\u6784\u5efa Vite \u9759\u6001\u524d\u7aef\uff0c\u901a\u8fc7 80 \u7aef\u53e3 \u4f9b\u5916\u8bbf\u95ee\u3002 |
+| 2025-11-28T11:59:57+08:00 | apply_patch | deploy/docker/Dockerfile.web | \u6dfb\u52a0\u524d\u7aef\u6784\u5efa+Nginx \u8fd0\u884c\u955c\u50cf\u4e8c\u9636\uff1aBun \u6784\u5efa web dist \uff0c\u590d\u5236\u5230 nginx \u5e94\u7528\u3002 |
+| 2025-11-28T11:59:57+08:00 | apply_patch | deploy/nginx/nginx.conf | \u914d\u7f6e Nginx \u5c06 /api \u8bf7\u6c42\u8f6c\u53d1\u5230 kb-api:8080\uff0c\u524d\u7aef SPA \u91c7\u7528 /api \u540c\u6e90\u6d41\u7a0b\u3002 |
+| 2025-11-28T11:00:00+08:00 | apply_patch | apps/web/src/components/UploadForm.tsx | �\9b��\96�\u4e0a\u4f20\u6d41\u7a0b\u57fa\u4e8e\u8bed\u4e49\u5207\u5206\u6a21\u578b\u68c0\u67e5\u5e76\u589e\u52a0 OCR \u63d0\u9192\uff1a\u7f3a\u5c11\u5207\u5206\u7981\u7528\u63d0\u4ea4\uff0cOCR \u7f3a\u5931\u8fdb\u884c\u8b66\u544a\u3002 |
+| 2025-11-28T11:00:00+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | \u79df\u623f\u521b\u5efa\u6210\u529f\u540e\u63d0\u9192\u914d\u7f6e\u8bed\u4e49\u5207\u5206+OCR \u7b49\u6a21\u578b\uff0c\u8bf4\u660e\u672a\u914d\u7f6e\u4f1a\u5f71\u54cd\u4e0a\u4f20/\u89e3\u6790\u3002 |
+| 2025-11-28T10:47:26+08:00 | python3 | 更新 .codex/testing.md | �e�录上传模型校验改动未运行测试�\9a��f�明\u3002 |
+| 2025-11-28T10:47:26+08:00 | apply_patch | verification.md | \xe8\ae\b0\xe5\bd\95\e6\9c\aa\e6\89\a7\e8\a1\8c\e8\87\aa\e5\8a\a8\e5\8c\96\e6\b5\8b\e8\af\95\e7\9a\84\e9\aa\8c\e8\af\81\e8\af\b4\e6\98\8e\ef\bc\88\e4\b8\8a\e4\bc\a0\e6\a8\a1\e5\9e\8b\e6\a0\a1\e9\aa\8c\ef\bc\89\u3002 |
+| 2025-11-28T10:47:26+08:00 | python3 | 更新 .codex/context-scan.json | 记录前端上传缺失模型校验的上下文与模块位置\u3002 |
+| 2025-11-28T10:47:26+08:00 | apply_patch | apps/web/src/components/UploadForm.tsx | 上传前检查 structure 模型配置，缺失则阻止并提示；补充状态提示与按钮�6�用\u3002 |
+| 2025-11-28T10:47:26+08:00 | apply_patch | apps/web/src/pages/ModelSettingsPage.tsx | 租房创建成功后提醒配置模型并提示上传会被阻断\u3002 |
+| 2025-11-28T10:20:00+08:00 | python3 | 更新 .codex/context-scan.json | 写入语义切分失败上下文（模块位置\u3001现状\u3001风险观察）\u3002 |
+| 2025-11-28T10:20:30+08:00 | python3 | 更新 .codex/context-questions.json/.codex/context-question-54.json | 记录语义切分空结果的关键疑问（结构模型配置/端点可用性/是否需 fallback）\u3002 |
+| 2025-11-28T10:20:45+08:00 | python3 | 更新 .codex/context-sufficiency.json | 标记接口契约/技术选择/风险/验证方案均已明确\u3002 |
+| 2025-11-28T10:19:53+08:00 | sequential-thinking | 分析 ingestion chunking 失败 | 梳理语义切分返回空的可能原因（模型配置缺失\u3001�f�求失败\u3001文本为空）与下一步上下文收集计划\u3002 |
+| 2025-11-28T10:19:53+08:00 | shell | `rg "语义切分返回空结果"`; `sed -n '1,220p' apps/worker/src/pipeline.ts` | 查找抛错位置 buildSemanticFragments\uff0c确认语义切分依赖 semanticSegmenter 返回 sections\u3002 |
 | 2025-11-27T00:36:08+08:00 | docker compose | build --no-cache kb-api kb-worker mcp-server | 融合镜像构建因证书校验错误，bun install 依赖下载需设置允率或允许不校栤。 |
 | 2025-11-27T00:36:08+08:00 | docker compose | up -d kb-api kb-worker mcp-server | 商机权使启动 API/Worker/MCP，但 API 拍自时报 node_modules/kysely 缺失。 |
 | 2025-11-27T00:36:08+08:00 | docker compose | build --no-cache kb-api kb-worker mcp-server | 再次构建镜像修复 node_modules 亞错，准备重新启动服务。 |

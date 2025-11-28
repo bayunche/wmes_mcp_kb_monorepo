@@ -79,7 +79,16 @@ export type DocumentSummary = z.infer<typeof DocumentSummarySchema>;
 export const ModelProviderSchema = z.enum(["openai", "ollama", "local"]);
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
 
-export const ModelRoleSchema = z.enum(["embedding", "tagging", "metadata", "ocr", "rerank", "structure"]);
+export const ModelRoleSchema = z.enum([
+  "embedding",
+  "tagging",
+  "metadata",
+  "ocr",
+  "rerank",
+  "structure",
+  "query_rewrite",
+  "semantic_rerank"
+]);
 export type ModelRole = z.infer<typeof ModelRoleSchema>;
 
 const ModelSettingBaseSchema = z.object({
@@ -282,10 +291,20 @@ export const SearchResultChunkSchema = z.object({
   document: DocumentSummarySchema.optional()
 });
 
+export const QueryRewriteSchema = z.object({
+  original: z.string(),
+  rewritten: z.string(),
+  reason: z.string().optional(),
+  model: z.string().optional()
+});
+export type QueryRewrite = z.infer<typeof QueryRewriteSchema>;
+
 export const SearchResponseSchema = z.object({
   query: z.string(),
   total: z.number().int().nonnegative(),
-  results: z.array(SearchResultChunkSchema)
+  results: z.array(SearchResultChunkSchema),
+  queryRewrite: QueryRewriteSchema.optional(),
+  semanticRerankApplied: z.boolean().optional()
 });
 export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 

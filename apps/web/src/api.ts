@@ -307,7 +307,7 @@ export async function saveModelSettings(payload: {
   provider: ModelProvider;
   baseUrl: string;
   modelName: string;
-  modelRole?: "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure";
+  modelRole?: "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure" | "query_rewrite" | "semantic_rerank";
   displayName?: string;
   apiKey?: string;
   options?: Record<string, unknown>;

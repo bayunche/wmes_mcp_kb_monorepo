@@ -2,6 +2,9 @@
 
 | 时间 | 类型 | 命令 | 结果 |
 | --- | --- | --- | --- |
+| 2025-11-28T11:59:57+08:00 | �f�明 | N/A | \u672a\u8fd0\u884c\u81ea\u52a8\u6d4b\u8bd5\uff1a\u65b0\u589e kb-web+Nginx \u6784\u5efa\u548c docker-compose \u670d\u52a1\uff0c\u8bf7\u5728\u5b9e\u9645 Docker \u73af\u5883\u6267\u884c `docker compose build kb-web` \u4ee5\u53ca\u672c\u673a\u8bbf\u95ee http://localhost \u9a8c\u8bc1\u8def\u7531\u3002 |
+| 2025-11-28T11:00:00+08:00 | 说明 | N/A | \u672a\u8fd0\u884c\u81ea\u52a8\u5316\u6d4b\u8bd5\uff1a\u65b0\u589e\u4e0a\u4f20\u6d41\u7a0b\u6a21\u578b\u68c0\u67e5\u548c OCR \u63d0\u9192\uff0c\u8bf7\u5728\u53ef\u7528 Bun/Vite \u73af\u5883\u8fd0\u884c `bun test`/\u524d\u7aef\u6784\u5efa\u9a8c\u8bc1\u3002 |
+| 2025-11-28T10:47:26+08:00 | 说明 | N/A | 前端上传模型校验改动，未�f�行自动化测试；缺少可用 Bun/Vite，需宿主机补跑 bun test/前端构建\u3002 |
 | 2025-11-27T00:14:22+08:00 | 说明 | N/A | 本次仅更新《项目需求》文档，未执行自动化测试；需在可执行 Bun/Docker 环境下按现有指令复跑校验。 |
 | 2025-11-20T01:54:30+08:00 | bun test | `bun test` | 失败：WSL 尝试执行 `/mnt/c/nvm4w/nodejs/node_modules/bun/bin/bun.exe` 报 Permission denied，需在宿主 OS 运行 Bun CLI。 |
 | 2025-11-19T21:03:10+08:00 | typecheck | `bunx tsc --noEmit` | 失败：WSL 调用 /mnt/c/.../bunx.exe 权限受限，无法执行；需在宿主机运行 `bunx tsc --noEmit`。 |

@@ -3,9 +3,11 @@ import {
   SearchResponse,
   Chunk,
   Document,
-  SearchResultChunkSchema
+  SearchResultChunkSchema,
+  QueryRewrite
 } from "@kb/shared-schemas";
 import { VectorClient } from "./vector";
+import type { QueryTransformer, SemanticReranker } from "./semantic-ranking";
 
 export interface HybridRetrieverConfig {
   alpha?: number;
@@ -14,6 +16,7 @@ export interface HybridRetrieverConfig {
   delta?: number;
   epsilon?: number;
   zeta?: number;
+  semanticWeight?: number;
 }
 
 export interface ChunkRecord {
@@ -51,6 +54,8 @@ export interface ChunkRepository {
 export interface HybridRetrieverDeps {
   vectorClient: VectorClient;
   repo: ChunkRepository;
+  queryTransformer?: QueryTransformer;
+  semanticReranker?: SemanticReranker;
   config?: HybridRetrieverConfig;
 }
 
@@ -60,7 +65,8 @@ const defaultWeights: Required<HybridRetrieverConfig> = {
   gamma: 0.1,
   delta: 0.05,
   epsilon: 0.03,
-  zeta: 0.02
+  zeta: 0.02,
+  semanticWeight: 0
 };
 
 function normalizeVector(vector: number[]): number[] {
@@ -123,16 +129,48 @@ export class HybridRetriever {
   private readonly vectorClient: VectorClient;
   private readonly repo: ChunkRepository;
   private readonly weights: Required<HybridRetrieverConfig>;
+  private readonly queryTransformer?: QueryTransformer;
+  private readonly semanticReranker?: SemanticReranker;
 
   constructor(deps: HybridRetrieverDeps) {
     this.vectorClient = deps.vectorClient;
     this.repo = deps.repo;
     this.weights = { ...defaultWeights, ...deps.config };
+    this.queryTransformer = deps.queryTransformer;
+    this.semanticReranker = deps.semanticReranker;
   }
 
-  async search(request: SearchRequest): Promise<SearchResponse> {
-    const queryVector = normalizeVector((await this.vectorClient.embedText(request.query))[0].vector);
-    const candidates = await this.repo.searchCandidates(request, queryVector);
+  async search(
+    request: SearchRequest,
+    overrides?: {
+      queryTransformer?: QueryTransformer;
+      semanticReranker?: SemanticReranker;
+      semanticWeight?: number;
+    }
+  ): Promise<SearchResponse> {
+    const activeQueryTransformer = overrides?.queryTransformer ?? this.queryTransformer;
+    const activeSemanticReranker = overrides?.semanticReranker ?? this.semanticReranker;
+    const semanticWeightRaw =
+      overrides?.semanticWeight ?? this.weights.semanticWeight ?? defaultWeights.semanticWeight;
+    const semanticWeight = Math.max(0, Math.min(1, semanticWeightRaw));
+
+    let queryRewrite: QueryRewrite | undefined;
+    let effectiveQuery = request.query;
+    if (activeQueryTransformer) {
+      try {
+        const rewritten = await activeQueryTransformer.rewrite(request.query);
+        if (rewritten.rewritten?.trim()) {
+          queryRewrite = rewritten;
+          effectiveQuery = rewritten.rewritten.trim();
+        }
+      } catch (error) {
+        // ignore rewrite failures, fall back to original query
+        console.warn("Query rewrite failed", error);
+      }
+    }
+
+    const queryVector = normalizeVector((await this.vectorClient.embedText(effectiveQuery))[0].vector);
+    const candidates = await this.repo.searchCandidates({ ...request, query: effectiveQuery }, queryVector);
     if (!candidates.length) {
       return { query: request.query, total: 0, results: [] };
     }
@@ -145,12 +183,12 @@ export class HybridRetriever {
     const bm25Scores = normalizeScores(candidates.map((record) => record.bm25Score ?? 0));
 
     const rerankTexts = candidates.map((record) => record.chunk.contentText ?? "");
-    const rerankRaw = rerankTexts.length ? await this.vectorClient.rerank(request.query, rerankTexts) : [];
+    const rerankRaw = rerankTexts.length ? await this.vectorClient.rerank(effectiveQuery, rerankTexts) : [];
     const rerankScores = normalizeScores(rerankRaw);
 
     const scored = candidates.map((record, index) => {
       const similarity = cosineSimilarity(queryVector, chunkVectors[index]);
-      const keyword = keywordScore(request.query, record.chunk);
+      const keyword = keywordScore(effectiveQuery, record.chunk);
       const keywordOrBm25 = bm25Scores[index] > 0 ? bm25Scores[index] : keyword;
       const hierarchy = hierarchyScore(record.chunk, request.filters);
       const recency = recencyScore(record);
@@ -166,12 +204,39 @@ export class HybridRetriever {
         this.weights.zeta * neighbors;
 
       const rerankBoost = rerankScores.length ? rerankScores[index] ?? 0 : 0;
-      const finalScore = 0.6 * hybridScore + 0.4 * rerankBoost;
+      const baseScore = 0.6 * hybridScore + 0.4 * rerankBoost;
 
-      return { record, score: Number(finalScore.toFixed(6)) };
+      return { record, score: Number(baseScore.toFixed(6)), hybridScore };
     });
 
-    const sorted = scored.sort((a, b) => b.score - a.score).slice(0, request.limit ?? 10);
+    let semanticBoosts: number[] = [];
+    if (activeSemanticReranker && semanticWeight > 0) {
+      try {
+        const semanticScores = await activeSemanticReranker.rerank(
+          effectiveQuery,
+          scored.map((item, idx) => ({
+            id: item.record.chunk.chunkId ?? String(idx),
+            text: item.record.chunk.contentText ?? "",
+            title: item.record.chunk.sectionTitle ?? item.record.document.title ?? ""
+          }))
+        );
+        semanticBoosts = normalizeScores(semanticScores);
+      } catch (error) {
+        console.warn("Semantic rerank failed", error);
+        semanticBoosts = [];
+      }
+    }
+
+    const scoredWithSemantic = scored.map((item, index) => {
+      const semanticBoost = semanticBoosts.length ? semanticBoosts[index] ?? 0 : 0;
+      const blendedScore =
+        semanticWeight > 0
+          ? (1 - semanticWeight) * item.score + semanticWeight * semanticBoost
+          : item.score;
+      return { ...item, score: Number(blendedScore.toFixed(6)) };
+    });
+
+    const sorted = scoredWithSemantic.sort((a, b) => b.score - a.score).slice(0, request.limit ?? 10);
     const results = sorted.map((item) =>
       SearchResultChunkSchema.parse({
         chunk: item.record.chunk,
@@ -181,7 +246,13 @@ export class HybridRetriever {
       })
     );
 
-    return { query: request.query, total: results.length, results };
+    return {
+      query: request.query,
+      total: results.length,
+      results,
+      queryRewrite,
+      semanticRerankApplied: Boolean(activeSemanticReranker && semanticWeight > 0)
+    };
   }
 }
 
