@@ -23,10 +23,12 @@ function deriveTitle(filename: string) {
 type UploadResult = { docId: string; filename: string; status: string; message?: string };
 type ModelGuardState = {
   loading: boolean;
-  ok: boolean; // 语义切分是否已配置（决定是否阻断上传）
-  message?: string;
+  ok: boolean; // 所有必需模型（切分/打标/元数据/OCR）是否齐备
+  message?: string; // 汇总缺失提示
+  structureOk: boolean;
+  taggingOk: boolean;
+  metadataOk: boolean;
   ocrOk: boolean;
-  ocrMessage?: string;
 };
 
 export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
@@ -40,9 +42,11 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [modelGuard, setModelGuard] = useState<ModelGuardState>({
     loading: true,
     ok: false,
+    structureOk: false,
+    taggingOk: false,
+    metadataOk: false,
     ocrOk: false,
-    message: "正在检查语义切分模型配置...",
-    ocrMessage: "正在检查 OCR 模型配置..."
+    message: "正在检查模型配置..."
   });
   const { push: toastPush } = useToast();
   const lastPhaseRef = useRef<AsyncPhase>("idle");
@@ -69,41 +73,58 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const checkModelConfig = useCallback(async (): Promise<ModelGuardState> => {
     setModelGuard((prev) => ({ ...prev, loading: true }));
     try {
-      const [structureResp, ocrResp] = await Promise.all([
-        fetchModelSettings({
-          tenantId,
-          libraryId,
-          modelRole: "structure"
-        }),
-        fetchModelSettings({
-          tenantId,
-          libraryId,
-          modelRole: "ocr"
-        })
-      ]);
-      const hasStructure = Boolean(structureResp?.setting);
-      const hasOcr = Boolean(ocrResp?.setting);
-      const next: ModelGuardState = {
+      const roles: Array<{ key: keyof Pick<ModelGuardState, "structureOk" | "taggingOk" | "metadataOk" | "ocrOk">; role: "structure" | "tagging" | "metadata" | "ocr"; label: string }> = [
+        { key: "structureOk", role: "structure", label: "语义切分" },
+        { key: "taggingOk", role: "tagging", label: "标签/打标" },
+        { key: "metadataOk", role: "metadata", label: "元数据生成" },
+        { key: "ocrOk", role: "ocr", label: "OCR" }
+      ];
+      const responses = await Promise.all(
+        roles.map((item) =>
+          fetchModelSettings({
+            tenantId,
+            libraryId,
+            modelRole: item.role
+          })
+        )
+      );
+
+      const nextState: ModelGuardState = {
         loading: false,
-        ok: hasStructure,
-        ocrOk: hasOcr,
-        message: hasStructure
-          ? undefined
-          : "当前租户/知识库未配置语义切分（structure）模型，请先在模型配置页完成配置。",
-        ocrMessage: hasOcr
-          ? undefined
-          : "未配置 OCR 模型，图片/PDF 文字可能无法解析。"
+        ok: true,
+        structureOk: false,
+        taggingOk: false,
+        metadataOk: false,
+        ocrOk: false,
+        message: undefined
       };
-      setModelGuard(next);
-      return next;
+
+      const missing: string[] = [];
+      roles.forEach((item, index) => {
+        const ready = Boolean((responses[index] as any)?.setting);
+        nextState[item.key] = ready;
+        if (!ready) {
+          missing.push(item.label);
+        }
+      });
+
+      if (missing.length) {
+        nextState.ok = false;
+        nextState.message = `缺少模型：${missing.join("、")}，请先在模型配置页完成配置。`;
+      }
+
+      setModelGuard(nextState);
+      return nextState;
     } catch (error) {
       const message = (error as Error).message || "模型配置检查失败";
       const next: ModelGuardState = {
         loading: false,
         ok: false,
+        structureOk: false,
+        taggingOk: false,
+        metadataOk: false,
         ocrOk: false,
-        message,
-        ocrMessage: message
+        message
       };
       setModelGuard(next);
       return next;
@@ -174,17 +195,12 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
     if (!guard.ok) {
       toastPush({
         title: "请先完成模型配置",
-        description: guard.message ?? "未检测到语义切分（structure）模型，上传已被阻止。",
+        description:
+          guard.message ??
+          "缺少必需模型（语义切分/打标/元数据/OCR），已阻止上传。请在模型配置页补齐。",
         tone: "warning"
       });
       return;
-    }
-    if (!guard.ocrOk) {
-      toastPush({
-        title: "提示",
-        description: guard.ocrMessage ?? "未配置 OCR，图片/PDF 文字可能无法解析。",
-        tone: "warning"
-      });
     }
     try {
       await uploadTask.run();
@@ -209,12 +225,11 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
           </StatusPill>
         )}
         {modelGuard.loading && <StatusPill tone="info">检查模型配置...</StatusPill>}
-        {!modelGuard.loading && modelGuard.ok && <StatusPill tone="success">语义切分模型已配置</StatusPill>}
-        {!modelGuard.loading && !modelGuard.ok && (
-          <StatusPill tone="warning">{modelGuard.message ?? "缺少语义切分模型"}</StatusPill>
+        {!modelGuard.loading && modelGuard.ok && (
+          <StatusPill tone="success">切分/打标/元数据/OCR 模型已配置</StatusPill>
         )}
-        {!modelGuard.loading && modelGuard.ok && !modelGuard.ocrOk && (
-          <StatusPill tone="warning">{modelGuard.ocrMessage ?? "缺少 OCR 模型，图片/PDF 文字可能无法解析"}</StatusPill>
+        {!modelGuard.loading && !modelGuard.ok && (
+          <StatusPill tone="warning">{modelGuard.message ?? "缺少必需模型，请先配置"}</StatusPill>
         )}
       </div>
       <form onSubmit={handleSubmit} className="stacked-form">

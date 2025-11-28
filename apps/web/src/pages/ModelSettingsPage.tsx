@@ -372,10 +372,10 @@ export default function ModelSettingsPage() {
       await saveTenant({ tenantId: id, displayName: name });
       await refreshOrg();
       setTenantId(id);
-      setStatus("新租户已创建，请立即配置语义切分/标注/向量/OCR 等模型");
+      setStatus("新租户已创建，请立即配置语义切分/打标/元数据/向量/OCR 等模型");
       toast.push({
         title: "租户已创建",
-        description: "请在下方卡片完成语义切分（structure）与 OCR 等模型配置，未配置将影响上传/解析。",
+        description: "请在下方卡片完成语义切分/打标/元数据/OCR 等模型配置，未配置将影响上传/解析。",
         tone: "warning"
       });
     } catch (error) {
