@@ -55,7 +55,10 @@ import type { SemanticSection } from "../../../packages/core/src/semantic-struct
 
 function sanitizeString(input: string | undefined | null): string {
   if (!input) return "";
-  return input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
+  // 1) 去除控制字符；2) 去除孤立代理项（Postgres UTF8 不接受）；3) 重新编码确保字节序列有效
+  const withoutControl = input.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ");
+  const withoutSurrogate = withoutControl.replace(/[\uD800-\uDFFF]/g, "");
+  return Buffer.from(withoutSurrogate, "utf8").toString("utf8");
 }
 
 export async function processIngestionTask(
@@ -73,8 +76,9 @@ export async function processIngestionTask(
     await stage.mark("preprocess", "start");
     const preprocessTarget = source.rawText ?? collectSegmenterText(elements, source);
     const preprocessResult = preprocessRawText(preprocessTarget);
-    source.rawText = preprocessResult.text;
-    source.preprocessResult = preprocessResult;
+    const cleanedText = sanitizeString(preprocessResult.text);
+    source.rawText = cleanedText;
+    source.preprocessResult = { ...preprocessResult, text: cleanedText };
     await stage.mark("preprocess", "success", { length: preprocessResult.text.length });
 
     await stage.mark("chunking", "start");
