@@ -1,5 +1,14 @@
 ﻿# 验证报告
 
+- **日期**：2025-11-28
+- **范围**：前端上传模型校验与租户创建提示
+- **验证步骤**：
+  - 静态审查 `apps/web/src/components/UploadForm.tsx`，确认提交前调用 `fetchModelSettings` 校验 role=structure，缺失时禁用按钮并弹出提示。
+  - 静态审查 `apps/web/src/pages/ModelSettingsPage.tsx`，确认新租户创建后提示需配置语义切分等模型。
+  - 未执行自动化测试（当前环境缺少可用 Bun/Vite），待宿主机补跑 `bun test` 或前端构建验证。
+- **结果**：静态检查通过；自动化测试未运行。
+- **剩余风险**：需在具备 Bun/Vite 的环境验证上传前校验与提示逻辑、确保 API 可返回模型配置；未覆盖 E2E 流程。
+
 - **日期**：2025-11-27
 - **范围**：ChunkDetailPage JSX/编码修复
 - **验证步骤**：

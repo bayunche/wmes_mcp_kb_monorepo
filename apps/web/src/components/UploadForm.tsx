@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { uploadDocuments } from "../api";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchModelSettings, uploadDocuments } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { AsyncPhase, useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
@@ -21,6 +21,13 @@ function deriveTitle(filename: string) {
 }
 
 type UploadResult = { docId: string; filename: string; status: string; message?: string };
+type ModelGuardState = {
+  loading: boolean;
+  ok: boolean; // 语义切分是否已配置（决定是否阻断上传）
+  message?: string;
+  ocrOk: boolean;
+  ocrMessage?: string;
+};
 
 export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const { tenants, libraries, loading: optionLoading, error: optionError, refresh } = useOrgOptions();
@@ -30,6 +37,13 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
   const [fileTitles, setFileTitles] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [results, setResults] = useState<UploadResult[]>([]);
+  const [modelGuard, setModelGuard] = useState<ModelGuardState>({
+    loading: true,
+    ok: false,
+    ocrOk: false,
+    message: "正在检查语义切分模型配置...",
+    ocrMessage: "正在检查 OCR 模型配置..."
+  });
   const { push: toastPush } = useToast();
   const lastPhaseRef = useRef<AsyncPhase>("idle");
 
@@ -51,6 +65,54 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       setLibraryId(libraryOptions[0].libraryId);
     }
   }, [libraryOptions, libraryId]);
+
+  const checkModelConfig = useCallback(async (): Promise<ModelGuardState> => {
+    setModelGuard((prev) => ({ ...prev, loading: true }));
+    try {
+      const [structureResp, ocrResp] = await Promise.all([
+        fetchModelSettings({
+          tenantId,
+          libraryId,
+          modelRole: "structure"
+        }),
+        fetchModelSettings({
+          tenantId,
+          libraryId,
+          modelRole: "ocr"
+        })
+      ]);
+      const hasStructure = Boolean(structureResp?.setting);
+      const hasOcr = Boolean(ocrResp?.setting);
+      const next: ModelGuardState = {
+        loading: false,
+        ok: hasStructure,
+        ocrOk: hasOcr,
+        message: hasStructure
+          ? undefined
+          : "当前租户/知识库未配置语义切分（structure）模型，请先在模型配置页完成配置。",
+        ocrMessage: hasOcr
+          ? undefined
+          : "未配置 OCR 模型，图片/PDF 文字可能无法解析。"
+      };
+      setModelGuard(next);
+      return next;
+    } catch (error) {
+      const message = (error as Error).message || "模型配置检查失败";
+      const next: ModelGuardState = {
+        loading: false,
+        ok: false,
+        ocrOk: false,
+        message,
+        ocrMessage: message
+      };
+      setModelGuard(next);
+      return next;
+    }
+  }, [tenantId, libraryId]);
+
+  useEffect(() => {
+    void checkModelConfig();
+  }, [checkModelConfig]);
 
   const uploadTask = useAsyncTask(
     async () => {
@@ -108,6 +170,22 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       toastPush({ title: "请至少选择一个文件", tone: "warning" });
       return;
     }
+    const guard = await checkModelConfig();
+    if (!guard.ok) {
+      toastPush({
+        title: "请先完成模型配置",
+        description: guard.message ?? "未检测到语义切分（structure）模型，上传已被阻止。",
+        tone: "warning"
+      });
+      return;
+    }
+    if (!guard.ocrOk) {
+      toastPush({
+        title: "提示",
+        description: guard.ocrMessage ?? "未配置 OCR，图片/PDF 文字可能无法解析。",
+        tone: "warning"
+      });
+    }
     try {
       await uploadTask.run();
     } catch {
@@ -129,6 +207,14 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
           <StatusPill tone={uploadTask.status.phase === "error" ? "danger" : "info"}>
             {uploadTask.status.message}
           </StatusPill>
+        )}
+        {modelGuard.loading && <StatusPill tone="info">检查模型配置...</StatusPill>}
+        {!modelGuard.loading && modelGuard.ok && <StatusPill tone="success">语义切分模型已配置</StatusPill>}
+        {!modelGuard.loading && !modelGuard.ok && (
+          <StatusPill tone="warning">{modelGuard.message ?? "缺少语义切分模型"}</StatusPill>
+        )}
+        {!modelGuard.loading && modelGuard.ok && !modelGuard.ocrOk && (
+          <StatusPill tone="warning">{modelGuard.ocrMessage ?? "缺少 OCR 模型，图片/PDF 文字可能无法解析"}</StatusPill>
         )}
       </div>
       <form onSubmit={handleSubmit} className="stacked-form">
@@ -217,10 +303,20 @@ export function UploadForm({ onUploaded }: { onUploaded: () => void }) {
         )}
 
         <div className="button-row">
-          <Button type="submit" disabled={uploadTask.status.phase === "loading"}>
+          <Button
+            type="submit"
+            disabled={uploadTask.status.phase === "loading" || modelGuard.loading || !modelGuard.ok}
+          >
             提交任务
           </Button>
-          <Button type="button" variant="ghost" onClick={refresh}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={async () => {
+              await refresh();
+              await checkModelConfig();
+            }}
+          >
             刷新配置
           </Button>
         </div>

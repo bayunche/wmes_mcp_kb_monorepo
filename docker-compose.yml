@@ -114,6 +114,17 @@ services:
       - "9090:9090"
     command: ["bun", "run", "apps/mcp/src/main.ts"]
 
+  kb-web:
+    image: kb/web:dev
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+    container_name: kb-web
+    depends_on:
+      - kb-api
+    ports:
+      - "80:80"
+
 volumes:
   db-data:
   qdrant-data:

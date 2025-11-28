@@ -19,7 +19,15 @@ import { Badge } from "../components/ui/Badge";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useToast } from "../components/ui/Toast";
 
-type ModelRoleOption = "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure";
+type ModelRoleOption =
+  | "embedding"
+  | "tagging"
+  | "metadata"
+  | "ocr"
+  | "rerank"
+  | "structure"
+  | "query_rewrite"
+  | "semantic_rerank";
 
 interface LocalModelChoice {
   name: string;
@@ -39,6 +47,7 @@ interface ModelSettingView {
   displayName?: string;
   hasApiKey: boolean;
   apiKeyPreview?: string;
+  options?: Record<string, unknown>;
 }
 
 const ROLE_CARDS: Array<{
@@ -53,10 +62,13 @@ const ROLE_CARDS: Array<{
   { value: "tagging", title: "标签补全", desc: "文档 / Chunk 标签与主题分类", highlights: "可复用 metadata", supportsLocal: false },
   { value: "embedding", title: "文本向量", desc: "语义检索与向量索引", highlights: "推荐 · 支持本地", supportsLocal: true },
   { value: "rerank", title: "重排序", desc: "二次排序提升相关性", highlights: "推荐 · 支持本地", supportsLocal: true },
+  { value: "query_rewrite", title: "查询语义改写", desc: "LLM 改写检索 Query 提升召回", highlights: "新 · LLM", supportsLocal: false },
+  { value: "semantic_rerank", title: "语义重拍", desc: "在 rerank 后由大模型语义重排", highlights: "新 · LLM", supportsLocal: false },
   { value: "ocr", title: "OCR / Caption", desc: "PDF / 图片文字与描述", highlights: "必须（含图片/PDF）", supportsLocal: true }
 ];
 
 const LOCAL_SUPPORTED: ModelRoleOption[] = ["embedding", "rerank", "ocr"];
+const DEFAULT_SEMANTIC_WEIGHT = 0.35;
 
 const REMOTE_PROVIDERS: Array<{ value: ModelProvider; label: string; defaultBase: string }> = [
   { value: "openai", label: "OpenAI / 兼容接口", defaultBase: "https://api.openai.com/v1" },
@@ -74,6 +86,9 @@ function roleToKind(role: ModelRoleOption): string {
       return "rerank";
     case "ocr":
       return "ocr";
+    case "query_rewrite":
+    case "semantic_rerank":
+      return "text";
     default:
       return "metadata";
   }
@@ -108,6 +123,7 @@ export default function ModelSettingsPage() {
   const [localModels, setLocalModels] = useState<LocalModelChoice[]>([]);
   const [localDir, setLocalDir] = useState<string>("");
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [semanticWeight, setSemanticWeight] = useState<string>(String(DEFAULT_SEMANTIC_WEIGHT));
 
   const isOcr = modelRole === "ocr";
   const canUseLocal = useMemo(() => LOCAL_SUPPORTED.includes(modelRole), [modelRole]);
@@ -158,7 +174,7 @@ export default function ModelSettingsPage() {
       const response = await fetchModelSettings({ tenantId, libraryId, modelRole });
       const setting = (response as { setting?: ModelSettingView | null }).setting;
       if (setting) {
-        const isLocal = setting.provider === "local" && setting.modelRole !== "ocr";
+        const isLocal = setting.provider === "local" && LOCAL_SUPPORTED.includes(setting.modelRole);
         setProvider(isLocal ? "local" : setting.provider);
         setMode(isLocal ? "local" : "remote");
         setBaseUrl(isLocal ? "" : setting.baseUrl);
@@ -166,10 +182,19 @@ export default function ModelSettingsPage() {
         setDisplayName(setting.displayName ?? "");
         setHasStoredKey(setting.hasApiKey);
         setApiKeyPreview(setting.apiKeyPreview);
+        if (setting.modelRole === "semantic_rerank") {
+          const weight = setting.options?.semanticWeight as number | undefined;
+          setSemanticWeight(
+            weight !== undefined && weight !== null ? String(weight) : String(DEFAULT_SEMANTIC_WEIGHT)
+          );
+        } else {
+          setSemanticWeight(String(DEFAULT_SEMANTIC_WEIGHT));
+        }
       } else {
         setHasStoredKey(false);
         setApiKeyPreview(undefined);
         setDisplayName("");
+        setSemanticWeight(String(DEFAULT_SEMANTIC_WEIGHT));
       }
       setStatus("配置已加载");
     } catch (error) {
@@ -279,6 +304,9 @@ export default function ModelSettingsPage() {
     if (!isOcr && mode === "remote" && provider === "openai" && !apiKey && !hasStoredKey) {
       return "请填写 API Key";
     }
+    if (!isOcr && mode === "local" && !canUseLocal) {
+      return "当前角色不支持本地模型";
+    }
     return null;
   };
 
@@ -301,6 +329,15 @@ export default function ModelSettingsPage() {
         : mode === "local"
           ? `local://${modelName.trim() || "model"}`
           : baseUrl.trim();
+      const options =
+        modelRole === "semantic_rerank"
+          ? {
+              semanticWeight: Math.max(
+                0,
+                Math.min(1, Number(semanticWeight) || DEFAULT_SEMANTIC_WEIGHT)
+              )
+            }
+          : undefined;
       const payload = await saveModelSettings({
         tenantId,
         libraryId,
@@ -309,7 +346,8 @@ export default function ModelSettingsPage() {
         modelName: effectiveModelName,
         modelRole,
         displayName: displayName.trim() || undefined,
-        apiKey: isOcr ? apiKey || undefined : mode === "local" ? undefined : apiKey || undefined
+        apiKey: isOcr ? apiKey || undefined : mode === "local" ? undefined : apiKey || undefined,
+        options
       });
       const setting = (payload as { setting?: ModelSettingView }).setting;
       setHasStoredKey(Boolean(setting?.hasApiKey));
@@ -330,9 +368,19 @@ export default function ModelSettingsPage() {
     const id = prompt("请输入租户 ID（如 enterprise-a）");
     const name = prompt("请输入租户显示名称");
     if (!id || !name) return;
-    await saveTenant({ tenantId: id, displayName: name });
-    await refreshOrg();
-    setTenantId(id);
+    try {
+      await saveTenant({ tenantId: id, displayName: name });
+      await refreshOrg();
+      setTenantId(id);
+      setStatus("新租户已创建，请立即配置语义切分/标注/向量/OCR 等模型");
+      toast.push({
+        title: "租户已创建",
+        description: "请在下方卡片完成语义切分（structure）与 OCR 等模型配置，未配置将影响上传/解析。",
+        tone: "warning"
+      });
+    } catch (error) {
+      toast.push({ title: "租户创建失败", description: (error as Error).message, tone: "danger" });
+    }
   };
 
   const handleCreateLibrary = async () => {
@@ -405,6 +453,9 @@ export default function ModelSettingsPage() {
                   } else if (!role.supportsLocal) {
                     setMode("remote");
                     setProvider("openai");
+                  }
+                  if (role.value === "semantic_rerank") {
+                    setSemanticWeight(String(DEFAULT_SEMANTIC_WEIGHT));
                   }
                   setStatus(`已选择 ${role.title}`);
                 }}
@@ -576,6 +627,19 @@ export default function ModelSettingsPage() {
                   />
                 </Field>
               </div>
+              {modelRole === "semantic_rerank" && (
+                <Field label="语义重拍权重 (0-1)" hint="越高越依赖大模型重拍，默认 0.35">
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={semanticWeight}
+                    onChange={(e) => setSemanticWeight(e.target.value)}
+                  />
+                </Field>
+              )}
             </>
           )}
 

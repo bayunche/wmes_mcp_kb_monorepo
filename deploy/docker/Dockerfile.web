@@ -1,0 +1,32 @@
+FROM oven/bun:canary AS build
+WORKDIR /app
+
+# 复制仓库代码以便复用依赖与共享包
+COPY package.json bun.lock bunfig.toml tsconfig.json tsconfig.base.json vitest.config.ts ./
+COPY apps ./apps
+COPY packages ./packages
+COPY scripts ./scripts
+COPY docs ./docs
+COPY assets ./assets
+COPY ops ./ops
+COPY db ./db
+COPY tests ./tests
+
+# 安装依赖并构建前端静态文件
+RUN bun install --backend=copyfile
+
+WORKDIR /app/apps/web
+# 让前端默认走同源 /api 前缀访问后端
+ENV VITE_API_BASE=/api
+ENV VITE_API_TOKEN=dev-token
+RUN bun run build
+
+FROM nginx:1.27-alpine
+WORKDIR /usr/share/nginx/html
+
+# 复制构建产物
+COPY --from=build /app/apps/web/dist ./
+# 复制 Nginx 转发配置
+COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
