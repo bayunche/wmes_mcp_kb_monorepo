@@ -1269,15 +1269,35 @@ async function buildSemanticFragments(
     }
   }
 
+  if (!allBlueprints.length || !allSections.length) {
+    const rawFallback = collectSegmenterText(elements, source).trim();
+    if (rawFallback.length) {
+      const fallbackSection: DocumentSection = {
+        sectionId: crypto.randomUUID(),
+        docId: doc.docId,
+        parentSectionId: undefined,
+        title: doc.title || "全文",
+        summary: rawFallback.slice(0, 240),
+        level: 1,
+        path: [],
+        order: 0,
+        tags: [],
+        keywords: [],
+        createdAt: new Date().toISOString()
+      };
+      allSections.push(fallbackSection);
+      allBlueprints.push({ section: fallbackSection, content: rawFallback });
+      deps.logger.warn?.(`Semantic segmentation produced no sections, fallback to single block | doc=${doc.docId}`);
+    } else {
+      throw new Error("语义切分返回空结果");
+    }
+  }
+
   const fragments = materializeChunksFromBlueprints(
     doc,
     allBlueprints,
     deps.config.MAX_TOKENS_PER_SEGMENT ?? 900
   );
-
-  if (!fragments.length || !allSections.length) {
-    throw new Error("语义切分返回空结果");
-  }
 
   return { fragments, sections: allSections };
 }
