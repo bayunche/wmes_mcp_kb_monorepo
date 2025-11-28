@@ -622,6 +622,31 @@ function buildCoarseBlocks(elements: ParsedElement[], source: SourcePayload): Co
   return blocks.length ? blocks : [{ text: reflowParagraphs(lines), path: [] }];
 }
 
+function buildFallbackSection(
+  doc: Document,
+  block: CoarseBlock,
+  order: number
+): { section: DocumentSection; content: string } | null {
+  const content = (block.text ?? "").trim();
+  if (!content.length) return null;
+  return {
+    section: {
+      sectionId: crypto.randomUUID(),
+      docId: doc.docId,
+      parentSectionId: undefined,
+      title: block.title?.trim() || `Section ${order + 1}`,
+      summary: content.slice(0, 240),
+      level: Math.max(block.path.length + 1, 1),
+      path: block.path,
+      order,
+      tags: [],
+      keywords: [],
+      createdAt: new Date().toISOString()
+    },
+    content
+  };
+}
+
 function reflowParagraphs(lines: string[]): string {
   const paragraphs: string[] = [];
   let buffer = "";
@@ -1204,22 +1229,44 @@ async function buildSemanticFragments(
   const allBlueprints: Array<{ section: DocumentSection; content: string }> = [];
 
   for (const block of blocks) {
-    const sections = await deps.semanticSegmenter({
-      document: doc,
-      text: block.text,
-      parentPath: block.path,
-      title: block.title
-    });
+    let sections: SemanticSection[] = [];
+    try {
+      sections = await deps.semanticSegmenter({
+        document: doc,
+        text: block.text,
+        parentPath: block.path,
+        title: block.title
+      });
+    } catch (error) {
+      deps.logger.error?.(`Semantic segmentation request failed: ${(error as Error).message}`);
+      sections = [];
+    }
     if (!sections.length) {
+      const fallback = buildFallbackSection(doc, block, allSections.length);
+      if (fallback) {
+        allBlueprints.push(fallback);
+        allSections.push(fallback.section);
+      }
       continue;
     }
-    const { blueprints, sections: normalized } = normalizeSemanticSections(
-      doc,
-      sections,
-      block.path
-    );
-    allBlueprints.push(...blueprints);
-    allSections.push(...normalized);
+    try {
+      const { blueprints, sections: normalized } = normalizeSemanticSections(
+        doc,
+        sections,
+        block.path
+      );
+      allBlueprints.push(...blueprints);
+      allSections.push(...normalized);
+    } catch (error) {
+      const fallback = buildFallbackSection(doc, block, allSections.length);
+      if (fallback) {
+        deps.logger.warn?.(
+          `Semantic sections normalization failed, fallback to coarse block | doc=${doc.docId} block=${block.title ?? "untitled"}`
+        );
+        allBlueprints.push(fallback);
+        allSections.push(fallback.section);
+      }
+    }
   }
 
   const fragments = materializeChunksFromBlueprints(
