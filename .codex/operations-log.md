@@ -2147,3 +2147,23 @@
 | 2025-11-28T15:50:00+08:00 | apply_patch | apps/web/src/App.tsx | 重构全局布局为玻璃态企业级控制台：分组导航、英雄区卡片、按钮入口与路由容器。 |
 | 2025-11-28T16:20:00+08:00 | apply_patch | apps/web/src/pages/* | 前端所有页面增加玻璃态企业级布局（顶部 Hero/描述），确保检索、入库、治理、诊断、MCP 等页面样式统一。 |
 | 2025-11-28T16:40:00+08:00 | apply_patch | 功能拆解.md | 同步最新代码与数据流：新增 coarse→LLM 章节切分、小 chunk 生成、Hybrid 向量+BM25+可选 rerank、队列进度接口、chunk 元数据 PATCH、前端玻璃态页面。 |
+| 2025-11-29T00:51:21+08:00 | sequential-thinking | OCR PDF 问题初步分析 | 梳理 MIME 判定、BasicTextParser 伪文本、OCR 触发条件等高优疑问。 |
+| 2025-11-29T00:52:00+08:00 | rg/nl | apps/worker/src/pipeline.ts / packages/core/src/ocr.ts / packages/core/src/parsing.ts | 定位 OCR 触发条件、MIME 回退为 octet-stream、BasicTextParser 无差别解码行为。 |
+| 2025-11-29T00:53:00+08:00 | apply_patch | .codex/context-scan.json | 更新结构化扫描，聚焦 OCR 触发链路与解析器顺序。 |
+| 2025-11-29T00:53:30+08:00 | apply_patch | .codex/context-question-50.json | 记录 OCR 未触发根因（MIME 判定 + BasicTextParser 伪文本）及结论。 |
+| 2025-11-29T00:53:40+08:00 | update_plan | 调查计划 | 拆分 OCR 问题调查步骤并标记进度。 |
+| 2025-11-29T00:53:50+08:00 | apply_patch | .codex/context-sufficiency.json | 更新充分性检查，补充 OCR 风险与验证计划。 |
+| 2025-11-29T01:05:00+08:00 | sequential-thinking | 接口文档任务思考 | 规划生成外部接入文档的步骤与关注点。 |
+| 2025-11-29T01:10:00+08:00 | rg/nl | apps/api/src/routes.ts / server.ts / auth.ts | 列出 API 路由、鉴权与 CORS 逻辑。 |
+| 2025-11-29T01:11:00+08:00 | rg | packages/shared-schemas/src/index.ts | 获取 SearchRequest/Document/ModelSetting 等数据结构定义。 |
+| 2025-11-29T01:12:00+08:00 | apply_patch | .codex/context-scan.json | 更新结构化扫描，聚焦 API 路由与对接要点。 |
+| 2025-11-29T01:13:00+08:00 | apply_patch | .codex/context-question-51.json | 记录多租户覆盖优先级与调用方式。 |
+| 2025-11-29T01:13:30+08:00 | apply_patch | .codex/context-question-52.json | 记录上传接口字段、大小限制与返回格式。 |
+| 2025-11-29T01:14:00+08:00 | apply_patch | .codex/context-sufficiency.json | 更新充分性检查，转向接口文档交付。 |
+| 2025-11-29T01:14:30+08:00 | update_plan | 文档输出计划 | 划分收集/整理/输出步骤。 |
+| 2025-11-29T01:18:00+08:00 | apply_patch | docs/api-integration.md | 新增外部服务对接的 API 文档（认证、多租户、上传、检索、模型配置、示例）。 |
+| 2025-11-29T01:18:30+08:00 | update_plan | 文档输出计划 | 标记整理与输出步骤已完成。 |
+| 2025-11-29T01:35:00+08:00 | apply_patch | apps/worker/src/pipeline.ts | 元数据生成缺省/超限/失败时回退本地摘要标签，避免空值；新增 applyLocalMetadata。 |
+| 2025-11-29T01:36:00+08:00 | apply_patch | apps/worker/src/__tests__/ingestion.test.ts | 新增本地元数据兜底测试，增加语义切分/嵌入/分块 stub，调整远程标签测试为 Ollama mock。 |
+| 2025-11-29T01:38:00+08:00 | bun test | bun test apps/worker/src/__tests__/ingestion.test.ts | 通过（3 个用例）。 |
+| 2025-11-29T01:42:00+08:00 | apply_patch | docs/test-playbook.md | 新增全流程测试剧本（上传/OCR/元数据兜底/检索/多租户等用例与命令）。 |
