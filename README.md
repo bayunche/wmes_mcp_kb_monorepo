@@ -54,6 +54,8 @@
 > 🧠 混合召回默认启用本地 Rerank：未配置 `.env` 时，Worker 会自动读取 `MODELS_DIR` 中的 bge-m3（embedding）、bge-reranker（rerank）、OpenCLIP（image）等模型；如需覆盖，可在 `.env*` 中设置 `LOCAL_*_MODEL_ID` 或通过 Web 控制台「本地模型管理」直接下载/替换。
 >
 > 📁 本地模型目录结构：所有模型按角色分别存放在 `MODELS_DIR/<role>/`（`text/`、`rerank/`、`image/`、`ocr/` 等），`scripts/sync-models.ts` 与 Web 控制台都会将文件下载到对应文件夹，并可在同一页面为各角色快速选择本地模型。
+>
+> 👁️ OCR：Compose 内置 `paddle-ocr` 服务（默认 `http://localhost:8000/ocr`），Worker 已在 `.env.docker` 中指向 `http://paddle-ocr:8000/ocr`（`OCR_MODE=http`、`OCR_ENABLED=true`）。如关闭 OCR，请修改环境变量。
 
 ### Linux / macOS
 
@@ -67,9 +69,9 @@
 **步骤**
 
 1. 安装依赖：`bun install`。
-2. 构建镜像：`docker compose build kb-api kb-worker mcp-server`。
+2. 构建镜像：`docker compose build kb-api kb-worker kb-mcp paddle-ocr`。
 3. 一键启动：`./scripts/deploy-local.sh --env-file .env.docker --stack-mode docker --start-apps true`。
-   - 或手动执行：`docker compose up -d db vectordb object redis queue` → `docker compose up -d kb-api kb-worker mcp-server`。
+   - 或手动执行：`docker compose up -d db vectordb object redis queue` → `docker compose up -d kb-api kb-worker kb-mcp paddle-ocr`。
 4. 继续阅读“🐳 Docker Deployment（6 步）”获取更详细的调优/停止步骤。
 
 **验证**
