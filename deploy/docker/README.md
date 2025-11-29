@@ -11,6 +11,7 @@
 | kb-api | 8080 | REST API |
 | kb-worker | - | Ingestion Worker |
 | kb-mcp | 9090 | MCP Server |
+| paddle-ocr | 8000 | PaddleOCR HTTP 服务（/ocr），供 worker OCR fallback 使用 |
 
 ## 启动与停止
 ### 推荐：脚本一键部署
@@ -23,9 +24,13 @@ docker compose build kb-api kb-worker kb-mcp
 ### 手动模式
 ```bash
 docker compose up -d db vectordb object redis queue
-docker compose up -d kb-api kb-worker kb-mcp
+docker compose up -d kb-api kb-worker kb-mcp paddle-ocr
 ```
 完成验证后运行 `docker compose down` 释放资源。默认会加载 `.env.docker` 以指向容器网络下的服务地址；如需调整可复制为 `.env.docker.local`。
+
+### OCR 服务说明
+- PaddleOCR 已集成到主 compose，默认暴露 `http://localhost:8000/ocr`，worker 通过 `OCR_API_URL=http://paddle-ocr:8000/ocr`、`OCR_MODE=http` 使用。
+- 若需要 GPU，请修改 `paddle/Dockerfile` 或 compose 的设备配置；CPU 亦可运行但速度较慢。
 
 ## 镜像发布
 使用 `scripts/publish-images.ts`：

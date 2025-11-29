@@ -95,9 +95,15 @@ services:
       - object
       - redis
       - queue
+      - paddle-ocr
     env_file: ./.env.docker
     volumes:
       - ./models:/app/models:ro
+    environment:
+      OCR_API_URL: http://paddle-ocr:8000/ocr
+      OCR_MODE: http
+      OCR_ENABLED: "true"
+      OCR_LANG: chi_sim
     command: ["bun", "run", "apps/worker/src/main.ts"]
 
   mcp-server:
@@ -124,6 +130,19 @@ services:
       - kb-api
     ports:
       - "80:80"
+
+  paddle-ocr:
+    build:
+      context: ./paddle
+      dockerfile: Dockerfile
+    image: kb/paddle-ocr:dev
+    container_name: kb-paddle-ocr
+    restart: unless-stopped
+    shm_size: "8g"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./paddle/data:/data
 
 volumes:
   db-data:
