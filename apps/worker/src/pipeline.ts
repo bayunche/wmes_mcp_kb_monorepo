@@ -457,13 +457,13 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
         return enriched;
       }
       if (!deps.modelSettings) {
-        deps.logger.warn?.("未注入 model_settings 仓库，跳过语义元数据生成");
-        return enriched;
+        deps.logger.warn?.("未注入 model_settings 仓库，跳过语义元数据生成，回退本地兜底");
+        return enriched.map((chunk) => applyLocalMetadata(doc, chunk));
       }
       const setting = await loadModelSetting(doc, deps, "metadata");
       if (!setting) {
-        deps.logger.warn?.("缺少 metadata 角色模型配置，跳过语义元数据生成");
-        return enriched;
+        deps.logger.warn?.("缺少 metadata 角色模型配置，回退本地兜底");
+        return enriched.map((chunk) => applyLocalMetadata(doc, chunk));
       }
       const configuredLimit = Number(process.env.SEMANTIC_METADATA_LIMIT ?? "0");
       const limit =
@@ -471,8 +471,8 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
       const results: Chunk[] = [];
       const useLocalMetadata = setting.provider === "local";
       if (!useLocalMetadata && !deps.semanticMetadata) {
-        deps.logger.warn?.("语义元数据模型未注入，跳过元数据生成");
-        return enriched;
+        deps.logger.warn?.("语义元数据模型未注入，回退本地兜底");
+        return enriched.map((chunk) => applyLocalMetadata(doc, chunk));
       }
       let limitWarningLogged = false;
       for (const [index, chunk] of enriched.entries()) {
@@ -487,7 +487,7 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
             );
             limitWarningLogged = true;
           }
-          results.push(chunk);
+          results.push(applyLocalMetadata(doc, chunk));
           continue;
         }
         try {
@@ -523,11 +523,11 @@ function createDefaultWorkerStages(deps: WorkerDependencies): Required<WorkerSta
           }
           results.push(applySemanticMetadata(chunk, metadata));
         } catch (error) {
-          // 单段结构/元数据不稳定时，回退为原 chunk（保留 segmentIndex 等标记，长度切分已满足）
+          // 单段结构/元数据不稳定时，回退到本地摘要，避免空值
           deps.logger.warn?.(
-            `Semantic metadata failed, fallback to plain chunk | chunk=${chunk.chunkId}: ${(error as Error).message}`
+            `Semantic metadata failed, fallback to local metadata | chunk=${chunk.chunkId}: ${(error as Error).message}`
           );
-          results.push(chunk);
+          results.push(applyLocalMetadata(doc, chunk));
         }
       }
       return results;
@@ -1064,6 +1064,12 @@ function applySemanticMetadata(chunk: Chunk, metadata: SemanticMetadata): Chunk 
     nerEntities: ner,
     parentSectionPath: metadata.parentSectionPath ?? chunk.parentSectionPath
   };
+}
+
+function applyLocalMetadata(doc: Document, chunk: Chunk): Chunk {
+  // 本地兜底：缺少模型或远端失败时确保基本摘要与标签存在
+  const metadata = generateLocalSemanticMetadata(doc, chunk);
+  return applySemanticMetadata(chunk, metadata);
 }
 
 function buildVectorLogs(

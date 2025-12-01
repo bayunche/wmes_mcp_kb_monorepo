@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-28T10:20:45+08:00",
+  "timestamp": "2025-11-29T01:12:00+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "ingestion chunking 需要 semanticSegmenter 返回 sections→blueprints→chunks；返回空即抛错，需保证 role=structure 模型可用或提供 fallback。",
-    "tech_choices": "语义切分依赖 model_settings role=structure 配置，调用 generateStructureViaModel（OpenAI/Ollama）并按 12000 字符截断。",
-    "risks_identified": "租户缺少 structure 配置或请求失败会直接中断 chunking；日志仅在请求异常时提示，缺配置无提示；无 coarse fallback 导致整体失败。",
-    "verification_plan": "检查 model_settings 表/seed 是否为 tenant=zj-jijia 写入 structure；确认 LLM 端点连通；重试单条 ingest 观察 chunking 阶段日志是否生成 fragments>0。"
+    "interface_contract": "已掌握 API 路由、鉴权、租户/库覆盖、请求体与响应结构，能够完整列出调用契约与示例。",
+    "tech_choices": "Bun 自定义路由，无 OpenAPI；Bearer token 认证；CORS 由 CORS_ALLOWED_ORIGINS 控制；检索由 HybridRetriever 组合向量+BM25。",
+    "risks_identified": "需在文档明确：默认租户/库覆盖优先级；上传/检索的必填字段与大小限制；部分接口返回 207/501/502；无统一错误码规范。",
+    "verification_plan": "编写接口文档并给出 curl 示例；列出全局 header 与状态码；对关键路径（上传、搜索、模型配置）给出请求/响应样例，未跑自动化测试但可手工验证 curl。"
   }
 }
