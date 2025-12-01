@@ -176,19 +176,21 @@ function extractKeywords(text: string) {
 }
 
 function sanitizeMetadata(meta: SemanticMetadata): SemanticMetadata {
+  const clamp = (value: string | undefined | null, limit: number) =>
+    sanitizeText(value).slice(0, limit);
   return {
     ...meta,
-    title: sanitizeText(meta.title),
-    contextSummary: sanitizeText(meta.contextSummary),
-    semanticTags: meta.semanticTags?.map(sanitizeText),
-    topics: meta.topics?.map(sanitizeText),
-    keywords: meta.keywords?.map(sanitizeText),
-    envLabels: meta.envLabels?.map(sanitizeText),
-    bizEntities: meta.bizEntities?.map(sanitizeText),
+    title: clamp(meta.title, 200),
+    contextSummary: clamp(meta.contextSummary, 240),
+    semanticTags: meta.semanticTags?.map((item) => clamp(item, 120)),
+    topics: meta.topics?.map((item) => clamp(item, 120)),
+    keywords: meta.keywords?.map((item) => clamp(item, 80)),
+    envLabels: meta.envLabels?.map((item) => clamp(item, 80)),
+    bizEntities: meta.bizEntities?.map((item) => clamp(item, 120)),
     entities: meta.entities?.map((e) => ({
-      name: sanitizeText((e as any).name),
-      type: sanitizeText((e as any).type)
+      name: clamp((e as any).name, 120),
+      type: clamp((e as any).type, 120)
     })),
-    parentSectionPath: meta.parentSectionPath?.map(sanitizeText)
+    parentSectionPath: meta.parentSectionPath?.map((item) => clamp(item, 200))
   };
 }
