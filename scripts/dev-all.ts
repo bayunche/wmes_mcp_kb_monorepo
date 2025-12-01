@@ -31,7 +31,7 @@ const specs: ProcSpec[] = [
   {
     name: "web",
     cwd: "apps/web",
-    cmd: ["bunx", "vite", "dev", "--host", "0.0.0.0", "--port", "5173"],
+    cmd: ["bunx", "vite", "dev", "--host"],
     env: {
       VITE_API_BASE,
       VITE_API_TOKEN,
