@@ -8,12 +8,13 @@ export interface DbClientOptions {
 }
 
 export function createDbClient(config: AppConfig, options: DbClientOptions = {}) {
+  // 使用 simple 协议可规避 bind/parse 参数格式不匹配的问题；默认开启，设置 PG_SIMPLE=false 可恢复扩展协议
+  const useSimple = process.env.PG_SIMPLE !== "false";
   const pool = new Pool({
     connectionString: config.DATABASE_URL,
     max: options.maxConnections ?? 10,
     ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
-    // 避免协议编码异常时的扩展协议错误（如 bind message 参数不匹配），可通过环境变量开启简单模式
-    simple: process.env.PG_SIMPLE === "true"
+    simple: useSimple
   });
 
   const dialect = new PostgresDialect({ pool });
