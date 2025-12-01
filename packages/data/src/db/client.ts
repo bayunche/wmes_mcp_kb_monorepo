@@ -11,7 +11,9 @@ export function createDbClient(config: AppConfig, options: DbClientOptions = {})
   const pool = new Pool({
     connectionString: config.DATABASE_URL,
     max: options.maxConnections ?? 10,
-    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+    // 避免协议编码异常时的扩展协议错误（如 bind message 参数不匹配），可通过环境变量开启简单模式
+    simple: process.env.PG_SIMPLE === "true"
   });
 
   const dialect = new PostgresDialect({ pool });
