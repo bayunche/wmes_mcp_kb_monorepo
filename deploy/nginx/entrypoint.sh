@@ -2,7 +2,8 @@
 set -e
 
 : "${API_PROXY_TARGET:=http://192.168.0.57:8080/}"
-: "${API_BASE:=http://192.168.0.57:8080}"
+# 保持前端同源访问，统一走 /api 前缀由 nginx 反代，避免浏览器 CORS
+: "${API_BASE:=/api}"
 : "${API_TOKEN:=dev-token}"
 : "${PREVIEW_BASE:=}"
 
