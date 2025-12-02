@@ -123,7 +123,7 @@ export default function IngestionDashboard() {
             <AlertDescription>
               当前知识库缺少以下必要模型，无法进行文档处理：
               <strong>{missingModels.join("、")}</strong>。
-              <Link to="/settings" className="underline ml-2 font-medium">
+              <Link to="/settings/models" className="underline ml-2 font-medium">
                 前往配置 &rarr;
               </Link>
             </AlertDescription>
