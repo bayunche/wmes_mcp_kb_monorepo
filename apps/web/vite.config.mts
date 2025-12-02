@@ -1,23 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const proxyTarget = process.env.VITE_PROXY_TARGET ?? "http://localhost:8080";
-const proxyPaths = [
-  "/documents",
-  "/search",
-  "/upload",
-  "/mcp",
-  "/chunks",
-  "/stats",
-  "/metrics",
-  "/attachments",
-  "/health",
-  "/queue"
-];
-
-const proxy = Object.fromEntries(
-  proxyPaths.map((path) => [path, { target: proxyTarget, changeOrigin: true }])
-);
+const proxyTarget = process.env.VITE_PROXY_TARGET ?? "http://192.168.0.57:8080";
+const proxy: Record<string, any> = {
+  "/api": {
+    target: proxyTarget,
+    changeOrigin: true,
+    rewrite: (path: string) => path.replace(/^\/api/, "")
+  },
+  "/metrics": { target: proxyTarget, changeOrigin: true },
+  "/health": { target: proxyTarget, changeOrigin: true }
+};
 
 export default defineConfig({
   plugins: [react()],
