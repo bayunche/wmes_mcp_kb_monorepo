@@ -3,7 +3,8 @@ import { MetricsRegistry, measureLatency, createLogger } from "@kb/tooling";
 import { requireAuth } from "./auth";
 import { handleRequest, ApiRoutesDeps } from "./routes";
 
-const defaultCorsOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+// 默认放开全部来源，兼容局域网访问；仍可通过 CORS_ALLOWED_ORIGINS 覆盖
+const defaultCorsOrigins = ["*", "http://localhost:5173", "http://127.0.0.1:5173", "http://192.168.0.57:5173"];
 const configuredOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
