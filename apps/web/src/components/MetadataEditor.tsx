@@ -395,7 +395,7 @@ export function MetadataEditor() {
               </Field>
               <div className="flex flex-wrap gap-2 text-xs text-slate-600">
                 {(item.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
-                  <Badge key={`${item.chunk.chunkId}-tag-${tag}`} variant="default">
+                  <Badge key={`${item.chunk.chunkId}-tag-${tag}`} variant="soft">
                     {tag}
                   </Badge>
                 ))}
@@ -455,7 +455,7 @@ export function MetadataEditor() {
             </div>
             <div className="tag-inline">
               {(modalChunk.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
-                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} variant="default">
+                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} variant="soft">
                   {tag}
                 </Badge>
               ))}
