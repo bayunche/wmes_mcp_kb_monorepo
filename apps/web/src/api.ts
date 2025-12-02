@@ -76,10 +76,10 @@ export async function uploadDocuments(input: {
 }
 
 export async function listDocuments(tenantId?: string, libraryId: string = DEFAULT_LIBRARY) {
-  const url = new URL(`${API_BASE}/documents`);
-  if (tenantId) url.searchParams.set("tenantId", tenantId);
-  if (libraryId) url.searchParams.set("libraryId", libraryId);
-  const response = await fetch(url, {
+  const params = new URLSearchParams();
+  if (tenantId) params.set("tenantId", tenantId);
+  if (libraryId) params.set("libraryId", libraryId);
+  const response = await fetch(`${API_BASE}/documents?${params.toString()}`, {
     headers: tenantId ? { ...headers, "x-tenant-id": tenantId, "x-library-id": libraryId } : { ...headers, "x-library-id": libraryId }
   });
   return response.json();
@@ -202,11 +202,11 @@ export async function relatedChunks(chunkId: string, limit = 5, libraryId: strin
 }
 
 export async function fetchLibraryChunks(libraryId = DEFAULT_LIBRARY, options: { tenantId?: string; limit?: number; docId?: string } = {}) {
-  const url = new URL(`${API_BASE}/libraries/${libraryId}/chunks`);
-  if (options.tenantId) url.searchParams.set("tenantId", options.tenantId);
-  if (options.limit) url.searchParams.set("limit", String(options.limit));
-  if (options.docId) url.searchParams.set("docId", options.docId);
-  const response = await fetch(url, {
+  const params = new URLSearchParams();
+  if (options.tenantId) params.set("tenantId", options.tenantId);
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.docId) params.set("docId", options.docId);
+  const response = await fetch(`${API_BASE}/libraries/${libraryId}/chunks?${params.toString()}`, {
     headers: options.tenantId
       ? { ...headers, "x-tenant-id": options.tenantId, "x-library-id": libraryId }
       : { ...headers, "x-library-id": libraryId }
@@ -250,13 +250,13 @@ export async function fetchVectorLogs(params: {
   chunkId?: string;
   limit?: number;
 }) {
-  const url = new URL(`${API_BASE}/vector-logs`);
-  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
-  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
-  if (params.docId) url.searchParams.set("docId", params.docId);
-  if (params.chunkId) url.searchParams.set("chunkId", params.chunkId);
-  if (params.limit) url.searchParams.set("limit", String(params.limit));
-  const response = await fetch(url, {
+  const query = new URLSearchParams();
+  if (params.tenantId) query.set("tenantId", params.tenantId);
+  if (params.libraryId) query.set("libraryId", params.libraryId);
+  if (params.docId) query.set("docId", params.docId);
+  if (params.chunkId) query.set("chunkId", params.chunkId);
+  if (params.limit) query.set("limit", String(params.limit));
+  const response = await fetch(`${API_BASE}/vector-logs?${query.toString()}`, {
     headers: params.tenantId
       ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
       : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
@@ -311,11 +311,11 @@ export async function updateChunkMetadata(
 }
 
 export async function fetchModelSettings(params: { tenantId?: string; libraryId?: string; modelRole?: string } = {}) {
-  const url = new URL(`${API_BASE}/model-settings`);
-  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
-  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
-  if (params.modelRole) url.searchParams.set("modelRole", params.modelRole);
-  const response = await fetch(url, {
+  const query = new URLSearchParams();
+  if (params.tenantId) query.set("tenantId", params.tenantId);
+  if (params.libraryId) query.set("libraryId", params.libraryId);
+  if (params.modelRole) query.set("modelRole", params.modelRole);
+  const response = await fetch(`${API_BASE}/model-settings?${query.toString()}`, {
     headers: params.tenantId
       ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
       : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
@@ -356,11 +356,11 @@ export async function saveModelSettings(payload: {
 }
 
 export async function fetchIngestionQueue(params: { tenantId?: string; libraryId?: string; limit?: number } = {}) {
-  const url = new URL(`${API_BASE}/ingestion/queue`);
-  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
-  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
-  if (params.limit) url.searchParams.set("limit", String(params.limit));
-  const response = await fetch(url, {
+  const query = new URLSearchParams();
+  if (params.tenantId) query.set("tenantId", params.tenantId);
+  if (params.libraryId) query.set("libraryId", params.libraryId);
+  if (params.limit) query.set("limit", String(params.limit));
+  const response = await fetch(`${API_BASE}/ingestion/queue?${query.toString()}`, {
     headers: params.tenantId
       ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
       : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
@@ -372,13 +372,23 @@ export async function fetchIngestionQueue(params: { tenantId?: string; libraryId
 }
 
 export async function fetchModelSettingsList(params: { tenantId?: string; libraryId?: string } = {}) {
-  const url = new URL(`${API_BASE}/model-settings/list`);
-  if (params.tenantId) url.searchParams.set("tenantId", params.tenantId);
-  if (params.libraryId) url.searchParams.set("libraryId", params.libraryId);
-  const response = await fetch(url, {
+  const query = new URLSearchParams();
+  if (params.tenantId) query.set("tenantId", params.tenantId);
+  if (params.libraryId) query.set("libraryId", params.libraryId);
+  const response = await fetch(`${API_BASE}/model-settings/list?${query.toString()}`, {
     headers: params.tenantId
       ? { ...headers, "x-tenant-id": params.tenantId, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
       : { ...headers, "x-library-id": params.libraryId ?? DEFAULT_LIBRARY }
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+export async function fetchModelCatalog() {
+  const response = await fetch(`${API_BASE}/model-settings/catalog`, {
+    headers
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -439,11 +449,11 @@ export async function deleteTenant(tenantId: string) {
 }
 
 export async function fetchLibraries(params: { tenantId?: string } = {}) {
-  const url = new URL(`${API_BASE}/config/libraries`);
+  const query = new URLSearchParams();
   if (params.tenantId) {
-    url.searchParams.set("tenantId", params.tenantId);
+    query.set("tenantId", params.tenantId);
   }
-  const response = await fetch(url, {
+  const response = await fetch(`${API_BASE}/config/libraries?${query.toString()}`, {
     headers
   });
   if (!response.ok) {
