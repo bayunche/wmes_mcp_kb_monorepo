@@ -1,5 +1,8 @@
 // 优先使用运行时注入（适配容器/反向代理），其次取构建时环境变量，最后回退同源 /api
+const isDev = import.meta.env.DEV;
 const API_BASE =
+  // 开发模式强制走同源 /api，避免浏览器 CORS，借助 Vite 代理转发
+  (isDev && "/api") ||
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (typeof window !== "undefined" && (window as any).__API_BASE__) ||
   import.meta.env.VITE_API_BASE ||
