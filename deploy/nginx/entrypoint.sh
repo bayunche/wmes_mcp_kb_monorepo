@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-: "${API_PROXY_TARGET:=http://kb-api:8080/}"
-: "${API_BASE:=/api}"
+: "${API_PROXY_TARGET:=http://192.168.0.57:8080/}"
+: "${API_BASE:=http://192.168.0.57:8080}"
 : "${API_TOKEN:=dev-token}"
 : "${PREVIEW_BASE:=}"
 
