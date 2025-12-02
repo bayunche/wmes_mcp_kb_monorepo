@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { listDocuments, updateDocumentTags } from "../api";
-import { GlassCard } from "../components/ui/GlassCard";
-import { SectionHeader } from "../components/ui/SectionHeader";
-import { StatusPill } from "../components/ui/StatusPill";
-import { Field } from "../components/ui/Field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
+import { ArrowLeft, Save } from "lucide-react";
+import { Badge } from "../components/ui/Badge";
 
 export default function DocumentEdit() {
   const { docId } = useParams<{ docId: string }>();
@@ -57,25 +64,54 @@ export default function DocumentEdit() {
   }
 
   return (
-    <div className="space-y-4">
-      <GlassCard className="p-6 space-y-2">
-        <SectionHeader
-          eyebrow="编辑"
-          title={`文档标签 · ${title}`}
-          description="维护文档标签，保障检索/过滤的准确性。"
-          status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
-        />
-      </GlassCard>
-      <GlassCard>
-        <form onSubmit={handleSubmit} className="stacked-form">
-          <Field label="标签（用逗号分隔）">
-            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="合同, 采购" />
-          </Field>
-          <div className="button-row">
-            <Button type="submit">保存</Button>
-          </div>
-        </form>
-      </GlassCard>
+
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" asChild>
+          <Link to={`/documents/${docId}`}>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            编辑文档标签
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {title}
+          </p>
+        </div>
+        {status && (
+          <Badge variant="secondary">{status}</Badge>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>标签管理</CardTitle>
+          <CardDescription>
+            维护文档标签，保障检索/过滤的准确性。多个标签请用逗号分隔。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="tags">标签</Label>
+              <Input
+                id="tags"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="例如：合同, 采购, 2024"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit">
+                <Save className="mr-2 h-4 w-4" />
+                保存更改
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

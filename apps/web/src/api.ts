@@ -17,6 +17,19 @@ const DEFAULT_LIBRARY = import.meta.env.VITE_LIBRARY_ID ?? "default";
 
 export type ModelProvider = "openai" | "ollama" | "local";
 
+export interface ModelSettingView {
+  tenantId: string;
+  libraryId: string;
+  provider: ModelProvider;
+  baseUrl: string;
+  modelName: string;
+  modelRole: "embedding" | "tagging" | "metadata" | "ocr" | "rerank" | "structure" | "query_rewrite" | "semantic_rerank";
+  displayName?: string;
+  hasApiKey: boolean;
+  apiKeyPreview?: string;
+  options?: Record<string, unknown>;
+}
+
 const headers = {
   "content-type": "application/json",
   Authorization: `Bearer ${API_TOKEN}`,
@@ -92,11 +105,11 @@ export async function searchDocuments(
     typeof payload === "string"
       ? { query: payload, limit: 5, includeNeighbors: true, filters: { libraryId } }
       : {
-          limit: 5,
-          includeNeighbors: true,
-          ...payload,
-          filters: { libraryId, ...(payload.filters ?? {}) }
-        };
+        limit: 5,
+        includeNeighbors: true,
+        ...payload,
+        filters: { libraryId, ...(payload.filters ?? {}) }
+      };
   const response = await fetch(`${API_BASE}/search`, {
     method: "POST",
     headers,
@@ -143,10 +156,10 @@ export async function fetchStats(tenantId?: string, libraryId: string = DEFAULT_
     method: "GET",
     headers: tenantId
       ? {
-          ...headers,
-          "x-tenant-id": tenantId,
-          "x-library-id": libraryId
-        }
+        ...headers,
+        "x-tenant-id": tenantId,
+        "x-library-id": libraryId
+      }
       : headers
   });
   if (!response.ok) {
@@ -461,7 +474,7 @@ export async function deleteLibrary(libraryId: string) {
   }
 }
 
-export async function discoverModels(payload: { provider: "openai" | "ollama"; baseUrl: string; apiKey?: string }) {
+export async function discoverModels(payload: { provider: ModelProvider; baseUrl: string; apiKey?: string }) {
   const response = await fetch(`${API_BASE}/model-settings/models`, {
     method: "POST",
     headers,
@@ -495,6 +508,6 @@ export async function fetchIngestionStatus(docId: string) {
 }
 
 export function buildAttachmentUrl(objectKey: string) {
-  if (!PREVIEW_BASE) return null;
+  if (!PREVIEW_BASE) return undefined;
   return `${PREVIEW_BASE.replace(/\/$/, "")}/${objectKey}`;
 }

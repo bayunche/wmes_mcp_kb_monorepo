@@ -1,13 +1,19 @@
 ﻿import { useCallback, useMemo, useState } from "react";
 import { fetchDocumentStructure } from "../api";
 import { useAsyncTask } from "../hooks/useAsyncTask";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
-import { Field } from "./ui/Field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 import { Button } from "./ui/Button";
-import { StatusPill } from "./ui/StatusPill";
 import { Badge } from "./ui/Badge";
 import { Skeleton } from "./ui/Skeleton";
+import { Network, Search } from "lucide-react";
 
 interface DocumentSectionView {
   sectionId: string;
@@ -20,8 +26,7 @@ interface DocumentSectionView {
   keywords?: string[];
 }
 
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 
 export function StructureTree() {
   const [docId, setDocId] = useState("");
@@ -58,60 +63,89 @@ export function StructureTree() {
   };
 
   return (
-    <GlassCard className="space-y-4">
-      <SectionHeader
-        eyebrow="结构树"
-        title="文档章节 / 小节"
-        status={
-          loadStructureTask.status.message ? (
-            <StatusPill tone={statusTone}>{loadStructureTask.status.message}</StatusPill>
-          ) : null
-        }
-      />
-      <form className="stacked-form" onSubmit={handleSubmit}>
-        <Field label="Doc ID" hint="输入需要查看的文档 ID">
-          <input className={inputClass} value={docId} onChange={(event) => setDocId(event.target.value)} placeholder="输入文档 ID" />
-        </Field>
-        <div className="button-row">
-          <Button type="submit">加载结构</Button>
+
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Network className="h-5 w-5" />
+              结构树
+            </CardTitle>
+            <CardDescription>文档章节 / 小节</CardDescription>
+          </div>
+          {loadStructureTask.status.message && (
+            <Badge variant={statusTone === "danger" ? "destructive" : statusTone === "success" ? "default" : "secondary"}>
+              {loadStructureTask.status.message}
+            </Badge>
+          )}
         </div>
-      </form>
-      <ul className="structure-tree">
-        {loadStructureTask.status.phase === "loading"
-          ? Array.from({ length: 4 }).map((_, idx) => (
-              <li key={`skeleton-${idx}`} style={{ marginLeft: `${idx * 6}px` }}>
-                <div className="structure-node">
-                  <Skeleton width="70%" height={14} />
-                  <Skeleton width="55%" height={12} style={{ marginTop: "8px" }} />
-                </div>
-              </li>
-            ))
-          : sections.map((section) => (
-              <li key={section.sectionId} style={{ marginLeft: `${((section.level ?? 1) - 1) * 16}px` }}>
-                <div className="structure-node">
-                  <div className="button-row compact" style={{ justifyContent: "space-between" }}>
-                    <strong>{section.title}</strong>
-                    {section.tags?.length ? (
-                      <div className="tag-inline">
-                        {section.tags.map((tag) => (
-                          <Badge key={`${section.sectionId}-${tag}`} tone="info">
-                            {tag}
-                          </Badge>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <form className="flex items-end gap-4" onSubmit={handleSubmit}>
+          <div className="flex-1 space-y-2">
+            <Label>Doc ID</Label>
+            <Input
+              placeholder="输入需要查看的文档 ID"
+              value={docId}
+              onChange={(event) => setDocId(event.target.value)}
+            />
+          </div>
+          <Button type="submit">
+            <Search className="mr-2 h-4 w-4" />
+            加载结构
+          </Button>
+        </form>
+
+        <div className="rounded-md border p-4 min-h-[200px] bg-slate-50/50">
+          <ul className="space-y-2">
+            {loadStructureTask.status.phase === "loading" ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <li key={`skeleton-${idx}`} style={{ marginLeft: `${idx * 16}px` }}>
+                  <div className="space-y-2 p-2">
+                    <Skeleton className="h-4 w-[200px]" />
+                    <Skeleton className="h-3 w-[150px]" />
+                  </div>
+                </li>
+              ))
+            ) : sections.length > 0 ? (
+              sections.map((section) => (
+                <li key={section.sectionId} style={{ marginLeft: `${((section.level ?? 1) - 1) * 24}px` }}>
+                  <div className="rounded-lg border bg-card p-3 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between gap-4">
+                      <strong className="text-sm font-medium">{section.title}</strong>
+                      {section.tags?.length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {section.tags.map((tag) => (
+                            <Badge key={`${section.sectionId}-${tag}`} variant="secondary" className="text-[10px] px-1 py-0">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    {section.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{section.summary}</p>}
+                    {section.keywords?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {section.keywords.map((keyword) => (
+                          <span key={keyword} className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                            {keyword}
+                          </span>
                         ))}
                       </div>
                     ) : null}
                   </div>
-                  {section.summary && <p className="meta-muted">{section.summary}</p>}
-                  {section.keywords?.length ? (
-                    <small className="meta-muted">关键词：{section.keywords.join(" / ")}</small>
-                  ) : null}
-                </div>
+                </li>
+              ))
+            ) : (
+              <li className="flex flex-col items-center justify-center h-[150px] text-muted-foreground text-sm">
+                <Network className="h-8 w-8 mb-2 opacity-20" />
+                尚未加载结构
               </li>
-            ))}
-        {!sections.length && loadStructureTask.status.phase !== "loading" && (
-          <li className="placeholder">尚未加载结构</li>
-        )}
-      </ul>
-    </GlassCard>
+            )}
+          </ul>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

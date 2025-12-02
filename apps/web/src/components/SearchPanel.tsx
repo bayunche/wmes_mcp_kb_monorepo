@@ -3,23 +3,58 @@ import { buildAttachmentUrl, previewChunk, relatedChunks, searchDocuments } from
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
-import { Field } from "./ui/Field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
+import { Input } from "./ui/Input";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
-import { StatusPill } from "./ui/StatusPill";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/Select";
+import { Label } from "./ui/Label";
 import { Skeleton } from "./ui/Skeleton";
-
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/Dialog";
+import { ScrollArea } from "./ui/ScrollArea";
+import { Separator } from "./ui/Separator";
+import {
+  Search,
+  RefreshCw,
+  FileText,
+  Paperclip,
+  Maximize2,
+  Link as LinkIcon,
+  ExternalLink,
+  Tags,
+  Layers,
+  Hash,
+  Filter
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
 
 type SearchResult = {
   chunk: {
     chunkId: string;
+    docId?: string;
     hierPath?: string[];
     contentText?: string;
     sourceUri?: string;
+    semanticTags?: string[];
+    topics?: string[];
     semanticMetadata?: {
       contextSummary?: string;
       semanticTags?: string[];
@@ -118,7 +153,7 @@ export default function SearchPanel() {
     }
   );
 
-  const statusTone = useMemo(() => (searchTask.status.phase === "error" ? "danger" : "info"), [searchTask.status.phase]);
+  const statusTone = useMemo(() => (searchTask.status.phase === "error" ? "destructive" : "default"), [searchTask.status.phase]);
 
   const handleSearch = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -142,333 +177,448 @@ export default function SearchPanel() {
   };
 
   return (
-    <GlassCard className="space-y-4">
-      <SectionHeader
-        eyebrow="检索与预览"
-        title="语义检索 / 预览 / 关联"
-        status={
-          searchTask.status.message ? (
-            <StatusPill tone={statusTone}>{searchTask.status.message}</StatusPill>
-          ) : null
-        }
-      />
-
-      <form onSubmit={handleSearch} className="stacked-form">
-        <Field label="查询" hint="输入检索词，支持中文/英文/多关键词">
-          <input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="例如：合同违约责任" required />
-        </Field>
-        <div className="split">
-          <Field label="租户">
-            <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-              {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
-                <option key={item.tenantId} value={item.tenantId}>
-                  {item.displayName ?? item.tenantId}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="知识库">
-            <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-              {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
-                .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
-                .map((lib) => (
-                  <option key={lib.libraryId} value={lib.libraryId}>
-                    {lib.displayName ?? lib.libraryId}
-                  </option>
-                ))}
-            </select>
-          </Field>
-          <Field label="语义标签（逗号分隔）">
-            <input className={inputClass} value={semanticTags} onChange={(e) => setSemanticTags(e.target.value)} placeholder="合规, 财报" />
-          </Field>
-          <Field label="环境标签（逗号分隔）">
-            <input className={inputClass} value={envLabels} onChange={(e) => setEnvLabels(e.target.value)} placeholder="prod, cn" />
-          </Field>
-          <Field label="元数据键/值" hint="可选：如 source=contract">
-            <div className="grid grid-cols-2 gap-2">
-              <input className={inputClass} value={metadataKey} onChange={(e) => setMetadataKey(e.target.value)} placeholder="键" />
-              <input className={inputClass} value={metadataValue} onChange={(e) => setMetadataValue(e.target.value)} placeholder="值" />
+    <div className="space-y-6">
+      {/* Search Header & Filters */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center justify-between">
+            <span>语义检索工作台</span>
+            {searchTask.status.message && (
+              <Badge variant={statusTone as any} className="text-xs font-normal">
+                {searchTask.status.message}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            Hybrid 检索 · 预览 · 关联段落。支持元数据筛选、Chunk 预览与关联段落，便于验证召回质量。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSearch} className="space-y-4">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="输入检索词，例如：合同违约责任..."
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={searchTask.status.phase === "loading"}>
+                {searchTask.status.phase === "loading" ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                检索
+              </Button>
             </div>
-          </Field>
-          <div className="flex items-end gap-2">
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
-                checked={onlyWithAttachments}
-                onChange={(e) => setOnlyWithAttachments(e.target.checked)}
-              />
-              仅含附件
-            </label>
-          </div>
-        </div>
-        <div className="button-row">
-          <Button type="submit">执行检索</Button>
-          <Button type="button" variant="ghost" onClick={refreshOrgOptions}>
-            刷新租户/库
-          </Button>
-        </div>
-      </form>
 
-      <div className="search-grid">
-        <div className="search-left">
-          <div className="result-list space-y-3">
-            {searchTask.status.phase === "loading"
-              ? Array.from({ length: 4 }).map((_, idx) => (
-                  <article key={`skeleton-${idx}`} className="result-card">
-                    <Skeleton width="30%" />
-                    <Skeleton width="60%" style={{ marginTop: "8px" }} />
-                    <Skeleton width="80%" height={12} style={{ marginTop: "6px" }} />
-                  </article>
-                ))
-              : results.map((item) => (
-                  <article
-                    key={item.chunk.chunkId}
-                    className={`result-card${preview?.chunkId === item.chunk.chunkId ? " is-active" : ""}`}
-                    onClick={() => handlePreview(item.chunk.chunkId)}
-                  >
-                    <header className="button-row compact" style={{ justifyContent: "space-between" }}>
-                      <div>
-                        <p className="meta-muted">{item.chunk.hierPath?.join(" / ") ?? "暂无层级"}</p>
-                        <h4>{item.document?.title ?? item.chunk.chunkId}</h4>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="space-y-2">
+                <Label>租户</Label>
+                <Select value={tenantId} onValueChange={setTenantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择租户" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                      <SelectItem key={item.tenantId} value={item.tenantId}>
+                        {item.displayName ?? item.tenantId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>知识库</Label>
+                <Select value={libraryId} onValueChange={setLibraryId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择知识库" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                      .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                      .map((lib) => (
+                        <SelectItem key={lib.libraryId} value={lib.libraryId}>
+                          {lib.displayName ?? lib.libraryId}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>语义标签</Label>
+                <Input
+                  value={semanticTags}
+                  onChange={(e) => setSemanticTags(e.target.value)}
+                  placeholder="合规, 财报"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>环境标签</Label>
+                <Input
+                  value={envLabels}
+                  onChange={(e) => setEnvLabels(e.target.value)}
+                  placeholder="prod, cn"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex-1 grid grid-cols-2 gap-2 max-w-md">
+                <Input
+                  value={metadataKey}
+                  onChange={(e) => setMetadataKey(e.target.value)}
+                  placeholder="元数据键 (Key)"
+                />
+                <Input
+                  value={metadataValue}
+                  onChange={(e) => setMetadataValue(e.target.value)}
+                  placeholder="元数据值 (Value)"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="hasAttachments"
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={onlyWithAttachments}
+                  onChange={(e) => setOnlyWithAttachments(e.target.checked)}
+                />
+                <Label htmlFor="hasAttachments" className="cursor-pointer">仅含附件</Label>
+              </div>
+              <div className="ml-auto">
+                <Button type="button" variant="ghost" size="sm" onClick={refreshOrgOptions}>
+                  <RefreshCw className="mr-2 h-3 w-3" />
+                  刷新配置
+                </Button>
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px] xl:grid-cols-[1fr_450px]">
+        {/* Left: Results List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold tracking-tight">检索结果</h3>
+            <span className="text-sm text-muted-foreground">
+              {results.length ? `Top ${results.length}` : "暂无结果"}
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {searchTask.status.phase === "loading" ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <Card key={`skeleton-${idx}`}>
+                  <CardContent className="p-4 space-y-3">
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : results.length > 0 ? (
+              results.map((item) => (
+                <Card
+                  key={item.chunk.chunkId}
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${preview?.chunkId === item.chunk.chunkId ? "border-primary ring-1 ring-primary" : ""
+                    }`}
+                  onClick={() => handlePreview(item.chunk.chunkId)}
+                >
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Layers className="h-3 w-3" />
+                          <span>{item.chunk.hierPath?.join(" / ") ?? "暂无层级"}</span>
+                        </div>
+                        <h4 className="font-medium leading-none">
+                          {item.document?.title ?? item.chunk.chunkId}
+                        </h4>
                       </div>
-                      <div className="tag-inline">
+                      <div className="flex flex-wrap gap-1 justify-end max-w-[120px]">
                         {item.document?.tags?.map((tag) => (
-                          <Badge key={`${item.chunk.chunkId}-${tag}`} tone="info">
+                          <Badge key={`${item.chunk.chunkId}-${tag}`} variant="secondary" className="text-[10px] px-1 py-0">
                             {tag}
                           </Badge>
-                        )) ?? null}
+                        ))}
                       </div>
-                    </header>
-                    <p className="meta-muted">
+                    </div>
+
+                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                       {item.chunk.semanticMetadata?.contextSummary ?? item.chunk.contentText?.slice(0, 180)}
                     </p>
-                    <div className="tag-inline mt-1">
+
+                    <div className="flex flex-wrap gap-1">
                       {(item.chunk.semanticMetadata?.semanticTags ?? item.chunk.semanticTags ?? []).slice(0, 5).map((tag) => (
-                        <Badge key={`${item.chunk.chunkId}-${tag}`} tone="info">
+                        <Badge key={`${item.chunk.chunkId}-${tag}`} variant="outline" className="text-[10px]">
                           {tag}
                         </Badge>
                       ))}
                       {(item.chunk.semanticMetadata?.topics ?? item.chunk.topics ?? []).slice(0, 3).map((tag) => (
-                        <Badge key={`${item.chunk.chunkId}-topic-${tag}`} tone="subtle">
+                        <Badge key={`${item.chunk.chunkId}-topic-${tag}`} variant="secondary" className="text-[10px] bg-slate-100 text-slate-600">
                           {tag}
                         </Badge>
                       ))}
                     </div>
-                    <div className="button-row compact" style={{ justifyContent: "space-between" }}>
-                      <small className="meta-muted">{item.document?.libraryId ?? libraryId}</small>
+
+                    <div className="flex items-center justify-between pt-2 border-t mt-2">
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {item.document?.libraryId ?? libraryId}
+                      </span>
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
                           onClick={(e) => {
                             e.stopPropagation();
                             setModalChunk(item);
                           }}
                         >
-                          查看详情
+                          <Maximize2 className="mr-1 h-3 w-3" />
+                          详情
                         </Button>
                         <Button
                           variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRelated(item.chunk.chunkId);
                           }}
                         >
-                          关联段落
+                          <LinkIcon className="mr-1 h-3 w-3" />
+                          关联 ({item.score?.toFixed(3)})
                         </Button>
                       </div>
                     </div>
-                  </article>
-                ))}
-            {!results.length && searchTask.status.phase !== "loading" && (
-              <p className="placeholder">暂无搜索结果，输入查询后执行。</p>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <div className="text-center py-12 text-muted-foreground bg-slate-50 rounded-lg border border-dashed">
+                <Search className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                <p>暂无搜索结果，请输入查询词后执行检索。</p>
+              </div>
             )}
           </div>
         </div>
-        <div className="search-right space-y-3">
-          <GlassCard className="space-y-3">
-            <SectionHeader eyebrow="预览" title="上下文 / 附件" />
-            {previewTask.status.phase === "loading" && <p className="status-text">加载中...</p>}
-            {previewTask.status.phase === "loading" && (
-              <div className="space-y-2">
-                <Skeleton width="50%" />
-                <Skeleton width="90%" height={12} />
-                <Skeleton width="80%" height={12} />
-              </div>
-            )}
-            {preview ? (
-              <div className="glass-card p-4 space-y-2">
-                <h4>{preview.semanticMetadata?.title ?? preview.semanticTitle ?? preview.title ?? preview.chunkId}</h4>
-                <p className="meta-muted">
-                  {preview.hierPath?.join(" / ") ?? "-"} · {preview.libraryId ?? libraryId}
-                </p>
-                <p className="text-sm text-slate-800 leading-relaxed">
-                      {preview.semanticMetadata?.contextSummary ?? preview.contentText}
-                    </p>
-                <div className="tag-inline">
-                  {(preview.semanticMetadata?.semanticTags ?? preview.semanticTags ?? []).map((tag: string) => (
-                    <Badge key={`${preview.chunkId}-preview-tag-${tag}`} tone="info">
-                      {tag}
-                    </Badge>
-                  ))}
-                  {(preview.semanticMetadata?.topics ?? preview.topics ?? []).map((tag: string) => (
-                    <Badge key={`${preview.chunkId}-preview-topic-${tag}`} tone="subtle">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-                {preview.semanticMetadata?.keywords?.length ? (
-                  <div className="tag-inline">
-                    {preview.semanticMetadata.keywords.map((kw: string) => (
-                      <Badge key={`${preview.chunkId}-kw-${kw}`} tone="neutral">
-                        {kw}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-                {preview.semanticMetadata?.entities?.length ? (
-                  <div className="tag-inline">
-                    {preview.semanticMetadata.entities.map((e: any) => (
-                      <Badge key={`${preview.chunkId}-entity-${e.name}`} tone="warning">
-                        {e.name}{e.type ? `(${e.type})` : ""}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-                {preview.semanticMetadata?.parentSectionPath?.length ? (
-                  <p className="meta-muted text-xs">
-                    上级路径：{preview.semanticMetadata.parentSectionPath.join(" / ")}
-                  </p>
-                ) : null}
-                {preview.attachments?.length ? (
-                  <div className="attachment-chips">
-                    {preview.attachments.map((att: any) => (
-                      <a key={att.assetId} href={buildAttachmentUrl(att)} className="chip" target="_blank" rel="noreferrer">
-                        <span>{att.assetType}</span>
-                        <span className="meta-muted">{att.objectKey}</span>
-                      </a>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              previewTask.status.phase !== "loading" && <p className="placeholder">尚未选择 Chunk</p>
-            )}
-          </GlassCard>
 
-          <GlassCard className="space-y-2">
-            <SectionHeader eyebrow="相关段落" title="Related Chunks" />
-            {relatedTask.status.message && <p className="status-text">{relatedTask.status.message}</p>}
-            {relatedTask.status.phase === "loading"
-              ? Array.from({ length: 3 }).map((_, idx) => (
-                  <div key={`related-skeleton-${idx}`} className="result-card">
-                    <Skeleton width="40%" />
-                    <Skeleton width="75%" height={12} style={{ marginTop: "6px" }} />
+        {/* Right: Preview & Related */}
+        <div className="space-y-6">
+          <Card className="h-fit sticky top-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                预览
+              </CardTitle>
+              <CardDescription>上下文 / 附件</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {previewTask.status.phase === "loading" ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-32 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              ) : preview ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm">
+                      {preview.semanticMetadata?.title ?? preview.semanticTitle ?? preview.title ?? preview.chunkId}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {preview.hierPath?.join(" / ") ?? "-"}
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/30 p-3 rounded-md text-sm leading-relaxed text-foreground/90 max-h-[300px] overflow-y-auto">
+                    {preview.semanticMetadata?.contextSummary ?? preview.contentText}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {(preview.semanticMetadata?.semanticTags ?? preview.semanticTags ?? []).map((tag: string) => (
+                      <Badge key={`${preview.chunkId}-preview-tag-${tag}`} variant="outline" className="text-[10px]">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {preview.attachments?.length ? (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">附件</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {preview.attachments.map((att: any) => (
+                          <a
+                            key={att.assetId}
+                            href={buildAttachmentUrl(att)}
+                            className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 transition-colors"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            <span className="max-w-[120px] truncate">{att.objectKey}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-xs text-muted-foreground">
+                  点击左侧结果查看详情
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                相关段落
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {relatedTask.status.phase === "loading" ? (
+                Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={`related-skeleton-${idx}`} className="space-y-2">
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-12 w-full" />
                   </div>
                 ))
-              : related.map((item) => (
-                  <div key={item.chunk.chunkId} className="result-card">
-                    <div className="button-row compact" style={{ justifyContent: "space-between" }}>
-                      <div>
-                        <p className="meta-muted">{item.chunk.hierPath?.join(" / ") ?? "-"}</p>
-                        <strong>{item.document?.title ?? item.chunk.chunkId}</strong>
-                      </div>
-                      <small className="meta-muted">{(item.score ?? 0).toFixed(3)}</small>
+              ) : related.length > 0 ? (
+                related.map((item) => (
+                  <div key={item.chunk.chunkId} className="p-3 bg-muted/30 rounded-md space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-xs truncate max-w-[200px]">
+                        {item.document?.title ?? item.chunk.chunkId}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {item.score?.toFixed(3)}
+                      </Badge>
                     </div>
-                    <p className="meta-muted">{item.chunk.contentText?.slice(0, 160)}</p>
+                    <p className="text-muted-foreground line-clamp-3 text-xs">
+                      {item.chunk.contentText}
+                    </p>
                   </div>
-                ))}
-            {!related.length && relatedTask.status.phase !== "loading" && (
-              <p className="placeholder">暂无相关段落</p>
-            )}
-          </GlassCard>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-muted-foreground">
+                  暂无相关段落
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-      {orgLoading && <p className="muted-text">正在同步租户/知识库...</p>}
-      {orgError && <p className="muted-text">{orgError}</p>}
 
-      {modalChunk && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setModalChunk(null)}
-        >
-          <div
-            className="max-w-4xl w-full bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 overflow-y-auto max-h-[85vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.08em] text-slate-500">Chunk 详情</p>
-                <h3 className="text-xl font-semibold text-slate-900">
+      {/* Detail Modal */}
+      <Dialog open={!!modalChunk} onOpenChange={(open) => !open && setModalChunk(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Chunk 详情</DialogTitle>
+            <DialogDescription>
+              {modalChunk?.chunk.hierPath?.join(" / ") ?? "-"} · {modalChunk?.document?.title ?? modalChunk?.chunk.docId}
+            </DialogDescription>
+          </DialogHeader>
+
+          {modalChunk && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-lg">
                   {modalChunk.chunk.semanticMetadata?.title ??
                     modalChunk.chunk.semanticMetadata?.contextSummary?.slice(0, 24) ??
                     modalChunk.chunk.chunkId}
                 </h3>
-                <p className="meta-muted text-sm">
-                  {modalChunk.chunk.hierPath?.join(" / ") ?? "-"} · {modalChunk.document?.title ?? modalChunk.chunk.docId}
-                </p>
+                <div className="flex flex-wrap gap-1">
+                  {(modalChunk.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
+                    <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} variant="outline">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {(modalChunk.chunk.semanticMetadata?.topics ?? []).map((tag) => (
+                    <Badge key={`${modalChunk.chunk.chunkId}-topic-${tag}`} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <Button variant="ghost" onClick={() => setModalChunk(null)}>
-                关闭
-              </Button>
+
+              {modalChunk.chunk.semanticMetadata?.contextSummary && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">上下文摘要</Label>
+                  <div className="bg-muted/50 p-4 rounded-lg text-sm leading-relaxed">
+                    {modalChunk.chunk.semanticMetadata.contextSummary}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">原始内容</Label>
+                <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                  {modalChunk.chunk.contentText}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {modalChunk.chunk.semanticMetadata?.keywords?.length && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">关键词</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {modalChunk.chunk.semanticMetadata.keywords.map((kw) => (
+                        <Badge key={`${modalChunk.chunk.chunkId}-kw-${kw}`} variant="outline" className="text-xs">
+                          {kw}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {modalChunk.chunk.semanticMetadata?.entities?.length && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">实体</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {modalChunk.chunk.semanticMetadata.entities.map((e) => (
+                        <Badge key={`${modalChunk.chunk.chunkId}-entity-${e.name}`} variant="outline" className="text-xs border-yellow-200 bg-yellow-50 text-yellow-800">
+                          {e.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {modalChunk.attachments?.length && (
+                <div className="space-y-2 pt-4 border-t">
+                  <Label>附件</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {modalChunk.attachments.map((att: any) => (
+                      <a
+                        key={att.assetId}
+                        href={buildAttachmentUrl(att)}
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-md text-sm hover:bg-blue-100 transition-colors"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        <span>{att.objectKey}</span>
+                        <ExternalLink className="h-3 w-3 opacity-50" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="tag-inline">
-              {(modalChunk.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
-                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} tone="info">
-                  {tag}
-                </Badge>
-              ))}
-              {(modalChunk.chunk.semanticMetadata?.topics ?? []).map((tag) => (
-                <Badge key={`${modalChunk.chunk.chunkId}-topic-${tag}`} tone="subtle">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-            {modalChunk.chunk.semanticMetadata?.keywords?.length ? (
-              <div className="tag-inline">
-                {modalChunk.chunk.semanticMetadata.keywords.map((kw) => (
-                  <Badge key={`${modalChunk.chunk.chunkId}-kw-${kw}`} tone="neutral">
-                    {kw}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
-            {modalChunk.chunk.semanticMetadata?.entities?.length ? (
-              <div className="tag-inline">
-                {modalChunk.chunk.semanticMetadata.entities.map((e) => (
-                  <Badge key={`${modalChunk.chunk.chunkId}-entity-${e.name}`} tone="warning">
-                    {e.name}
-                    {e.type ? `(${e.type})` : ""}
-                  </Badge>
-                ))}
-              </div>
-            ) : null}
-            {modalChunk.chunk.semanticMetadata?.contextSummary ? (
-              <p className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-slate-800 leading-6">
-                {modalChunk.chunk.semanticMetadata.contextSummary}
-              </p>
-            ) : null}
-            <pre className="whitespace-pre-wrap bg-slate-50 rounded-xl p-3 border border-slate-200 text-sm leading-6">
-              {modalChunk.chunk.contentText}
-            </pre>
-            {modalChunk.chunk.semanticMetadata?.parentSectionPath?.length ? (
-              <p className="meta-muted text-xs">
-                上级路径：{modalChunk.chunk.semanticMetadata.parentSectionPath.join(" / ")}
-              </p>
-            ) : null}
-            {modalChunk.attachments?.length ? (
-              <div className="attachment-chips">
-                {modalChunk.attachments.map((att: any) => (
-                  <a key={att.assetId} href={buildAttachmentUrl(att)} className="chip" target="_blank" rel="noreferrer">
-                    <span>{att.assetType}</span>
-                    <span className="meta-muted">{att.objectKey}</span>
-                  </a>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </GlassCard>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

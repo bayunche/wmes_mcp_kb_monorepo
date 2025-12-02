@@ -275,7 +275,7 @@ export function MetadataEditor() {
         </div>
         <div className="flex gap-2">
           <Button onClick={handleReindex} disabled={!selectedDocId}>重建索引</Button>
-          <Button variant="danger" onClick={handleDelete} disabled={!selectedDocId}>删除文档</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={!selectedDocId}>删除文档</Button>
         </div>
       </GlassCard>
 
@@ -284,10 +284,10 @@ export function MetadataEditor() {
         {loadingChunks && (
           <div className="grid gap-3 md:grid-cols-2">
             {Array.from({ length: 4 }).map((_, idx) => (
-              <div key={`s-${idx}`} className="border border-slate-200 rounded-xl p-3 bg-white/70">
-                <Skeleton width="70%" />
-                <Skeleton width="90%" />
-                <Skeleton width="60%" />
+              <div key={`s-${idx}`} className="border border-slate-200 rounded-xl p-3 bg-white/70 space-y-2">
+                <Skeleton className="h-4 w-[70%]" />
+                <Skeleton className="h-4 w-[90%]" />
+                <Skeleton className="h-4 w-[60%]" />
               </div>
             ))}
           </div>
@@ -303,7 +303,7 @@ export function MetadataEditor() {
                   <h3 className="font-medium text-[rgb(var(--c-text))]">
                     {item.chunk.semanticMetadata?.title ?? item.chunk.contentType}
                   </h3>
-                  <Badge tone="neutral">{item.chunk.contentType}</Badge>
+                  <Badge variant="outline">{item.chunk.contentType}</Badge>
                 </div>
                 <p className="text-sm text-slate-700 line-clamp-3">
                   {item.chunk.semanticMetadata?.contextSummary ?? item.chunk.contentText ?? "暂无内容"}
@@ -395,17 +395,17 @@ export function MetadataEditor() {
               </Field>
               <div className="flex flex-wrap gap-2 text-xs text-slate-600">
                 {(item.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
-                  <Badge key={`${item.chunk.chunkId}-tag-${tag}`} tone="info">
+                  <Badge key={`${item.chunk.chunkId}-tag-${tag}`} variant="default">
                     {tag}
                   </Badge>
                 ))}
                 {(item.chunk.semanticMetadata?.topics ?? []).map((tag) => (
-                  <Badge key={`${item.chunk.chunkId}-topic-${tag}`} tone="subtle">
+                  <Badge key={`${item.chunk.chunkId}-topic-${tag}`} variant="secondary">
                     {tag}
                   </Badge>
                 ))}
                 {(item.chunk.semanticMetadata?.keywords ?? []).map((kw) => (
-                  <Badge key={`${item.chunk.chunkId}-kw-${kw}`} tone="neutral">
+                  <Badge key={`${item.chunk.chunkId}-kw-${kw}`} variant="outline">
                     {kw}
                   </Badge>
                 ))}
@@ -455,12 +455,12 @@ export function MetadataEditor() {
             </div>
             <div className="tag-inline">
               {(modalChunk.chunk.semanticMetadata?.semanticTags ?? []).map((tag) => (
-                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} tone="info">
+                <Badge key={`${modalChunk.chunk.chunkId}-tag-${tag}`} variant="default">
                   {tag}
                 </Badge>
               ))}
               {(modalChunk.chunk.semanticMetadata?.topics ?? []).map((tag) => (
-                <Badge key={`${modalChunk.chunk.chunkId}-topic-${tag}`} tone="subtle">
+                <Badge key={`${modalChunk.chunk.chunkId}-topic-${tag}`} variant="secondary">
                   {tag}
                 </Badge>
               ))}
@@ -468,7 +468,7 @@ export function MetadataEditor() {
             {modalChunk.chunk.semanticMetadata?.keywords?.length ? (
               <div className="tag-inline">
                 {modalChunk.chunk.semanticMetadata.keywords.map((kw) => (
-                  <Badge key={`${modalChunk.chunk.chunkId}-kw-${kw}`} tone="neutral">
+                  <Badge key={`${modalChunk.chunk.chunkId}-kw-${kw}`} variant="outline">
                     {kw}
                   </Badge>
                 ))}
@@ -477,7 +477,7 @@ export function MetadataEditor() {
             {modalChunk.chunk.semanticMetadata?.entities?.length ? (
               <div className="tag-inline">
                 {modalChunk.chunk.semanticMetadata.entities.map((e) => (
-                  <Badge key={`${modalChunk.chunk.chunkId}-entity-${e.name}`} tone="warning">
+                  <Badge key={`${modalChunk.chunk.chunkId}-entity-${e.name}`} variant="destructive">
                     {e.name}
                     {e.type ? `(${e.type})` : ""}
                   </Badge>

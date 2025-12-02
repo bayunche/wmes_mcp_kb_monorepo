@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { deleteDocument, listDocuments, reindexDocument } from "../api";
-import { GlassCard } from "../components/ui/GlassCard";
-import { SectionHeader } from "../components/ui/SectionHeader";
-import { StatusPill } from "../components/ui/StatusPill";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/Card";
+import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { Separator } from "../components/ui/Separator";
+import { ArrowLeft, RefreshCw, Trash2, Edit, FileText, Calendar, Hash, Layers } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/Alert";
 
 type DocSummary = {
   docId: string;
@@ -67,56 +75,121 @@ export default function DocumentDetail() {
   }
 
   return (
-    <div className="space-y-4">
-      <GlassCard className="p-6 space-y-2">
-        <SectionHeader
-          eyebrow="文档详情"
-          title={document?.title ?? docId}
-          description="查看文档元信息、状态与所属租户/知识库，可进行重建索引或删除。"
-          status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
-        />
-      </GlassCard>
 
-      <GlassCard className="space-y-4">
-        {document ? (
-          <div className="grid gap-3 md:grid-cols-2 text-sm">
-            <div className="glass-card p-3">
-              <p className="text-xs text-slate-500">Doc ID</p>
-              <p className="font-medium text-slate-900">{document.docId}</p>
-            </div>
-            <div className="glass-card p-3">
-              <p className="text-xs text-slate-500">标签</p>
-              <p className="text-slate-800">{document.tags?.join(" / ") || "-"}</p>
-            </div>
-            <div className="glass-card p-3">
-              <p className="text-xs text-slate-500">租户</p>
-              <p className="text-slate-800">{document.tenantId ?? "-"}</p>
-            </div>
-            <div className="glass-card p-3">
-              <p className="text-xs text-slate-500">知识库</p>
-              <p className="text-slate-800">{document.libraryId ?? "-"}</p>
-            </div>
-            <div className="glass-card p-3">
-              <p className="text-xs text-slate-500">状态</p>
-              <p className="text-slate-800">{document.ingestStatus ?? "-"}</p>
-            </div>
-          </div>
-        ) : (
-          <p className="placeholder">未找到该文档</p>
-        )}
-
-        <div className="button-row">
-          <Button variant="ghost" onClick={handleReindex} disabled={!document}>
-            重新索引
-          </Button>
-          <Button asChild>
-            <Link to={`/documents/${docId}/edit`}>编辑</Link>
-          </Button>
-          <Button variant="ghost" onClick={handleDelete}>
-            删除
-          </Button>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" asChild>
+          <Link to="/documents">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {document?.title ?? docId}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            文档详情与管理
+          </p>
         </div>
-      </GlassCard>
+        <div className="flex items-center gap-2">
+          {status && (
+            <Badge variant="secondary">{status}</Badge>
+          )}
+        </div>
+      </div>
+
+      {document ? (
+        <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  基本信息
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Doc ID</span>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{document.docId}</code>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">状态</span>
+                  <div>
+                    <Badge variant={document.ingestStatus === "success" ? "default" : "secondary"}>
+                      {document.ingestStatus ?? "Unknown"}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">租户</span>
+                  <p className="text-sm">{document.tenantId ?? "-"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">知识库</span>
+                  <p className="text-sm">{document.libraryId ?? "-"}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">标签</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {document.tags?.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {document.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">暂无标签</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">操作</CardTitle>
+                <CardDescription>管理文档生命周期</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full justify-start" variant="outline" onClick={handleReindex}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  重新索引
+                </Button>
+                <Button className="w-full justify-start" variant="outline" asChild>
+                  <Link to={`/documents/${docId}/edit`}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    编辑元数据
+                  </Link>
+                </Button>
+                <Separator />
+                <Button
+                  className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                  variant="ghost"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  删除文档
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <Alert variant="destructive">
+          <AlertTitle>错误</AlertTitle>
+          <AlertDescription>未找到该文档，可能已被删除或您没有权限查看。</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }

@@ -1,12 +1,33 @@
 ﻿import { useCallback, useMemo, useState, useEffect } from "react";
 import { fetchVectorLogs } from "../api";
 import { useOrgOptions } from "../hooks/useOrgOptions";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
-import { StatusPill } from "./ui/StatusPill";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/Table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/Select";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 import { Button } from "./ui/Button";
-import { Field } from "./ui/Field";
-import { Skeleton } from "./ui/Skeleton";
+import { Badge } from "./ui/Badge";
+import { RefreshCw, Activity, Clock, Server, FileText } from "lucide-react";
 
 interface VectorLogEntry {
   logId: string;
@@ -34,8 +55,7 @@ const STEP_MAP: Record<string, { label: string; description: string }> = {
   rerank: { label: "重排序", description: "可选 reranker" }
 };
 
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 
 function summarizeStep(logs: VectorLogEntry[], role: string) {
   const entries = logs.filter((log) => log.modelRole === role);
@@ -75,94 +95,146 @@ export function VectorLogPanel() {
   }, [logs]);
 
   return (
-    <GlassCard className="space-y-4">
-      <SectionHeader
-        eyebrow="向量日志"
-        title="处理链路健康与耗时"
-        status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
-      />
-      <div className="split">
-        <Field label="租户">
-          <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-            {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
-              <option key={item.tenantId} value={item.tenantId}>
-                {item.displayName ?? item.tenantId}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="知识库">
-          <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-            {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
-              .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
-              .map((lib) => (
-                <option key={lib.libraryId} value={lib.libraryId}>
-                  {lib.displayName ?? lib.libraryId}
-                </option>
-              ))}
-          </select>
-        </Field>
-        <Field label="Doc ID（可选）" hint="留空则查看最近日志">
-          <input className={inputClass} value={docId} onChange={(e) => setDocId(e.target.value)} placeholder="过滤某个文档" />
-        </Field>
-        <div className="flex items-end gap-2">
-          <Button onClick={loadLogs}>刷新</Button>
-        </div>
-      </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        {summaries.map((item) => (
-          <div key={item.role} className="glass-card p-4 space-y-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="eyebrow">{item.label}</p>
-                <p className="text-sm text-slate-700">{item.description}</p>
-              </div>
-              <StatusPill tone={item.status === "failed" ? "danger" : item.status === "success" ? "success" : "warning"}>
-                {item.status === "success" ? "完成" : item.status === "failed" ? "失败" : "待处理"}
-              </StatusPill>
-            </div>
-            <p className="muted-text">耗时：{item.duration ? `${item.duration} ms` : "-"}</p>
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              向量日志
+            </CardTitle>
+            <CardDescription>处理链路健康与耗时监控</CardDescription>
           </div>
-        ))}
-      </div>
+          {status && (
+            <Badge variant="outline" className="font-normal">
+              {status}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>租户</Label>
+              <Select value={tenantId} onValueChange={setTenantId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择租户" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                    <SelectItem key={item.tenantId} value={item.tenantId}>
+                      {item.displayName ?? item.tenantId}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>知识库</Label>
+              <Select value={libraryId} onValueChange={setLibraryId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择知识库" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                    .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                    .map((lib) => (
+                      <SelectItem key={lib.libraryId} value={lib.libraryId}>
+                        {lib.displayName ?? lib.libraryId}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Doc ID (可选)</Label>
+              <Input
+                placeholder="过滤某个文档"
+                value={docId}
+                onChange={(e) => setDocId(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-end">
+            <Button onClick={loadLogs}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              刷新
+            </Button>
+          </div>
+        </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>步骤</th>
-              <th>模型</th>
-              <th>耗时</th>
-              <th>状态</th>
-              <th>说明</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!logs.length && (
-              <tr>
-                <td colSpan={6} className="placeholder">暂无日志，点击刷新试试</td>
-              </tr>
-            )}
-            {logs.map((log) => (
-              <tr key={log.logId}>
-                <td className="text-sm text-slate-700">{new Date(log.createdAt).toLocaleString()}</td>
-                <td>{STEP_MAP[log.modelRole]?.label ?? log.modelRole}</td>
-                <td>
-                  <div className="doc-title">{log.modelName}</div>
-                  <div className="meta-muted">{log.provider} · {log.driver}</div>
-                </td>
-                <td>{log.durationMs} ms</td>
-                <td>
-                  <StatusPill tone={log.status === "success" ? "success" : "danger"}>{log.status}</StatusPill>
-                </td>
-                <td className="text-sm text-slate-700 max-w-[280px] whitespace-pre-wrap">{log.errorMessage ?? "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </GlassCard>
+        <div className="grid gap-4 md:grid-cols-5">
+          {summaries.map((item) => (
+            <div key={item.role} className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-sm">{item.label}</span>
+                <Badge variant={item.status === "failed" ? "destructive" : item.status === "success" ? "default" : "secondary"}>
+                  {item.status === "success" ? "完成" : item.status === "failed" ? "失败" : "待处理"}
+                </Badge>
+              </div>
+              <div className="text-xs text-muted-foreground">{item.description}</div>
+              <div className="text-xs font-mono pt-2 border-t mt-2">
+                耗时: {item.duration ? `${item.duration} ms` : "-"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[180px]">时间</TableHead>
+                <TableHead className="w-[100px]">步骤</TableHead>
+                <TableHead>模型信息</TableHead>
+                <TableHead className="w-[100px]">耗时</TableHead>
+                <TableHead className="w-[100px]">状态</TableHead>
+                <TableHead>说明</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!logs.length ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    暂无日志，点击刷新试试
+                  </TableCell>
+                </TableRow>
+              ) : (
+                logs.map((log) => (
+                  <TableRow key={log.logId}>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{STEP_MAP[log.modelRole]?.label ?? log.modelRole}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium text-sm">{log.modelName}</div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Server className="h-3 w-3" />
+                          {log.provider} · {log.driver}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{log.durationMs} ms</TableCell>
+                    <TableCell>
+                      <Badge variant={log.status === "success" ? "secondary" : "destructive"}>
+                        {log.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate" title={log.errorMessage}>
+                      {log.errorMessage || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

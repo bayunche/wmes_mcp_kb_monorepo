@@ -2,16 +2,21 @@
 import { mcpSearch } from "../api";
 import { useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
-import { Field } from "./ui/Field";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
-import { StatusPill } from "./ui/StatusPill";
 import { Skeleton } from "./ui/Skeleton";
+import { Search } from "lucide-react";
 
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 
 export function McpSearchPanel() {
   const [query, setQuery] = useState("");
@@ -47,49 +52,86 @@ export function McpSearchPanel() {
     }
   };
 
-  const statusTone = useMemo(() => (searchTask.status.phase === "error" ? "danger" : "info"), [searchTask.status.phase]);
+  const statusTone = useMemo(() => {
+    if (searchTask.status.phase === "error") return "danger";
+    if (searchTask.status.phase === "success") return "success";
+    return "info";
+  }, [searchTask.status.phase]);
 
   return (
-    <GlassCard className="space-y-4">
-      <SectionHeader
-        eyebrow="MCP 工具"
-        title="MCP Search"
-        status={
-          searchTask.status.message ? <StatusPill tone={statusTone}>{searchTask.status.message}</StatusPill> : null
-        }
-      />
-      <form onSubmit={handleSubmit} className="stacked-form">
-        <Field label="关键词">
-          <input className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} required placeholder="示例：记账规则" />
-        </Field>
-        <Field label="Library ID" hint="默认 default">
-          <input className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)} placeholder="default" />
-        </Field>
-        <div className="button-row">
-          <Button type="submit">执行</Button>
+
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              MCP Search
+            </CardTitle>
+            <CardDescription>MCP 工具检索测试</CardDescription>
+          </div>
+          {searchTask.status.message && (
+            <Badge variant={statusTone === "danger" ? "destructive" : statusTone === "success" ? "default" : "secondary"}>
+              {searchTask.status.message}
+            </Badge>
+          )}
         </div>
-      </form>
-      <div className="result-list compact space-y-2">
-        {searchTask.status.phase === "loading"
-          ? Array.from({ length: 3 }).map((_, idx) => (
-              <article key={`mcp-skeleton-${idx}`} className="result-card compact">
-                <Skeleton width="40%" />
-                <Skeleton width="80%" height={12} style={{ marginTop: "6px" }} />
-              </article>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>关键词</Label>
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              required
+              placeholder="示例：记账规则"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Library ID</Label>
+            <Input
+              value={libraryId}
+              onChange={(e) => setLibraryId(e.target.value)}
+              placeholder="default"
+            />
+          </div>
+          <Button type="submit" className="w-full">
+            执行检索
+          </Button>
+        </form>
+
+        <div className="space-y-4">
+          {searchTask.status.phase === "loading" ? (
+            Array.from({ length: 3 }).map((_, idx) => (
+              <div key={`mcp-skeleton-${idx}`} className="space-y-2 p-4 border rounded-lg">
+                <Skeleton className="h-4 w-[40%]" />
+                <Skeleton className="h-3 w-[80%]" />
+              </div>
             ))
-          : results.map((item) => (
-              <article key={item.chunk.chunkId} className="result-card compact">
-                <header className="flex items-center justify-between">
-                  <strong>{item.chunk.hierPath?.join(" / ") || item.chunk.chunkId}</strong>
-                  <Badge tone="subtle">score {item.score?.toFixed?.(3) ?? item.score}</Badge>
-                </header>
-                <p className="muted-text">{item.chunk.contentText}</p>
-              </article>
-            ))}
-        {results.length === 0 && searchTask.status.phase !== "loading" && (
-          <p className="placeholder">MCP 结果会显示在这里</p>
-        )}
-      </div>
-    </GlassCard>
+          ) : results.length > 0 ? (
+            results.map((item) => (
+              <div key={item.chunk.chunkId} className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors">
+                <div className="flex items-center justify-between mb-2">
+                  <strong className="text-sm font-medium truncate max-w-[70%]">
+                    {item.chunk.hierPath?.join(" / ") || item.chunk.chunkId}
+                  </strong>
+                  <Badge variant="outline" className="text-xs">
+                    score {item.score?.toFixed?.(3) ?? item.score}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-3">
+                  {item.chunk.contentText}
+                </p>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm border rounded-lg border-dashed">
+              MCP 结果会显示在这里
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

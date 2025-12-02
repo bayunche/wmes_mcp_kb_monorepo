@@ -2,11 +2,17 @@ import { useEffect, useState } from "react";
 import { fetchMetrics } from "../api";
 import { useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
 import { Button } from "./ui/Button";
-import { StatusPill } from "./ui/StatusPill";
+import { Badge } from "./ui/Badge";
 import { Skeleton } from "./ui/Skeleton";
+import { BarChart, RefreshCw } from "lucide-react";
 
 export function MetricsPanel() {
   const toast = useToast();
@@ -41,30 +47,42 @@ export function MetricsPanel() {
     metricsTask.status.phase === "error" ? "danger" : metricsTask.status.phase === "success" ? "success" : "info";
 
   return (
-    <GlassCard>
-      <SectionHeader
-        eyebrow="可观测"
-        title="Prometheus Metrics"
-        status={
-          metricsTask.status.message ? (
-            <StatusPill tone={statusTone}>{metricsTask.status.message}</StatusPill>
-          ) : null
-        }
-      />
-      <div className="button-row">
-        <Button type="button" variant="ghost" onClick={metricsTask.run}>
-          刷新
-        </Button>
-      </div>
-      {metricsTask.status.phase === "loading" ? (
-        <div className="metrics-output">
-          <Skeleton width="90%" />
-          <Skeleton width="80%" style={{ marginTop: "6px" }} />
-          <Skeleton width="85%" style={{ marginTop: "6px" }} />
+
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart className="h-5 w-5" />
+              Prometheus Metrics
+            </CardTitle>
+            <CardDescription>可观测性指标</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {metricsTask.status.message && (
+              <Badge variant={statusTone === "danger" ? "destructive" : statusTone === "success" ? "default" : "secondary"}>
+                {metricsTask.status.message}
+              </Badge>
+            )}
+            <Button variant="ghost" size="icon" onClick={metricsTask.run}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      ) : (
-        <pre className="metrics-output">{metrics || "暂无数据"}</pre>
-      )}
-    </GlassCard>
+      </CardHeader>
+      <CardContent>
+        {metricsTask.status.phase === "loading" ? (
+          <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+            <Skeleton className="h-4 w-[90%]" />
+            <Skeleton className="h-4 w-[80%]" />
+            <Skeleton className="h-4 w-[85%]" />
+          </div>
+        ) : (
+          <pre className="p-4 bg-muted/50 rounded-lg text-xs font-mono overflow-auto max-h-[400px]">
+            {metrics || "暂无数据"}
+          </pre>
+        )}
+      </CardContent>
+    </Card>
   );
 }

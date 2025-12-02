@@ -3,13 +3,33 @@ import { fetchIngestionStatus, fetchIngestionQueue, reindexDocument } from "../a
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { AsyncPhase, useAsyncTask } from "../hooks/useAsyncTask";
 import { useToast } from "./ui/Toast";
-import { GlassCard } from "./ui/GlassCard";
-import { SectionHeader } from "./ui/SectionHeader";
-import { StatusPill } from "./ui/StatusPill";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/Card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/Table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/Select";
 import { Button } from "./ui/Button";
 import { Badge } from "./ui/Badge";
 import { Skeleton } from "./ui/Skeleton";
-import { ProgressBar } from "./ui/ProgressBar";
+import { Progress } from "./ui/Progress";
+import { RefreshCw, RotateCcw, FileText, Activity, Clock } from "lucide-react";
 
 type DocSummary = {
   docId: string;
@@ -38,8 +58,7 @@ const STATUS_LABELS: Record<string, { label: string; tone: "info" | "success" | 
   failed: { label: "失败", tone: "danger" }
 };
 
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 
 function formatBytes(value?: number) {
   if (!value || value <= 0) return "-";
@@ -150,199 +169,232 @@ export function IngestionStatusPanel({ refreshSignal = 0 }: { refreshSignal?: nu
   );
 
   return (
-    <GlassCard className="space-y-4">
-      <SectionHeader
-        eyebrow="入库队列"
-        title="解析 / 切分 / 向量化 状态面板"
-        status={
-          loadTask.status.message ? (
-            <StatusPill tone={loadTask.status.phase === "error" ? "danger" : "info"}>
-              {loadTask.status.message}
-            </StatusPill>
-          ) : undefined
-        }
-      />
-      <div className="split">
-        <div className="space-y-2">
-          <select className={inputClass} value={tenant} onChange={(e) => setTenant(e.target.value)}>
-            {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
-              <option key={item.tenantId} value={item.tenantId}>
-                {item.displayName ?? item.tenantId}
-              </option>
-            ))}
-          </select>
-          <select className={inputClass} value={library} onChange={(e) => setLibrary(e.target.value)}>
-            {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
-              .filter((lib) => !lib.tenantId || lib.tenantId === tenant)
-              .map((lib) => (
-                <option key={lib.libraryId} value={lib.libraryId}>
-                  {lib.displayName ?? lib.libraryId}
-                </option>
-              ))}
-          </select>
-          <Button variant="ghost" onClick={refresh}>
-            刷新租户/库
-          </Button>
+
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Select value={tenant} onValueChange={setTenant}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择租户" />
+              </SelectTrigger>
+              <SelectContent>
+                {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                  <SelectItem key={item.tenantId} value={item.tenantId}>
+                    {item.displayName ?? item.tenantId}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Select value={library} onValueChange={setLibrary}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择知识库" />
+              </SelectTrigger>
+              <SelectContent>
+                {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                  .filter((lib) => !lib.tenantId || lib.tenantId === tenant)
+                  .map((lib) => (
+                    <SelectItem key={lib.libraryId} value={lib.libraryId}>
+                      {lib.displayName ?? lib.libraryId}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center">
+            <Button variant="ghost" onClick={refresh} disabled={orgLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${orgLoading ? "animate-spin" : ""}`} />
+              刷新租户/库
+            </Button>
+          </div>
         </div>
-        <div className="pill-switch">
+        <div className="flex items-center gap-2">
           {(["all", "uploaded", "parsed", "indexed", "failed"] as const).map((key) => (
-            <button
+            <Button
               key={key}
-              type="button"
-              className={`pill-option ${statusFilter === key ? "is-active" : ""}`}
+              variant={statusFilter === key ? "default" : "outline"}
+              size="sm"
               onClick={() => setStatusFilter(key)}
             >
               {STATUS_LABELS[key]?.label ?? "全部"}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Doc ID</th>
-              <th>标题</th>
-              <th>状态</th>
-              <th>进度</th>
-              <th>标签</th>
-              <th>大小</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadTask.status.phase === "loading"
-              ? Array.from({ length: 4 }).map((_, idx) => (
-                  <tr key={`skeleton-${idx}`}>
-                    <td><Skeleton width="80%" /></td>
-                    <td><Skeleton width="90%" /></td>
-                    <td><Skeleton width="50%" /></td>
-                    <td><Skeleton width="60%" /></td>
-                    <td><Skeleton width="40%" /></td>
-                    <td><Skeleton width="60%" /></td>
-                  </tr>
-                ))
-              : filtered.map((doc) => {
-                  const label = STATUS_LABELS[doc.ingestStatus ?? "uploaded"] ?? STATUS_LABELS.uploaded;
-                  return (
-                    <tr key={doc.docId}>
-                      <td>{doc.docId}</td>
-                      <td>
-                        <div className="doc-title">{doc.title}</div>
-                        <div className="meta-muted">
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Doc ID</TableHead>
+              <TableHead>标题</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead className="w-[140px]">进度</TableHead>
+              <TableHead>标签</TableHead>
+              <TableHead>大小</TableHead>
+              <TableHead className="text-right">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loadTask.status.phase === "loading" ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={`skeleton-${idx}`}>
+                  <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-[80px] ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : filtered.length > 0 ? (
+              filtered.map((doc) => {
+                const label = STATUS_LABELS[doc.ingestStatus ?? "uploaded"] ?? STATUS_LABELS.uploaded;
+                return (
+                  <TableRow key={doc.docId}>
+                    <TableCell className="font-mono text-xs">{doc.docId}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium text-sm truncate max-w-[200px]" title={doc.title}>
+                          {doc.title}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
                           {doc.tenantId ?? tenant} · {doc.libraryId ?? library}
                         </div>
-                        {doc.errorMessage && <p className="meta-muted">{doc.errorMessage}</p>}
-                      </td>
-                      <td>
-                        <StatusPill tone={label.tone}>{label.label}</StatusPill>
-                      </td>
-                      <td style={{ minWidth: 140 }}>
-                        <ProgressBar value={doc.progress ?? 0} />
-                      </td>
-                      <td>
-                        <div className="tag-inline">
-                          {doc.tags?.map((tag) => (
-                            <Badge key={`${doc.docId}-${tag}`} tone="info">
-                              {tag}
-                            </Badge>
-                          )) || <span className="meta-muted">-</span>}
-                        </div>
-                      </td>
-                      <td>{formatBytes(doc.sizeBytes)}</td>
-                      <td>
-                        <div className="button-row compact">
-                          <Button
-                            variant="ghost"
-                            disabled={reindexTask.status.phase === "loading"}
-                            onClick={() =>
-                              reindexTask.run(doc.docId).catch((error) =>
-                                toastPush({ title: "重新排队失败", description: (error as Error).message, tone: "danger" })
-                              )
-                            }
-                          >
-                            重新索引
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedDoc(doc);
-                              loadTimeline.run(doc.docId).catch((error) =>
-                                toastPush({
-                                  title: "获取进度失败",
-                                  description: (error as Error).message,
-                                  tone: "danger"
-                                })
-                              );
-                            }}
-                          >
-                            进度
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-            {!filtered.length && loadTask.status.phase !== "loading" && (
-              <tr>
-                <td colSpan={6} className="placeholder">
+                        {doc.errorMessage && <p className="text-xs text-destructive">{doc.errorMessage}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={label.tone === "danger" ? "destructive" : label.tone === "success" ? "default" : "secondary"}>
+                        {label.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress value={doc.progress ?? 0} className="h-2" />
+                        <span className="text-xs text-muted-foreground">{doc.progress ?? 0}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {doc.tags?.map((tag) => (
+                          <Badge key={`${doc.docId}-${tag}`} variant="outline" className="text-[10px] px-1 py-0">
+                            {tag}
+                          </Badge>
+                        )) || <span className="text-xs text-muted-foreground">-</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatBytes(doc.sizeBytes)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={reindexTask.status.phase === "loading"}
+                          onClick={() =>
+                            reindexTask.run(doc.docId).catch((error) =>
+                              toastPush({ title: "重新排队失败", description: (error as Error).message, tone: "danger" })
+                            )
+                          }
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDoc(doc);
+                            loadTimeline.run(doc.docId).catch((error) =>
+                              toastPush({
+                                title: "获取进度失败",
+                                description: (error as Error).message,
+                                tone: "danger"
+                              })
+                            );
+                          }}
+                        >
+                          <Activity className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   暂无记录，切换筛选后再试
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
-      <p className="muted-text" style={{ marginTop: "0.75rem" }}>
-        待处理作业：<strong>{pendingJobs}</strong>
-      </p>
-      {orgLoading && <p className="muted-text">正在同步租户/知识库...</p>}
-      {orgError && <p className="muted-text">{orgError}</p>}
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <p>待处理作业：<span className="font-medium text-foreground">{pendingJobs}</span></p>
+        {orgLoading && <p>正在同步租户/知识库...</p>}
+        {orgError && <p className="text-destructive">{orgError}</p>}
+      </div>
 
       {selectedDoc && (
-        <GlassCard className="space-y-3 bg-white/80">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="eyebrow">任务进度</div>
-              <div className="doc-title">{selectedDoc.title}</div>
-              <div className="meta-muted">{selectedDoc.docId}</div>
+        <Card className="bg-muted/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  任务进度追踪
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {selectedDoc.title} <span className="font-mono text-xs ml-2 opacity-70">{selectedDoc.docId}</span>
+                </CardDescription>
+              </div>
+              {loadTimeline.status.message && (
+                <Badge variant={loadTimeline.status.phase === "error" ? "destructive" : "secondary"}>
+                  {loadTimeline.status.message}
+                </Badge>
+              )}
             </div>
-            {loadTimeline.status.message && (
-              <StatusPill tone={loadTimeline.status.phase === "error" ? "danger" : "info"}>
-                {loadTimeline.status.message}
-              </StatusPill>
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            {loadTimeline.status.phase === "loading" && <Skeleton height="24px" />}
-            {timeline.length === 0 && loadTimeline.status.phase !== "loading" && (
-              <p className="meta-muted text-sm">暂无阶段日志，请稍后重试</p>
-            )}
-            {timeline
-              .slice()
-              .sort((a, b) => a.at.localeCompare(b.at))
-              .map((item) => (
-                <div
-                  key={`${item.stage}-${item.at}`}
-                  className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm"
-                >
-                  <span className="badge info">{item.stage}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-slate-800">{item.status}</span>
-                      <span className="text-xs text-slate-500">{new Date(item.at).toLocaleString()}</span>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loadTimeline.status.phase === "loading" && <Skeleton className="h-8 w-full" />}
+              {timeline.length === 0 && loadTimeline.status.phase !== "loading" && (
+                <p className="text-sm text-muted-foreground text-center py-4">暂无阶段日志，请稍后重试</p>
+              )}
+              <div className="space-y-2">
+                {timeline
+                  .slice()
+                  .sort((a, b) => a.at.localeCompare(b.at))
+                  .map((item) => (
+                    <div
+                      key={`${item.stage}-${item.at}`}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-background border text-sm"
+                    >
+                      <Badge variant="outline">{item.stage}</Badge>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{item.status}</span>
+                          <span className="text-xs text-muted-foreground">{new Date(item.at).toLocaleString()}</span>
+                        </div>
+                        {item.meta && Object.keys(item.meta).length > 0 && (
+                          <pre className="text-[10px] bg-muted p-2 rounded overflow-x-auto mt-2">
+                            {JSON.stringify(item.meta, null, 2)}
+                          </pre>
+                        )}
+                      </div>
                     </div>
-                    {item.meta && Object.keys(item.meta).length > 0 && (
-                      <div className="text-xs text-slate-600 mt-1">{JSON.stringify(item.meta)}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-          </div>
-        </GlassCard>
+                  ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
-    </GlassCard>
+    </div>
   );
 }
 

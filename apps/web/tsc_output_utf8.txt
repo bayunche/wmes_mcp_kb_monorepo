@@ -1,0 +1,30 @@
+﻿src/components/McpSearchPanel.tsx(70,71): error TS2367: This comparison appears to be unintentional because the types '"info"' and '"success"' have no overlap.
+src/components/MetadataEditor.tsx(278,19): error TS2322: Type '"danger"' is not assignable to type '"default" | "link" | "destructive" | "outline" | "secondary" | "ghost" | "primary" | null | undefined'.
+src/components/MetadataEditor.tsx(288,27): error TS2322: Type '{ width: string; }' is not assignable to type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+  Property 'width' does not exist on type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+src/components/MetadataEditor.tsx(289,27): error TS2322: Type '{ width: string; }' is not assignable to type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+  Property 'width' does not exist on type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+src/components/MetadataEditor.tsx(290,27): error TS2322: Type '{ width: string; }' is not assignable to type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+  Property 'width' does not exist on type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement>'.
+src/components/MetadataEditor.tsx(306,26): error TS2322: Type '{ children: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(398,67): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(403,69): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(408,65): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(458,71): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(463,73): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(471,71): error TS2322: Type '{ children: string; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/MetadataEditor.tsx(480,79): error TS2322: Type '{ children: string[]; key: string; tone: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'tone' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/components/SearchPanel.tsx(461,29): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/components/SearchPanel.tsx(605,25): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/ModelSettingsPage.tsx(259,47): error TS2322: Type 'ModelProvider' is not assignable to type '"openai" | "ollama"'.
+  Type '"local"' is not assignable to type '"openai" | "ollama"'.

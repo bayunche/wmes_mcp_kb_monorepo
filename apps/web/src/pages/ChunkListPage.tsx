@@ -4,12 +4,34 @@ import { fetchLibraryChunks } from "../api";
 import { useAsyncTask } from "../hooks/useAsyncTask";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useToast } from "../components/ui/Toast";
-import { GlassCard } from "../components/ui/GlassCard";
-import { SectionHeader } from "../components/ui/SectionHeader";
-import { StatusPill } from "../components/ui/StatusPill";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/Card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/Table";
 import { Badge } from "../components/ui/Badge";
 import { Skeleton } from "../components/ui/Skeleton";
 import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/Select";
+import { Label } from "../components/ui/Label";
+import { RefreshCw, FileText, Layers, Hash } from "lucide-react";
 
 interface ChunkListItem {
   chunk: {
@@ -35,8 +57,7 @@ interface ChunkListItem {
   attachments?: { assetType?: string; filename?: string }[];
 }
 
-const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition";
+
 
 export default function ChunkListPage() {
   const toast = useToast();
@@ -78,121 +99,188 @@ export default function ChunkListPage() {
   const filtered = useMemo(() => items, [items]);
 
   return (
-    <div className="space-y-4">
-      <GlassCard className="p-6 space-y-2">
-        <SectionHeader
-          eyebrow="分块列表"
-          title="查看分块、层级路径与标签"
-          description="按租户/知识库/文档筛选，审阅分块标题、父路径、标签与时间戳，便于治理与定位。"
-          status={loadTask.status.message ? <StatusPill tone={statusTone}>{loadTask.status.message}</StatusPill> : undefined}
-        />
-        <p className="text-sm text-slate-600">
-          支持快速跳转 Chunk 详情；结合元数据编辑器可进一步补全标签与摘要。
-        </p>
-      </GlassCard>
-      <GlassCard className="space-y-4">
-
-        <div className="split gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-              {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
-                <option key={item.tenantId} value={item.tenantId}>
-                  {item.displayName ?? item.tenantId}
-                </option>
-              ))}
-            </select>
-            <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-              {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
-                .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
-                .map((lib) => (
-                  <option key={lib.libraryId} value={lib.libraryId}>
-                    {lib.displayName ?? lib.libraryId}
-                  </option>
-                ))}
-            </select>
-            <input
-              className={inputClass}
-              placeholder="按 Doc ID 过滤（可选）"
-              value={docId}
-              onChange={(e) => setDocId(e.target.value)}
-            />
-            <Button variant="ghost" onClick={loadTask.run}>
-              刷新
-            </Button>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center justify-between">
+            <span>分块列表 (Vector View)</span>
+            {loadTask.status.message && (
+              <Badge variant={statusTone as any} className="text-xs font-normal">
+                {loadTask.status.message}
+              </Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            查看分块、层级路径与标签。按租户/知识库/文档筛选，审阅分块标题、父路径、标签与时间戳，便于治理与定位。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>租户</Label>
+                <Select value={tenantId} onValueChange={setTenantId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择租户" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                      <SelectItem key={item.tenantId} value={item.tenantId}>
+                        {item.displayName ?? item.tenantId}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>知识库</Label>
+                <Select value={libraryId} onValueChange={setLibraryId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择知识库" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                      .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                      .map((lib) => (
+                        <SelectItem key={lib.libraryId} value={lib.libraryId}>
+                          {lib.displayName ?? lib.libraryId}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>文档 ID</Label>
+                <div className="relative">
+                  <Hash className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="按 Doc ID 过滤"
+                    value={docId}
+                    onChange={(e) => setDocId(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-end">
+              <Button onClick={loadTask.run} disabled={loadTask.status.phase === "loading"}>
+                {loadTask.status.phase === "loading" ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                刷新列表
+              </Button>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Chunk ID</th>
-                <th>标题/路径</th>
-                <th>所属文档</th>
-                <th>标签</th>
-                <th>页码</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadTask.status.phase === "loading"
-                ? Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={`s-${idx}`}>
-                      <td><Skeleton width="80%" /></td>
-                      <td><Skeleton width="90%" /></td>
-                      <td><Skeleton width="70%" /></td>
-                      <td><Skeleton width="80%" /></td>
-                      <td><Skeleton width="40%" /></td>
-                      <td><Skeleton width="60%" /></td>
-                    </tr>
-                  ))
-                : filtered.map((item) => (
-                    <tr key={item.chunk.chunkId}>
-                      <td className="font-mono text-xs">{item.chunk.chunkId}</td>
-                      <td>
-                        <div className="doc-title">{item.chunk.semanticTitle ?? item.chunk.sectionTitle ?? "未命名"}</div>
-                        <div className="meta-muted">
-                          {item.chunk.hierPath?.join(" / ") || "无层级"} ·{" "}
-                          {item.chunk.createdAt ? new Date(item.chunk.createdAt).toLocaleString() : ""}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">Chunk ID</TableHead>
+                <TableHead className="w-[300px]">标题/路径</TableHead>
+                <TableHead className="w-[200px]">所属文档</TableHead>
+                <TableHead>标签</TableHead>
+                <TableHead className="w-[80px]">页码</TableHead>
+                <TableHead className="w-[100px] text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadTask.status.phase === "loading" ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <TableRow key={`skeleton-${idx}`}>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length > 0 ? (
+                filtered.map((item) => (
+                  <TableRow key={item.chunk.chunkId}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {item.chunk.chunkId.slice(0, 8)}...
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium text-sm">
+                          {item.chunk.semanticTitle ?? item.chunk.sectionTitle ?? "未命名"}
                         </div>
-                      </td>
-                      <td>
-                        <div className="doc-title">{item.document.title}</div>
-                        <div className="meta-muted">{item.document.docId}</div>
-                      </td>
-                      <td>
-                        <div className="tag-inline">
-                          {(item.chunk.topicLabels ?? item.chunk.semanticTags ?? []).slice(0, 4).map((tag) => (
-                            <Badge key={`${item.chunk.chunkId}-${tag}`} tone="info">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {item.chunk.envLabels?.slice(0, 2).map((env) => (
-                            <Badge key={`${item.chunk.chunkId}-env-${env}`} tone="neutral">
-                              {env}
-                            </Badge>
-                          ))}
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Layers className="h-3 w-3" />
+                          <span>{item.chunk.hierPath?.join(" / ") || "无层级"}</span>
                         </div>
-                      </td>
-                      <td>{item.chunk.pageNo ?? "-"}</td>
-                      <td>
-                        <Button asChild variant="ghost">
-                          <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-              {!filtered.length && loadTask.status.phase !== "loading" && (
-                <tr>
-                  <td colSpan={6} className="placeholder">
+                        {item.chunk.createdAt && (
+                          <div className="text-[10px] text-muted-foreground/70">
+                            {new Date(item.chunk.createdAt).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 font-medium text-sm">
+                          <FileText className="h-3 w-3 text-muted-foreground" />
+                          <span className="truncate max-w-[180px]" title={item.document.title}>
+                            {item.document.title}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {item.document.docId}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(item.chunk.topicLabels ?? item.chunk.semanticTags ?? []).slice(0, 4).map((tag) => (
+                          <Badge key={`${item.chunk.chunkId}-${tag}`} variant="secondary" className="text-[10px]">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {item.chunk.envLabels?.slice(0, 2).map((env) => (
+                          <Badge key={`${item.chunk.chunkId}-env-${env}`} variant="outline" className="text-[10px]">
+                            {env}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.chunk.pageNo ?? "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     暂无记录，请调整筛选后再试
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      </GlassCard>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

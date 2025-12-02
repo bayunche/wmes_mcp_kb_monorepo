@@ -8,16 +8,38 @@ import {
   saveModelSettings,
   saveTenant
 } from "../api";
-import type { ModelProvider } from "../api";
-import { GlassCard } from "../components/ui/GlassCard";
-import { SectionHeader } from "../components/ui/SectionHeader";
-import { Field } from "../components/ui/Field";
+import type { ModelProvider, ModelSettingView } from "../api";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
-import { PillTabs } from "../components/ui/PillTabs";
-import { StatusPill } from "../components/ui/StatusPill";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/Select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/Tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../components/ui/Table";
 import { Badge } from "../components/ui/Badge";
 import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useToast } from "../components/ui/Toast";
+import { PipelineFlow } from "../components/PipelineFlow";
+import { AlertCircle, CheckCircle2, RefreshCw, Save } from "lucide-react";
 
 type ModelRoleOption =
   | "embedding"
@@ -37,18 +59,7 @@ interface LocalModelChoice {
   relativePath?: string;
 }
 
-interface ModelSettingView {
-  tenantId: string;
-  libraryId: string;
-  provider: ModelProvider;
-  baseUrl: string;
-  modelName: string;
-  modelRole: ModelRoleOption;
-  displayName?: string;
-  hasApiKey: boolean;
-  apiKeyPreview?: string;
-  options?: Record<string, unknown>;
-}
+
 
 const ROLE_CARDS: Array<{
   value: ModelRoleOption;
@@ -213,23 +224,17 @@ export default function ModelSettingsPage() {
   }, [tenantId, libraryId]);
 
   const loadAllSettings = useCallback(async () => {
-    const promises = ROLE_CARDS.map(async (card) => {
-      try {
-        const response = await fetchModelSettings({ tenantId, libraryId, modelRole: card.value });
-        return { role: card.value, setting: (response as { setting?: ModelSettingView | null }).setting };
-      } catch {
-        return { role: card.value, setting: null };
-      }
-    });
-
-    const results = await Promise.all(promises);
-    const newSettings: Record<string, ModelSettingView> = {};
-    results.forEach((res) => {
-      if (res.setting) {
-        newSettings[res.role] = res.setting;
-      }
-    });
-    setAllSettings(newSettings);
+    try {
+      const response = await fetchModelSettingsList({ tenantId, libraryId });
+      const items = (response.items ?? []) as ModelSettingView[];
+      const newSettings: Record<string, ModelSettingView> = {};
+      items.forEach((item) => {
+        newSettings[item.modelRole] = item;
+      });
+      setAllSettings(newSettings);
+    } catch {
+      setAllSettings({});
+    }
   }, [tenantId, libraryId]);
 
   const loadRemoteModels = useCallback(async () => {
@@ -418,333 +423,373 @@ export default function ModelSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <GlassCard className="p-6 space-y-6">
-        <SectionHeader
-          eyebrow="模型配置"
-          title="语义切分 / 标注 / 向量 / OCR 全链路模型管理"
-          description="本地模型直接扫描 /models/weights；外部模型按提供方填入接口并自动拉取列表"
-          status={status ? <StatusPill tone="info">{status}</StatusPill> : null}
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">模型配置</h2>
+          <p className="text-muted-foreground">
+            配置 AI 知识库的核心大脑。请按照下方流程图，依次配置各个环节的模型。
+          </p>
+        </div>
+
+        <PipelineFlow
+          settings={allSettings}
+          currentRole={modelRole}
+          onSelectRole={(role) => setModelRole(role as ModelRoleOption)}
         />
 
-        <div className="split">
-          <Field label="租户" hint="默认 default，接口头 x-tenant-id">
-            <div className="flex gap-2">
-              <select className={inputClass} value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-                {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
-                  <option key={item.tenantId} value={item.tenantId}>
-                    {item.displayName ?? item.tenantId}
-                  </option>
-                ))}
-              </select>
-              <Button type="button" variant="ghost" onClick={handleCreateTenant}>
-                新增
-              </Button>
+        {(!allSettings.embedding || !allSettings.rerank) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">核心模型配置缺失</p>
+              <p className="text-sm opacity-90">
+                知识库运行依赖于 <strong>文本向量 (Embedding)</strong> 和 <strong>重排序 (Rerank)</strong> 模型。
+                请优先配置这两个角色，否则无法进行文档切分与检索。
+              </p>
             </div>
-          </Field>
-          <Field label="知识库" hint="默认 default，接口头 x-library-id">
-            <div className="flex gap-2">
-              <select className={inputClass} value={libraryId} onChange={(e) => setLibraryId(e.target.value)}>
-                {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
-                  .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
-                  .map((lib) => (
-                    <option key={lib.libraryId} value={lib.libraryId}>
-                      {lib.displayName ?? lib.libraryId}
-                    </option>
-                  ))}
-              </select>
-              <Button type="button" variant="ghost" onClick={handleCreateLibrary}>
-                新增
-              </Button>
-            </div>
-          </Field>
-        </div>
-
-        <div className="flow-guide">
-          {ROLE_CARDS.map((role) => {
-            const active = modelRole === role.value;
-            return (
-              <button
-                key={role.value}
-                type="button"
-                className={`step-card${active ? " is-active" : ""}`}
-                onClick={() => {
-                  setModelRole(role.value);
-                  if (role.value === "ocr") {
-                    setMode("remote");
-                    setProvider("openai");
-                    setModelName((prev) => prev || "ocr-http");
-                    setBaseUrl((prev) => prev || "");
-                  } else if (!role.supportsLocal) {
-                    setMode("remote");
-                    setProvider("openai");
-                  }
-                  if (role.value === "semantic_rerank") {
-                    setSemanticWeight(String(DEFAULT_SEMANTIC_WEIGHT));
-                  }
-                  setStatus(`已选择 ${role.title}`);
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 text-left">
-                    <strong className="text-base text-slate-900">{role.title}</strong>
-                    <p className="muted-text">{role.desc}</p>
-                    <small className={`text-xs ${allSettings[role.value] ? "text-blue-600 font-medium" : "muted-text"}`}>
-                      {allSettings[role.value]
-                        ? `已配置: ${allSettings[role.value].displayName || allSettings[role.value].modelName}`
-                        : role.supportsLocal
-                          ? "支持本地模型"
-                          : "需要远程接口"}
-                    </small>
-                  </div>
-                  <Badge>{role.highlights}</Badge>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <form className="stacked-form" onSubmit={handleSave}>
-          {isOcr ? (
-            <div className="space-y-3">
-              <Field label="OCR 服务 URL" hint="例如 http://localhost:9009/paddle/ocr">
-                <input
-                  className={inputClass}
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="http://localhost:9009/paddle/ocr"
-                  required
-                />
-              </Field>
-              <Field label="API Key（可选）" hint="无鉴权可留空">
-                <input
-                  className={inputClass}
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="可留空"
-                />
-                {hasStoredKey && (
-                  <small className="muted-text">已存储 Key {apiKeyPreview ?? "****"}，留空则不更新</small>
-                )}
-              </Field>
-              <small className="muted-text">内部将保存为模型标识：{modelName || "ocr-http"}</small>
-            </div>
-          ) : (
-            <>
-              {canUseLocal ? (
-                <div className="space-y-2">
-                  <PillTabs
-                    value={mode}
-                    onChange={(value) => setMode(value)}
-                    options={[
-                      { value: "remote", label: "远程模型" },
-                      { value: "local", label: "本地模型（自动扫描）", disabled: !canUseLocal }
-                    ]}
-                  />
-                  <small className="muted-text">
-                    {mode === "local"
-                      ? "直接扫描 /models/weights，选择文件即可。"
-                      : "远程配置步骤：选择提供方 → 填写 Base URL 与 API Key → 点击“拉取模型列表并测试” → 选择模型后保存。"}
-                  </small>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <p className="text-sm text-slate-700">该角色仅支持远程模型配置。</p>
-                  <small className="muted-text">
-                    远程配置步骤：选择提供方 → 填写 Base URL 与 API Key → 点击“拉取模型列表并测试” → 选择模型后保存。
-                  </small>
-                </div>
-              )}
-
-              {mode === "remote" && (
-                <div className="split">
-                  <Field label="提供方" hint="OpenAI / Ollama / 其他兼容接口">
-                    <select
-                      className={inputClass}
-                      value={provider}
-                      onChange={(e) => setProvider(e.target.value as ModelProvider)}
-                    >
-                      {REMOTE_PROVIDERS.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Base URL" hint="OpenAI 默认 https://api.openai.com/v1，Ollama 默认 http://localhost:11434">
-                    <input
-                      className={inputClass}
-                      value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
-                      placeholder="https://api.openai.com/v1"
-                    />
-                  </Field>
-                  <Field
-                    label="API Key"
-                    hint={provider === "openai" ? "必填，用于拉取模型与调用" : "Ollama 可留空"}
-                  >
-                    <input
-                      className={inputClass}
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder={provider === "openai" ? "sk-..." : "可留空"}
-                    />
-                    {hasStoredKey && (
-                      <small className="muted-text">已存储 Key {apiKeyPreview ?? "****"}，留空则不更新</small>
-                    )}
-                  </Field>
-                  <div className="flex items-center gap-3">
-                    <Button type="button" variant="ghost" onClick={loadRemoteModels}>
-                      拉取模型列表并测试
-                    </Button>
-                    {modelOptionsStatus && <StatusPill tone="info">{modelOptionsStatus}</StatusPill>}
-                  </div>
-                  <small className="muted-text col-span-2">
-                    远程配置提示：先选择提供方，再填写 Base URL 与 API Key，点击“拉取模型列表并测试”后从下拉选择模型，最后点击保存。
-                  </small>
-                </div>
-              )}
-
-              {mode === "local" && (
-                <GlassCard className="p-4 space-y-4">
-                  <SectionHeader
-                    eyebrow="本地模型"
-                    title={localDir ? `自动扫描目录：${localDir}` : "尚未扫描 models/weights"}
-                    status={localStatus ? <StatusPill tone="info">{localStatus}</StatusPill> : null}
-                  />
-                  <Field label="可用模型" hint="仅展示与当前角色匹配的模型（embedding / rerank / ocr）">
-                    <select className={inputClass} value={modelName} onChange={(e) => setModelName(e.target.value)}>
-                      <option value="">请选择本地模型</option>
-                      {localChoicesForRole.map((item) => (
-                        <option key={`${item.role}-${item.filename}`} value={item.filename}>
-                          {item.name || item.filename}（{item.filename}）
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <div className="button-row">
-                    <Button type="button" variant="ghost" onClick={loadLocalModels}>
-                      重新扫描
-                    </Button>
-                  </div>
-                </GlassCard>
-              )}
-
-              <div className="split">
-                <Field
-                  label="模型名称"
-                  hint={
-                    mode === "local"
-                      ? "选择后的文件名会自动写入配置"
-                      : modelOptions.length
-                        ? "从下拉中选择远程模型"
-                        : "若未拉取到列表，可直接手填模型 ID"
-                  }
-                  error={formError}
-                >
-                  {mode === "remote" && modelOptions.length ? (
-                    <select className={inputClass} value={modelName} onChange={(e) => setModelName(e.target.value)}>
-                      {modelOptions.map((option) => (
-                        <option key={option.modelName} value={option.modelName}>
-                          {option.label ?? option.modelName}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      className={inputClass}
-                      value={modelName}
-                      onChange={(e) => setModelName(e.target.value)}
-                      placeholder={mode === "local" ? "本地模型文件名" : "模型 ID 如 gpt-4o-mini"}
-                    />
-                  )}
-                </Field>
-                <Field label="显示名称（可选）" hint="用于前端展示，未填则使用模型名称">
-                  <input
-                    className={inputClass}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="如：标签模型 / OCR 模型"
-                  />
-                </Field>
-              </div>
-              {modelRole === "semantic_rerank" && (
-                <Field label="语义重拍权重 (0-1)" hint="越高越依赖大模型重拍，默认 0.35">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={semanticWeight}
-                    onChange={(e) => setSemanticWeight(e.target.value)}
-                  />
-                </Field>
-              )}
-            </>
-          )}
-
-          <div className="button-row">
-            <Button type="submit" disabled={saving}>
-              {saving ? "保存中..." : "保存配置"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={loadSetting}>
-              重新读取
-            </Button>
           </div>
-        </form>
-      </GlassCard>
+        )}
+      </div>
 
-      <GlassCard className="p-6 space-y-4">
-        <SectionHeader eyebrow="已保存配置" title="模型列表" />
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>租户/库</th>
-                <th>角色</th>
-                <th>提供方</th>
-                <th>模型</th>
-                <th>Base URL</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {settingsList.length ? (
-                settingsList.map((item) => (
-                  <tr key={`${item.tenantId}-${item.libraryId}-${item.modelRole}`}>
-                    <td>
-                      <div className="doc-title">{item.tenantId}/{item.libraryId}</div>
-                    </td>
-                    <td>{item.modelRole}</td>
-                    <td>{item.provider}</td>
-                    <td>
-                      <div className="doc-title">{item.displayName ?? item.modelName}</div>
-                      <small className="meta-muted">{item.modelName}</small>
-                    </td>
-                    <td>
-                      <small className="meta-muted">{item.provider === "local" ? "local://（无需 Base URL）" : item.baseUrl}</small>
-                    </td>
-                    <td>
-                      <Button variant="ghost" onClick={() => handleApplySetting(item)}>
-                        载入
+      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+        <Card className="h-fit">
+          <CardHeader>
+            <CardTitle>配置向导</CardTitle>
+            <CardDescription>选择要配置的模型角色</CardDescription>
+          </CardHeader>
+          <CardContent className="p-2">
+            <div className="flex flex-col gap-1">
+              {ROLE_CARDS.map((role) => {
+                const active = modelRole === role.value;
+                const isConfigured = !!allSettings[role.value];
+                return (
+                  <button
+                    key={role.value}
+                    onClick={() => {
+                      setModelRole(role.value);
+                      if (role.value === "ocr") {
+                        setMode("remote");
+                        setProvider("openai");
+                        setModelName((prev) => prev || "ocr-http");
+                        setBaseUrl((prev) => prev || "");
+                      } else if (!role.supportsLocal) {
+                        setMode("remote");
+                        setProvider("openai");
+                      }
+                      if (role.value === "semantic_rerank") {
+                        setSemanticWeight(String(DEFAULT_SEMANTIC_WEIGHT));
+                      }
+                      setStatus(`已选择 ${role.title}`);
+                    }}
+                    className={`flex items-center justify-between p-3 rounded-md text-sm transition-colors ${active
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "hover:bg-muted text-slate-600"
+                      }`}
+                  >
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span>{role.title}</span>
+                      <span className="text-[10px] text-muted-foreground">{role.desc}</span>
+                    </div>
+                    {isConfigured ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <div className={`h-2 w-2 rounded-full ${role.highlights.includes("必须") ? "bg-red-400" : "bg-slate-200"}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>{ROLE_CARDS.find(r => r.value === modelRole)?.title}</CardTitle>
+                  <CardDescription>{ROLE_CARDS.find(r => r.value === modelRole)?.desc}</CardDescription>
+                </div>
+                <Badge variant="outline">{ROLE_CARDS.find(r => r.value === modelRole)?.highlights}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSave} className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>当前租户</Label>
+                    <div className="flex gap-2">
+                      <Select value={tenantId} onValueChange={setTenantId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择租户" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(tenants.length ? tenants : [{ tenantId: "default", displayName: "default" }]).map((item) => (
+                            <SelectItem key={item.tenantId} value={item.tenantId}>
+                              {item.displayName ?? item.tenantId}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="icon" onClick={handleCreateTenant} title="新建租户">
+                        <span className="text-lg">+</span>
                       </Button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="placeholder">
-                    暂无配置，请先选择角色并保存
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>当前知识库</Label>
+                    <div className="flex gap-2">
+                      <Select value={libraryId} onValueChange={setLibraryId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择知识库" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(libraries.length ? libraries : [{ libraryId: "default", displayName: "default" }])
+                            .filter((lib) => !lib.tenantId || lib.tenantId === tenantId)
+                            .map((lib) => (
+                              <SelectItem key={lib.libraryId} value={lib.libraryId}>
+                                {lib.displayName ?? lib.libraryId}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" variant="outline" size="icon" onClick={handleCreateLibrary} title="新建知识库">
+                        <span className="text-lg">+</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  {isOcr ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>OCR 服务 URL</Label>
+                        <Input
+                          value={baseUrl}
+                          onChange={(e) => setBaseUrl(e.target.value)}
+                          placeholder="http://localhost:9009/paddle/ocr"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">例如 http://localhost:9009/paddle/ocr</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>API Key (可选)</Label>
+                        <Input
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="无鉴权可留空"
+                        />
+                        {hasStoredKey && (
+                          <p className="text-xs text-muted-foreground">已存储 Key {apiKeyPreview ?? "****"}，留空则不更新</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {canUseLocal && (
+                        <Tabs value={mode} onValueChange={(v) => setMode(v as "local" | "remote")}>
+                          <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="remote">远程模型 (OpenAI/Ollama)</TabsTrigger>
+                            <TabsTrigger value="local">本地模型 (Local Weights)</TabsTrigger>
+                          </TabsList>
+                        </Tabs>
+                      )}
+
+                      {mode === "remote" && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>提供方</Label>
+                              <Select value={provider} onValueChange={(v) => setProvider(v as ModelProvider)}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {REMOTE_PROVIDERS.map((item) => (
+                                    <SelectItem key={item.value} value={item.value}>
+                                      {item.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Base URL</Label>
+                              <Input
+                                value={baseUrl}
+                                onChange={(e) => setBaseUrl(e.target.value)}
+                                placeholder="https://api.openai.com/v1"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>API Key</Label>
+                            <Input
+                              type="password"
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder={provider === "openai" ? "sk-..." : "可留空"}
+                            />
+                            {hasStoredKey && (
+                              <p className="text-xs text-muted-foreground">已存储 Key {apiKeyPreview ?? "****"}，留空则不更新</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Button type="button" variant="secondary" onClick={loadRemoteModels} size="sm">
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              拉取模型列表
+                            </Button>
+                            {modelOptionsStatus && <span className="text-xs text-muted-foreground">{modelOptionsStatus}</span>}
+                          </div>
+                        </div>
+                      )}
+
+                      {mode === "local" && (
+                        <div className="rounded-md bg-muted p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <Label>本地模型文件</Label>
+                            <Button type="button" variant="ghost" size="sm" onClick={loadLocalModels}>
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              刷新
+                            </Button>
+                          </div>
+                          <Select value={modelName} onValueChange={setModelName}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="选择本地模型" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {localChoicesForRole.map((item) => (
+                                <SelectItem key={`${item.role}-${item.filename}`} value={item.filename}>
+                                  {item.name || item.filename}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {localDir ? `扫描目录：${localDir}` : "尚未扫描 models/weights"}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>模型名称 / ID</Label>
+                          {mode === "remote" && modelOptions.length ? (
+                            <Select value={modelName} onValueChange={setModelName}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="选择模型" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {modelOptions.map((option) => (
+                                  <SelectItem key={option.modelName} value={option.modelName}>
+                                    {option.label ?? option.modelName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={modelName}
+                              onChange={(e) => setModelName(e.target.value)}
+                              placeholder={mode === "local" ? "本地模型文件名" : "gpt-4o-mini"}
+                            />
+                          )}
+                          {formError && <p className="text-xs text-red-500">{formError}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>显示名称 (可选)</Label>
+                          <Input
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="如：标签模型"
+                          />
+                        </div>
+                      </div>
+
+                      {modelRole === "semantic_rerank" && (
+                        <div className="space-y-2">
+                          <Label>语义重拍权重 (0-1)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={semanticWeight}
+                            onChange={(e) => setSemanticWeight(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">越高越依赖大模型重拍，默认 0.35</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 pt-4">
+                  <Button type="submit" disabled={saving}>
+                    {saving && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" />
+                    保存配置
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={loadSetting}>
+                    重置
+                  </Button>
+                  {status && <span className="text-sm text-muted-foreground">{status}</span>}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>已保存配置</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>租户/库</TableHead>
+                    <TableHead>角色</TableHead>
+                    <TableHead>提供方</TableHead>
+                    <TableHead>模型</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {settingsList.length ? (
+                    settingsList.map((item) => (
+                      <TableRow key={`${item.tenantId}-${item.libraryId}-${item.modelRole}`}>
+                        <TableCell className="font-medium">{item.tenantId}/{item.libraryId}</TableCell>
+                        <TableCell>{item.modelRole}</TableCell>
+                        <TableCell>{item.provider}</TableCell>
+                        <TableCell>
+                          <div>{item.displayName ?? item.modelName}</div>
+                          <div className="text-xs text-muted-foreground">{item.modelName}</div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => handleApplySetting(item)}>
+                            载入
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                        暂无配置
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }
