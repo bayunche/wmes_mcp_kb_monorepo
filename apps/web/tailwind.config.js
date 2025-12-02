@@ -10,7 +10,7 @@ export default {
         background: "rgb(var(--background) / <alpha-value>)",
         foreground: "rgb(var(--foreground) / <alpha-value>)",
         text: "rgb(var(--c-text) / <alpha-value>)",
-        muted: "rgb(var(--c-muted) / <alpha-value>)",
+
         card: {
           DEFAULT: "rgb(var(--card) / <alpha-value>)",
           foreground: "rgb(var(--card-foreground) / <alpha-value>)"
