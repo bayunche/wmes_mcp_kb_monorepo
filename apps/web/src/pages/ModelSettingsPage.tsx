@@ -57,15 +57,15 @@ const ROLE_CARDS: Array<{
   highlights: string;
   supportsLocal: boolean;
 }> = [
-  { value: "structure", title: "语义切分", desc: "LLM 按语义/章节边界切分并生成结构树", highlights: "必须 · 结构", supportsLocal: false },
-  { value: "metadata", title: "语义标注", desc: "标题 / 摘要 / 标签 / 关键词 / NER / 父章节路径", highlights: "必须 · 全量标签", supportsLocal: false },
-  { value: "tagging", title: "标签补全", desc: "文档 / Chunk 标签与主题分类", highlights: "可复用 metadata", supportsLocal: false },
-  { value: "embedding", title: "文本向量", desc: "语义检索与向量索引", highlights: "推荐 · 支持本地", supportsLocal: true },
-  { value: "rerank", title: "重排序", desc: "二次排序提升相关性", highlights: "推荐 · 支持本地", supportsLocal: true },
-  { value: "query_rewrite", title: "查询语义改写", desc: "LLM 改写检索 Query 提升召回", highlights: "新 · LLM", supportsLocal: false },
-  { value: "semantic_rerank", title: "语义重拍", desc: "在 rerank 后由大模型语义重排", highlights: "新 · LLM", supportsLocal: false },
-  { value: "ocr", title: "OCR / Caption", desc: "PDF / 图片文字与描述", highlights: "必须（含图片/PDF）", supportsLocal: true }
-];
+    { value: "structure", title: "语义切分", desc: "LLM 按语义/章节边界切分并生成结构树", highlights: "必须 · 结构", supportsLocal: false },
+    { value: "metadata", title: "语义标注", desc: "标题 / 摘要 / 标签 / 关键词 / NER / 父章节路径", highlights: "必须 · 全量标签", supportsLocal: false },
+    { value: "tagging", title: "标签补全", desc: "文档 / Chunk 标签与主题分类", highlights: "可复用 metadata", supportsLocal: false },
+    { value: "embedding", title: "文本向量", desc: "语义检索与向量索引", highlights: "推荐 · 支持本地", supportsLocal: true },
+    { value: "rerank", title: "重排序", desc: "二次排序提升相关性", highlights: "推荐 · 支持本地", supportsLocal: true },
+    { value: "query_rewrite", title: "查询语义改写", desc: "LLM 改写检索 Query 提升召回", highlights: "新 · LLM", supportsLocal: false },
+    { value: "semantic_rerank", title: "语义重拍", desc: "在 rerank 后由大模型语义重排", highlights: "新 · LLM", supportsLocal: false },
+    { value: "ocr", title: "OCR / Caption", desc: "PDF / 图片文字与描述", highlights: "必须（含图片/PDF）", supportsLocal: true }
+  ];
 
 const LOCAL_SUPPORTED: ModelRoleOption[] = ["embedding", "rerank", "ocr"];
 const DEFAULT_SEMANTIC_WEIGHT = 0.35;
@@ -124,6 +124,7 @@ export default function ModelSettingsPage() {
   const [localDir, setLocalDir] = useState<string>("");
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [semanticWeight, setSemanticWeight] = useState<string>(String(DEFAULT_SEMANTIC_WEIGHT));
+  const [allSettings, setAllSettings] = useState<Record<string, ModelSettingView>>({});
 
   const isOcr = modelRole === "ocr";
   const canUseLocal = useMemo(() => LOCAL_SUPPORTED.includes(modelRole), [modelRole]);
@@ -211,6 +212,26 @@ export default function ModelSettingsPage() {
     }
   }, [tenantId, libraryId]);
 
+  const loadAllSettings = useCallback(async () => {
+    const promises = ROLE_CARDS.map(async (card) => {
+      try {
+        const response = await fetchModelSettings({ tenantId, libraryId, modelRole: card.value });
+        return { role: card.value, setting: (response as { setting?: ModelSettingView | null }).setting };
+      } catch {
+        return { role: card.value, setting: null };
+      }
+    });
+
+    const results = await Promise.all(promises);
+    const newSettings: Record<string, ModelSettingView> = {};
+    results.forEach((res) => {
+      if (res.setting) {
+        newSettings[res.role] = res.setting;
+      }
+    });
+    setAllSettings(newSettings);
+  }, [tenantId, libraryId]);
+
   const loadRemoteModels = useCallback(async () => {
     if (isOcr) {
       setModelOptionsStatus("OCR 模式无需拉取模型列表");
@@ -245,7 +266,8 @@ export default function ModelSettingsPage() {
   useEffect(() => {
     loadSetting();
     loadSettingsList();
-  }, [loadSetting, loadSettingsList]);
+    loadAllSettings();
+  }, [loadSetting, loadSettingsList, loadAllSettings]);
 
   useEffect(() => {
     if (!canUseLocal && mode === "local") {
@@ -332,11 +354,11 @@ export default function ModelSettingsPage() {
       const options =
         modelRole === "semantic_rerank"
           ? {
-              semanticWeight: Math.max(
-                0,
-                Math.min(1, Number(semanticWeight) || DEFAULT_SEMANTIC_WEIGHT)
-              )
-            }
+            semanticWeight: Math.max(
+              0,
+              Math.min(1, Number(semanticWeight) || DEFAULT_SEMANTIC_WEIGHT)
+            )
+          }
           : undefined;
       const payload = await saveModelSettings({
         tenantId,
@@ -357,6 +379,7 @@ export default function ModelSettingsPage() {
       toast.push({ title: "模型配置已保存", description: displayName || modelName, tone: "success" });
       await loadSettingsList();
       await loadSetting();
+      await loadAllSettings();
       setStatus("保存成功，已刷新配置");
     } catch (error) {
       setStatus((error as Error).message);
@@ -466,7 +489,13 @@ export default function ModelSettingsPage() {
                   <div className="space-y-1 text-left">
                     <strong className="text-base text-slate-900">{role.title}</strong>
                     <p className="muted-text">{role.desc}</p>
-                    <small className="muted-text">{role.supportsLocal ? "支持本地模型" : "需要远程接口"}</small>
+                    <small className={`text-xs ${allSettings[role.value] ? "text-blue-600 font-medium" : "muted-text"}`}>
+                      {allSettings[role.value]
+                        ? `已配置: ${allSettings[role.value].displayName || allSettings[role.value].modelName}`
+                        : role.supportsLocal
+                          ? "支持本地模型"
+                          : "需要远程接口"}
+                    </small>
                   </div>
                   <Badge>{role.highlights}</Badge>
                 </div>
