@@ -1,5 +1,14 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8080";
-const API_TOKEN = import.meta.env.VITE_API_TOKEN ?? "dev-token";
+// 优先使用运行时注入（适配容器/反向代理），其次取构建时环境变量，最后回退同源 /api
+const API_BASE =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (typeof window !== "undefined" && (window as any).__API_BASE__) ||
+  import.meta.env.VITE_API_BASE ||
+  "/api";
+const API_TOKEN =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (typeof window !== "undefined" && (window as any).__API_TOKEN__) ||
+  import.meta.env.VITE_API_TOKEN ||
+  "dev-token";
 const PREVIEW_BASE = import.meta.env.VITE_PREVIEW_BASE ?? "";
 const DEFAULT_LIBRARY = import.meta.env.VITE_LIBRARY_ID ?? "default";
 

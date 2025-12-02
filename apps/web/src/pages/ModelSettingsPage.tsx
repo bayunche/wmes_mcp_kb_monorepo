@@ -356,6 +356,8 @@ export default function ModelSettingsPage() {
       setStatus("保存成功");
       toast.push({ title: "模型配置已保存", description: displayName || modelName, tone: "success" });
       await loadSettingsList();
+      await loadSetting();
+      setStatus("保存成功，已刷新配置");
     } catch (error) {
       setStatus((error as Error).message);
       toast.push({ title: "保存失败", description: (error as Error).message, tone: "danger" });
@@ -501,21 +503,30 @@ export default function ModelSettingsPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-2">
-                <PillTabs
-                  value={mode}
-                  onChange={(value) => setMode(value)}
-                  options={[
-                    { value: "remote", label: "远程模型" },
-                    { value: "local", label: "本地模型（自动扫描）", disabled: !canUseLocal }
-                  ]}
-                />
-                <small className="muted-text">
-                  {mode === "local"
-                    ? "直接扫描 /models/weights，选择文件即可。"
-                    : "选择提供方 + Base URL + API Key，点击“拉取模型列表”自动测试连接。"}
-                </small>
-              </div>
+              {canUseLocal ? (
+                <div className="space-y-2">
+                  <PillTabs
+                    value={mode}
+                    onChange={(value) => setMode(value)}
+                    options={[
+                      { value: "remote", label: "远程模型" },
+                      { value: "local", label: "本地模型（自动扫描）", disabled: !canUseLocal }
+                    ]}
+                  />
+                  <small className="muted-text">
+                    {mode === "local"
+                      ? "直接扫描 /models/weights，选择文件即可。"
+                      : "远程配置步骤：选择提供方 → 填写 Base URL 与 API Key → 点击“拉取模型列表并测试” → 选择模型后保存。"}
+                  </small>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-sm text-slate-700">该角色仅支持远程模型配置。</p>
+                  <small className="muted-text">
+                    远程配置步骤：选择提供方 → 填写 Base URL 与 API Key → 点击“拉取模型列表并测试” → 选择模型后保存。
+                  </small>
+                </div>
+              )}
 
               {mode === "remote" && (
                 <div className="split">
@@ -561,6 +572,9 @@ export default function ModelSettingsPage() {
                     </Button>
                     {modelOptionsStatus && <StatusPill tone="info">{modelOptionsStatus}</StatusPill>}
                   </div>
+                  <small className="muted-text col-span-2">
+                    远程配置提示：先选择提供方，再填写 Base URL 与 API Key，点击“拉取模型列表并测试”后从下拉选择模型，最后点击保存。
+                  </small>
                 </div>
               )}
 

@@ -26,7 +26,13 @@ WORKDIR /usr/share/nginx/html
 
 # 复制构建产物
 COPY --from=build /app/apps/web/dist ./
-# 复制 Nginx 转发配置
-COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# 复制 Nginx 转发配置模板与启动脚本
+COPY deploy/nginx/nginx.conf /etc/nginx/conf.d/default.conf.template
+COPY deploy/nginx/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# 默认将 /api 转发到 kb-api:8080，可在运行容器时通过 API_PROXY_TARGET 覆盖
+ENV API_PROXY_TARGET=http://kb-api:8080/
 
 EXPOSE 80
+CMD ["/entrypoint.sh"]

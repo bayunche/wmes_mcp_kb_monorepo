@@ -195,6 +195,10 @@ body {
   .skeleton {
     @apply animate-pulse bg-slate-200 rounded-md;
   }
+  .metrics-output {
+    @apply w-full overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-xs font-mono text-slate-800;
+    max-height: 420px;
+  }
   .doc-title {
     @apply font-medium text-slate-900;
   }
