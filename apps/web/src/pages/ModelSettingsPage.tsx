@@ -116,6 +116,20 @@ export default function ModelSettingsPage() {
   const toast = useToast();
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
+
+  // Auto-select tenant/library
+  useEffect(() => {
+    if (tenants.length > 0 && (tenantId === "default" || !tenants.some(t => t.tenantId === tenantId))) {
+      setTenantId(tenants[0].tenantId);
+    }
+  }, [tenants, tenantId]);
+
+  useEffect(() => {
+    const availableLibs = libraries.filter(l => !l.tenantId || l.tenantId === tenantId);
+    if (availableLibs.length > 0 && (libraryId === "default" || !availableLibs.some(l => l.libraryId === libraryId))) {
+      setLibraryId(availableLibs[0].libraryId);
+    }
+  }, [libraries, tenantId, libraryId]);
   const [modelRole, setModelRole] = useState<ModelRoleOption>("structure");
   const [mode, setMode] = useState<"local" | "remote">("remote");
   const [provider, setProvider] = useState<ModelProvider>("openai");
@@ -483,8 +497,8 @@ export default function ModelSettingsPage() {
                       setStatus(`已选择 ${role.title}`);
                     }}
                     className={`flex items-center justify-between p-3 rounded-md text-sm transition-colors ${active
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "hover:bg-muted text-slate-600"
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "hover:bg-muted text-slate-600"
                       }`}
                   >
                     <div className="flex flex-col items-start gap-0.5">

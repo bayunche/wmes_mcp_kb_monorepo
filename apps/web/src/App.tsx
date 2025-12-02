@@ -34,7 +34,8 @@ export default function App() {
             <Route path="/metadata" element={<MetadataEditorPage />} />
             <Route path="/diagnostics" element={<DiagnosticsPage />} />
             <Route path="/mcp" element={<McpPage />} />
-            <Route path="/settings" element={<ModelSettingsPage />} />
+            <Route path="/settings" element={<Navigate to="/settings/models" replace />} />
+            <Route path="/settings/models" element={<ModelSettingsPage />} />
             <Route path="*" element={<p className="text-slate-500 text-sm p-6">Page Not Found</p>} />
           </Routes>
         </MainLayout>
