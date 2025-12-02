@@ -31,7 +31,8 @@ import {
   SelectValue,
 } from "../components/ui/Select";
 import { Label } from "../components/ui/Label";
-import { RefreshCw, FileText, Layers, Hash } from "lucide-react";
+import { RefreshCw, FileText, Layers, Hash, Edit } from "lucide-react";
+import { ChunkEditDialog } from "../components/ChunkEditDialog";
 
 interface ChunkListItem {
   chunk: {
@@ -66,6 +67,8 @@ export default function ChunkListPage() {
   const [libraryId, setLibraryId] = useState("default");
   const [docId, setDocId] = useState("");
   const [items, setItems] = useState<ChunkListItem[]>([]);
+  const [editChunk, setEditChunk] = useState<ChunkListItem["chunk"] | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const loadTask = useAsyncTask(
     async () => {
@@ -264,9 +267,21 @@ export default function ChunkListPage() {
                       {item.chunk.pageNo ?? "-"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditChunk(item.chunk);
+                            setIsEditDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -281,6 +296,13 @@ export default function ChunkListPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+
+      <ChunkEditDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        chunk={editChunk}
+        onSuccess={() => loadTask.run()}
+      />
+    </div >
   );
 }

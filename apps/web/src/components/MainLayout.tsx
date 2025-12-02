@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Brain, Database, FileText, Search, Settings, Menu } from "lucide-react";
+import { Brain, Database, FileText, Search, Settings, Menu, Layers } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/Button";
 import { useOrgOptions } from "../hooks/useOrgOptions";
@@ -19,6 +19,7 @@ interface MainLayoutProps {
 const NAV_ITEMS = [
     { label: "模型配置", icon: Brain, href: "/settings/models" },
     { label: "数据入库", icon: Database, href: "/ingestion" },
+    { label: "分块管理", icon: Layers, href: "/chunks" },
     { label: "知识资产", icon: FileText, href: "/documents" },
     { label: "检索对话", icon: Search, href: "/search" },
 ];
