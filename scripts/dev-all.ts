@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 const ENV_FILE = process.env.ENV_FILE ?? ".env";
 const API_TOKEN = process.env.API_TOKEN ?? "dev-token";
-const VITE_API_BASE = process.env.VITE_API_BASE ?? "http://localhost:8080";
+// 默认指向局域网宿主 API，确保同网段的设备可直接访问
+const VITE_API_BASE = process.env.VITE_API_BASE ?? "http://192.168.0.57:8080";
 const VITE_API_TOKEN = process.env.VITE_API_TOKEN ?? API_TOKEN;
 const VITE_PREVIEW_BASE = process.env.VITE_PREVIEW_BASE ?? "http://localhost:9000/kb-preview";
 
