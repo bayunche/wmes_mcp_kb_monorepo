@@ -4,3 +4,4 @@
 | 2025-11-29T02:47:00+08:00 | apply_patch | deploy/docker/Dockerfile.web | web 镜像增加 nginx 模板+entrypoint，默认 API_PROXY_TARGET=http://kb-api:8080/，容器启动时生成配置。 |
 | 2025-11-29T03:00:00+08:00 | apply_patch | apps/web/src/api.ts | API_BASE 支持运行时 __API_BASE__ 注入，默认回退 /api，便于容器/反向代理统一兼容。 |
 | 2025-11-29T03:40:00+08:00 | add_file | apps/web/public/env.js | 提供默认 env.js，避免 404 返回 HTML 触发 SyntaxError，内容可被 Docker 入口覆盖。 |
+| 2025-11-29T03:50:00+08:00 | apply_patch | deploy/nginx/nginx.conf | /api 路径增加 rewrite 去前缀再转发到后端，确保实际命中 Bun API 路由。 |
