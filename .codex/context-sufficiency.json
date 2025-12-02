@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-29T01:12:00+08:00",
+  "timestamp": "2025-11-29T02:05:00+08:00",
   "checklist": {
     "interface_contract": true,
     "tech_choices": true,
@@ -7,9 +7,9 @@
     "verification_plan": true
   },
   "notes": {
-    "interface_contract": "已掌握 API 路由、鉴权、租户/库覆盖、请求体与响应结构，能够完整列出调用契约与示例。",
-    "tech_choices": "Bun 自定义路由，无 OpenAPI；Bearer token 认证；CORS 由 CORS_ALLOWED_ORIGINS 控制；检索由 HybridRetriever 组合向量+BM25。",
-    "risks_identified": "需在文档明确：默认租户/库覆盖优先级；上传/检索的必填字段与大小限制；部分接口返回 207/501/502；无统一错误码规范。",
-    "verification_plan": "编写接口文档并给出 curl 示例；列出全局 header 与状态码；对关键路径（上传、搜索、模型配置）给出请求/响应样例，未跑自动化测试但可手工验证 curl。"
+    "interface_contract": "已明确 ModelSettingsPage 数据流：loadSetting 读取单个配置，loadSettingsList 获取列表，handleSave 调用 saveModelSettings 并传递 tenantId/libraryId/modelRole/baseUrl/modelName/displayName/apiKey/options。",
+    "tech_choices": "前端 Vite+React+TS，状态用 useState/useEffect/useCallback，无全局缓存；API 调用使用 fetch；组织选择下拉使用 useOrgOptions 缓存。",
+    "risks_identified": "保存后未触发 loadSetting 导致表单不刷新；列表获取失败会被吞掉错误；无前端用例覆盖；可能需重新拉取模型列表/本地扫描以保持一致。",
+    "verification_plan": "修改后通过调用 loadSetting 于保存成功后验证状态刷新；如可运行，执行 apps/web 下的前端测试/构建（无专用用例则记录），手动检查状态更新逻辑。"
   }
 }

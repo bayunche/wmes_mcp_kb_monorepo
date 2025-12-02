@@ -251,3 +251,15 @@
 - **剩余风险**：
   - 需在实际数据库上运行 run-migrations 或等效命令以应用 0011 迁移，否则 provider=local 仍可能写入失败。
   - 未在真实 PG 环境验证约束变化，建议执行一次写入 smoke（PUT /model-settings provider=local）确认 200 响应。
+
+---
+
+- **日期**：2025-11-29
+- **范围**：前端 ModelSettings 保存后自动刷新
+- **验证步骤**：
+  - 静态检查 `apps/web/src/pages/ModelSettingsPage.tsx`，确认 handleSave 在保存成功后调用 loadSettingsList 与 loadSetting 并最终状态提示“保存成功，已刷新配置”。
+  - 确认 loadSetting 仍回填 provider/mode/baseUrl/modelName/displayName/semanticWeight 等字段，避免遗漏。
+- **测试情况**：WSL 下 node_modules 仅包含 Windows 版 bun.exe/vite.exe，`cd apps/web && bun test` 与 `npm run build` 均因可执行权限/缺失 Linux 版本而失败；需在宿主机或重新安装 Linux 依赖后重跑构建与前端回归。
+- **剩余风险**：
+  - 未实际运行前端，需在可执行环境确认保存后表单与“已保存配置”列表同步刷新。
+  - loadSetting 额外请求需后端可用，否则状态会被错误消息覆盖。

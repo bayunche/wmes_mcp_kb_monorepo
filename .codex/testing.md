@@ -124,3 +124,5 @@
 | 2025-11-27T15:36:40+08:00 | 说明 | N/A | 未运行测试；需在可用环境验证 /ingestion/queue 接口及前端队列进度条显示、stage 进度计算是否符合预期。 |
 | 2025-11-27T16:00:20+08:00 | 说明 | N/A | 未运行测试；需在可用环境验证新的分块逻辑：章节块→LLM 切分→段落长度再细分后落库，确认最终 chunk 数量与组织结构。 |
 | 2025-11-27T16:15:20+08:00 | 说明 | N/A | 未运行测试；需在前端确认搜索结果点击“查看详情”弹窗正常显示 chunk 元数据与内容。 |
+| 2025-11-29T02:10:00+08:00 | bun test | `cd apps/web && bun test` | 失败：WSL 无法执行 Windows 版 bun.exe（Permission denied），无法跑前端测试。 |
+| 2025-11-29T02:12:00+08:00 | npm run build | `cd apps/web && npm run build` | 失败：PATH 中缺少可执行的 Vite（apps/web/node_modules/.bin 仅有 .exe/.bunx），需在宿主机或安装 Linux 版依赖后重试。 |

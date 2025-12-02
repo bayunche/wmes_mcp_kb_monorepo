@@ -1,25 +1,23 @@
 {
-  "timestamp": "2025-11-29T01:12:00+08:00",
+  "timestamp": "2025-11-29T02:25:00+08:00",
   "module_locations": [
-    "apps/api/src/routes.ts（所有 HTTP 路由定义：上传、文档管理、检索、模型配置、向量日志、MCP）",
-    "apps/api/src/server.ts（Bearer Auth、CORS、/metrics 暴露、请求计数与错误统计）",
-    "apps/api/src/auth.ts（简单 Bearer token 校验）",
-    "packages/shared-schemas/src/index.ts（请求/响应数据结构：SearchRequest/Response、Document/Chunk/ModelSetting 等）",
-    "apps/api/src/main.ts（配置加载、DataLayer 创建、HybridRetriever 与 VectorClient 注入）"
+    "apps/web/src/pages/ModelSettingsPage.tsx（模型配置 UI，保存/列表/载入交互与状态管理）",
+    "apps/web/src/api.ts（fetchModelSettings/saveModelSettings/fetchModelSettingsList/discoverModels 等 API 封装）",
+    "apps/web/src/hooks/useOrgOptions.ts（租户/知识库选项缓存与刷新）",
+    "apps/web/src/components/MetricsPanel.tsx（Prometheus 指标展示，包含 refresh 与占位 skeleton）",
+    "apps/web/src/styles.css（全局组件样式，当前未定义 metrics-output，pre 文本无换行/滚动约束）"
   ],
   "current_state": {
-    "auth": "除 /health 与 /metrics 外全部路径需要 Authorization: Bearer <API_TOKEN>。多租户/库可通过 Header x-tenant-id/x-library-id 或查询参数覆盖，缺省使用 DEFAULT_TENANT_ID/DEFAULT_LIBRARY_ID。",
-    "ingestion": "POST /upload 接收表单文件（file/files），写对象存储后入队；POST /documents 可直接写文档并入队；GET /ingestion/{docId}/status 与 /ingestion/queue 提供进度。",
-    "content": "GET /documents、/documents/{id} 补丁/删除、/documents/{id}/chunks、/libraries/{libraryId}/chunks 提供文档与切片访问；支持 PATCH /chunks/{id} 更新元数据。",
-    "retrieval": "POST /search 走 HybridRetriever，支持过滤 contentTypes/attachmentTypes/semanticTags/envLabels/metadataQuery、includeNeighbors；MCP 工具暴露 /mcp/search|related|preview。",
-    "model_config": "GET/PUT /model-settings（role 过滤），GET /model-settings/list，/model-settings/catalog，/model-settings/models；OCR role 保存前会 inline 校验。",
-    "ops": "GET /models、POST /models/install 管理本地模型包；GET /stats 文档汇总；GET /vector-logs 查看向量写入日志；/config/tenants|libraries 支持租户/库注册。"
+    "load": "ModelSettingsPage 挂载后 useEffect 调用 loadSetting 与 loadSettingsList；loadSetting 依赖 tenantId/libraryId/modelRole 变化来获取单个配置并填充表单。",
+    "save": "ModelSettingsPage handleSave 校验后调用 saveModelSettings，成功时更新 hasStoredKey/apiKeyPreview、清空 apiKey、toast，并刷新 settingsList 与 loadSetting。",
+    "list": "settingsList 通过 fetchModelSettingsList 拉取，表格支持点击“载入”回填表单；列表按当前租户/库筛选。",
+    "metrics_panel": "MetricsPanel 使用 useAsyncTask 读取 /metrics，loading 时展示 Skeleton，成功后用 <pre class=\"metrics-output\"> 渲染原文；未加样式导致长行溢出容器。",
+    "model_options": "远程模型列表通过 discoverModels，受 baseUrl/API Key/模式校验；本地模型通过 fetchLocalModels 扫描 /models/weights。"
   },
-  "tech_stack": "Bun HTTP 服务器 + 自定义路由；Bearer token 认证；CORS 白名单由 CORS_ALLOWED_ORIGINS 控制；数据模型复用 shared-schemas，检索通过 HybridRetriever+VectorClient。",
-  "tests": "apps/api/src/__tests__/api.test.ts 覆盖部分 CRUD/检索/模型设置与向量日志，无完整 OpenAPI 描述。",
+  "tech_stack": "前端 Vite + React 18 + TypeScript + Tailwind 风格组件（GlassCard/PillTabs/StatusPill 等）；API 调用使用 fetch，默认 Bearer dev-token 与 x-library-id 头。",
+  "tests": "apps/web 未见覆盖 ModelSettingsPage 或 MetricsPanel 的单元/端到端测试；仓库整体使用 Vitest（vitest.config.ts）但前端页面暂无用例。",
   "observations": [
-    "接口未暴露 OpenAPI，需要手工整理路径、参数与示例以供对接。",
-    "多租户策略允许 Header 与 query 覆盖，文档需强调默认租户/库与覆盖优先级。",
-    "上传走 multipart/form-data，字段包括 file/files、title/titles[]、tags/tags[]，需要明确对象存储键构造与队列入库流程。"
+    "模型配置保存后已增加自动 re-fetch，但暂无前端测试覆盖。",
+    "Prometheus 输出使用 <pre> 未限制换行或滚动，长行会撑出容器，需要样式约束（如 overflow-x-auto 或 pre-wrap+break-words）。"
   ]
 }
