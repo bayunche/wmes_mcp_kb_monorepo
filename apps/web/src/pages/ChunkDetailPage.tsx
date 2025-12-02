@@ -125,7 +125,7 @@ export default function ChunkDetailPage() {
                   <Skeleton className="h-4 w-4/5" />
                 </div>
               ) : record?.chunk.contentText ? (
-                <div className="bg-muted/30 p-4 rounded-md text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                <div className="bg-slate-50 p-4 rounded-md text-sm leading-relaxed whitespace-pre-wrap font-mono">
                   {record.chunk.contentText}
                 </div>
               ) : (
@@ -159,7 +159,7 @@ export default function ChunkDetailPage() {
               <div className="space-y-1">
                 <span className="text-xs font-medium text-muted-foreground uppercase">Chunk ID</span>
                 <div className="flex items-center gap-2">
-                  <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{chunkId}</code>
+                  <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{chunkId}</code>
                 </div>
               </div>
 
@@ -167,7 +167,7 @@ export default function ChunkDetailPage() {
                 <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground uppercase">所属文档</span>
                   <div className="flex items-center justify-between">
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{record.chunk.docId}</code>
+                    <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{record.chunk.docId}</code>
                     <Button asChild variant="link" size="sm" className="h-auto p-0 text-xs">
                       <Link to={`/documents/${record.chunk.docId}`}>查看</Link>
                     </Button>

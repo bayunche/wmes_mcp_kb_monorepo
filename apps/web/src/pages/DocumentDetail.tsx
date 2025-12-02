@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { deleteDocument, listDocuments, reindexDocument } from "../api";
+import { deleteDocument, listDocuments, reindexDocument, fetchDocumentChunks } from "../api";
 import {
   Card,
   CardContent,
@@ -29,6 +29,9 @@ export default function DocumentDetail() {
   const [document, setDocument] = useState<DocSummary | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
+  const [chunks, setChunks] = useState<any[]>([]);
+  const [loadingChunks, setLoadingChunks] = useState(false);
+
   const load = async () => {
     if (!docId) return;
     setStatus("加载详情中...");
@@ -37,6 +40,18 @@ export default function DocumentDetail() {
       const target = (response.items ?? []).find((doc: DocSummary) => doc.docId === docId) ?? null;
       setDocument(target);
       setStatus(target ? null : "未找到该文档");
+
+      if (target) {
+        setLoadingChunks(true);
+        try {
+          const chunkRes = await fetchDocumentChunks(docId, { tenantId: target.tenantId, libraryId: target.libraryId });
+          setChunks(chunkRes.items ?? []);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setLoadingChunks(false);
+        }
+      }
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -112,7 +127,7 @@ export default function DocumentDetail() {
                 <div className="space-y-1">
                   <span className="text-xs font-medium text-muted-foreground uppercase">Doc ID</span>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{document.docId}</code>
+                    <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{document.docId}</code>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -150,6 +165,37 @@ export default function DocumentDetail() {
                 ) : (
                   <p className="text-sm text-muted-foreground italic">暂无标签</p>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>Chunk 列表 ({chunks.length})</span>
+                  {loadingChunks && <RefreshCw className="h-4 w-4 animate-spin" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {chunks.map((item) => (
+                    <div key={item.chunk.chunkId} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="space-y-1 overflow-hidden">
+                        <div className="font-medium text-sm truncate">
+                          {item.chunk.semanticTitle ?? item.chunk.sectionTitle ?? item.chunk.chunkId}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <span className="truncate max-w-[300px]">{item.chunk.contextSummary ?? item.chunk.contentText?.slice(0, 50)}</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to={`/chunks/${item.chunk.chunkId}`}>详情</Link>
+                      </Button>
+                    </div>
+                  ))}
+                  {!loadingChunks && chunks.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">暂无 Chunk 数据</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

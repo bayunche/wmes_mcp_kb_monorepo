@@ -439,7 +439,7 @@ export default function SearchPanel() {
                     </p>
                   </div>
 
-                  <div className="bg-muted/30 p-3 rounded-md text-sm leading-relaxed text-foreground/90 max-h-[300px] overflow-y-auto">
+                  <div className="bg-slate-50 p-3 rounded-md text-sm leading-relaxed text-foreground/90 max-h-[300px] overflow-y-auto">
                     {preview.semanticMetadata?.contextSummary ?? preview.contentText}
                   </div>
 
@@ -496,7 +496,7 @@ export default function SearchPanel() {
                 ))
               ) : related.length > 0 ? (
                 related.map((item) => (
-                  <div key={item.chunk.chunkId} className="p-3 bg-muted/30 rounded-md space-y-2 text-sm">
+                  <div key={item.chunk.chunkId} className="p-3 bg-slate-50 rounded-md space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-xs truncate max-w-[200px]">
                         {item.document?.title ?? item.chunk.chunkId}
@@ -555,7 +555,7 @@ export default function SearchPanel() {
               {modalChunk.chunk.semanticMetadata?.contextSummary && (
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">上下文摘要</Label>
-                  <div className="bg-muted/50 p-4 rounded-lg text-sm leading-relaxed">
+                  <div className="bg-slate-50 p-4 rounded-lg text-sm leading-relaxed">
                     {modalChunk.chunk.semanticMetadata.contextSummary}
                   </div>
                 </div>
@@ -563,7 +563,7 @@ export default function SearchPanel() {
 
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">原始内容</Label>
-                <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                <div className="bg-slate-50 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap leading-relaxed">
                   {modalChunk.chunk.contentText}
                 </div>
               </div>
