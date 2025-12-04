@@ -4,9 +4,7 @@ import {
   fetchLocalModels,
   fetchModelSettings,
   fetchModelSettingsList,
-  saveLibrary,
-  saveModelSettings,
-  saveTenant
+  saveModelSettings
 } from "../api";
 import type { ModelProvider, ModelSettingView } from "../api";
 import {
@@ -40,6 +38,8 @@ import { useOrgOptions } from "../hooks/useOrgOptions";
 import { useToast } from "../components/ui/Toast";
 import { PipelineFlow } from "../components/PipelineFlow";
 import { AlertCircle, CheckCircle2, RefreshCw, Save } from "lucide-react";
+import { CreateTenantDialog } from "../components/CreateTenantDialog";
+import { CreateLibraryDialog } from "../components/CreateLibraryDialog";
 
 type ModelRoleOption =
   | "embedding"
@@ -116,6 +116,8 @@ export default function ModelSettingsPage() {
   const toast = useToast();
   const [tenantId, setTenantId] = useState("default");
   const [libraryId, setLibraryId] = useState("default");
+  const [showCreateTenant, setShowCreateTenant] = useState(false);
+  const [showCreateLibrary, setShowCreateLibrary] = useState(false);
 
   // Auto-select tenant/library
   useEffect(() => {
@@ -408,33 +410,7 @@ export default function ModelSettingsPage() {
     }
   };
 
-  const handleCreateTenant = async () => {
-    const id = prompt("请输入租户 ID（如 enterprise-a）");
-    const name = prompt("请输入租户显示名称");
-    if (!id || !name) return;
-    try {
-      await saveTenant({ tenantId: id, displayName: name });
-      await refreshOrg();
-      setTenantId(id);
-      setStatus("新租户已创建，请立即配置语义切分/打标/元数据/向量/OCR 等模型");
-      toast.push({
-        title: "租户已创建",
-        description: "请在下方卡片完成语义切分/打标/元数据/OCR 等模型配置，未配置将影响上传/解析。",
-        tone: "warning"
-      });
-    } catch (error) {
-      toast.push({ title: "租户创建失败", description: (error as Error).message, tone: "danger" });
-    }
-  };
 
-  const handleCreateLibrary = async () => {
-    const id = prompt("请输入知识库 ID（如 kb-001）");
-    const name = prompt("请输入知识库名称");
-    if (!id || !name) return;
-    await saveLibrary({ libraryId: id, tenantId, displayName: name });
-    await refreshOrg();
-    setLibraryId(id);
-  };
 
   return (
     <div className="space-y-8">
@@ -546,7 +522,7 @@ export default function ModelSettingsPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button type="button" variant="outline" size="icon" onClick={handleCreateTenant} title="新建租户">
+                      <Button type="button" variant="outline" size="icon" onClick={() => setShowCreateTenant(true)} title="新建租户">
                         <span className="text-lg">+</span>
                       </Button>
                     </div>
@@ -568,12 +544,31 @@ export default function ModelSettingsPage() {
                             ))}
                         </SelectContent>
                       </Select>
-                      <Button type="button" variant="outline" size="icon" onClick={handleCreateLibrary} title="新建知识库">
+                      <Button type="button" variant="outline" size="icon" onClick={() => setShowCreateLibrary(true)} title="新建知识库">
                         <span className="text-lg">+</span>
                       </Button>
                     </div>
                   </div>
                 </div>
+
+                <CreateTenantDialog
+                  open={showCreateTenant}
+                  onOpenChange={setShowCreateTenant}
+                  onSuccess={(id) => {
+                    refreshOrg();
+                    setTenantId(id);
+                  }}
+                />
+
+                <CreateLibraryDialog
+                  open={showCreateLibrary}
+                  onOpenChange={setShowCreateLibrary}
+                  tenantId={tenantId}
+                  onSuccess={(id) => {
+                    refreshOrg();
+                    setLibraryId(id);
+                  }}
+                />
 
                 <div className="border-t pt-6">
                   {isOcr ? (
